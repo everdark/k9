@@ -7,8 +7,10 @@ navbar:
       href: index.html
     - text: "About Me"
       href: about.html
-    - text: "Learning Bayesian"
+    - text: "Bayesian"
       href: bayesian/bayesian_modeling_explained.nb.html
+    - text: "Learning to Rank"
+      href: learning_to_rank/learning_to_rank.html
 output:
   html_document:
     theme: flatly
