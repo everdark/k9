@@ -1,0 +1,6 @@
+lattice
+BayesFactor
+bridgesampling
+mcmc
+rstan
+shinystan
