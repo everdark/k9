@@ -1,0 +1,2398 @@
+---
+title: "Bayesian Modeling Explained"
+subtitle: "with Examples Using R and Stan"
+author:
+- name: Kyle Chung
+  affiliation: 
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_notebook:
+    number_sections: yes
+    theme: flatly
+    toc: yes
+    toc_depth: 3
+bibliography: bayesian_inference.bib
+nocite: | 
+  @van2018simple
+abstract: |
+  This is a practical tutorial on Bayesian inference for readers who are already knowledged with basic statistics. The tutorial is practical in a sense that it focuses more on implementation and reasoning than on mathematical artifacts. We will use R and also Stan, a probabilistic programming language, to introduce how Bayesian modeling works.
+  
+  The tutorial includes the following sections: 1.) a basic recap of frequentist approach and critiques; 2.) toy examples using Markov Chain Monte Carlo method; 3.) Bayesian modeling using the `mcmc` R package ; 4.) Bayesian modeling using Stan along with R.
+---
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+  
+# Basics
+
+Bayesians treat a model parameter $\theta$ as [*random variable*](https://en.wikipedia.org/wiki/Random_variable) while frequentists treat them as unknown *constant*.
+So instead of solving for an unknown constant, Bayesian inference is solving for an unknown distribution.
+To estimate the model parameters the *Bayes' Law* is used:
+
+$$
+\begin{equation} \label{eq:bayeslaw}
+P(\theta | y, X) = \frac{P(y|\theta,X) \cdot P(\theta)}{P(y)} \propto P(y|\theta,X) \cdot P(\theta).
+\end{equation}
+$$
+
+In plain words:
+
++ $X$: The data we observed. In machine learning it is the training features.
++ $y$: The outcome we observed. In machine learning it is the training labels.
++ $P(\theta|y,X)$: What do we think about the possible value of our model parameters AFTER seeing the data?
++ $P(y|\theta,X)$: What is the likelihood of seeing the current outcome conditioned on the data we have and a specific parameter value?
++ $P(\theta)$: What do we think about the possible values of our model parameters BEFORE observing any actual data? This is our *belief* or *prior* about the model parameters.
++ $P(y)$: What is the unconditional probability of the outcome? That is, the overall probability after taking into consideration all parameter possibilities.
+
+**Posterior Density: $P(\theta|y,X)$**
+
+In Baysian modeling,
+the objective is to solve for $P(\theta|y,X)$,
+the posterior density of parameter.
+The point estimate is the expected value of posterior density.
+The variance estimate is also readily available from the posterior distribution.
+
+Based on equation $\eqref{eq:bayeslaw}$,
+to solve for $P(\theta|y,X)$ analytically,
+we need to calculate the data likelihood $P(y|\theta,X)$,
+the prior $P(\theta)$,
+and the marginial likelihood of outcome $P(y)$.
+The difficulty is that there is rarely a tractable closed-form solution due to the presence of the denominator term $P(y)$.
+To overcome this problem,
+*Markov chain Monte Carlo* method is used to numerically solve the posterior density by directly generating random draws of parameters without calculating the denominator term.
+
+**Data Likelihood: $P(y|\theta,X)$**
+
+As long as the model is fully specified,
+and the data is [identically and independently distributed](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables),
+the data likelihood is simply the product of all individal observation likelihood:
+
+$$
+\begin{equation}
+P(y|\theta) = \prod_i^n P(y_i|\theta, X_i).
+\end{equation}
+$$
+
+The individual likelihood $P(y_i|\theta, X_i)$ can be output of a logistic regression or a deep neural nets or virtually any kind of probablistic model.
+
+**Prior: $P(\theta)$**
+
+How do we solve for a prior for a given parameter?
+Well indeed we can't solve for it.
+We simply make assumption about it.
+
+The introduction of model prior make Bayesian modeling more flexible when there is extra information that can be utilized.
+When there is no particular useful information a priori,
+one can still choose to use a so-called non-informative prior to express objectivity.
+
+**Marginal Likelihood: $P(y)$**
+
+The denominator of the Bayes' Law is called the [marginal probability](https://en.wikipedia.org/wiki/Marginal_distribution) of data.
+By [the law of total probabiity](https://en.wikipedia.org/wiki/Law_of_total_probability) we have:
+
+$$
+\begin{equation} \label{eq:marginal_lik}
+P(y) = \int P(y|\theta)P(\theta)d\theta.
+\end{equation}
+$$
+
+The integral is usually analytically untractable,
+even for a moderately parameterized model.
+By using MCMC method we can avoid calculation of this term all together when solving for the Bayesian estimator.
+But there are other scenarios we may still need to calculate this term.
+Notable examples are model comparison and model averaging.
+In such case other Monte Carlo numerical methods (such as Bridge Sampling) are also developed to provide approximation to the solution.
+
+In a nutshell,
+in frequentist statistics,
+we solve for a $\theta$ that maximizes the likelihood of data.
+That is the well-known maximum likelihood estimator.
+In Baysian statistics,
+however,
+we solve for a posterior distribution of $\theta$,
+where the expected value calculated as a weighted combination of likelihood and parameter prior serves as the model point estimate.
+
+## Frequentist Hypothesis Testing
+
+To get started, 
+we first consider a very simple task of statistical inference:
+we'd like to test our belief on the mean of a population based on samples we observed.
+The technique is called one-sample hypothesis testing.
+We will recap for a frequentist point of view before we dive into a Bayesian world.
+
+### One-Sample Mean Test
+
+Here we assume the (unknown) population is a [Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution):^[What population distribution we choose here is not important. We choose a distribution just in order to generate some random samples to serve as fake data for our exercise.]
+
+```{r simpl_data_beta_pop}
+beta_a <- 2
+beta_b <- 10
+simple_beta <- function(x) dbeta(x, beta_a, beta_b)
+curve(simple_beta, from=0, to=1, ylab="Density",
+main=sprintf("(Unknown) Population Beta(%s, %s)", beta_a, beta_b))
+```
+
+And we generate a random sample datset of size 1000 from this population as our observed dataset.
+
+```{r simple_data}
+set.seed(777)
+X1 <- rbeta(1000, beta_a, beta_b)
+hist(X1, main=sprintf("(Known) Distribution of Sample from X ~ Beta(%s, %s)", beta_a, beta_b))
+```
+
+The population mean of a $\mbox{Beta}(\alpha, \beta)$ is $\frac{\alpha}{\alpha + \beta}$.
+So in this case it is:
+
+```{r simple_data_beta_mean}
+(true_mean <- beta_a / (beta_a + beta_b))
+```
+
+In the traditional frequentist point of view,
+thanks to [*the Law of Large Number*](https://en.wikipedia.org/wiki/Law_of_large_numbers) and [*the Central Limit Theorem*](https://en.wikipedia.org/wiki/Central_limit_theorem),
+we know that *sample mean* is a very good estimator for the unknown population mean despite the shape of the true distribution:
+
+```{r simple_data_sample_mean}
+mean(X1)
+```
+
+Let's further assume we have some grounds that suggest (which is actually not true) the population mean should be:
+
+```{r simple_data_null_hypo}
+h0_mean <-  0.175
+```
+
+For example if we are at a manufaturing production line,
+we setup the machine such that the manual tolds us the outcome of our product spec will have a mean of `r h0_mean` but with a right-tailing bias (hence distributed as a Beta) by design if nothing went wrong.
+
+The hypotesis testing hence can be written as:
+
+`r sprintf("$$H_0: \\mu = %s, \\\\ H_1: \\mu \\neq %s.$$", h0_mean, h0_mean)`
+
+How does a frequentist statistician verify this hypothesis?
+How to make a scientific judgement about whether our production line is functioning as expected?
+To examine this sort of question,
+a frequentist relies on the following quantitative reasoning:
+
+> Provided that the null hypothesis is actually true, how likely will I observe a set of random sampling dataset more extreme than the current one? If the likelihood is very low, then probably I shouldn't trust the null hypothesis.
+
+In order to measure *how extreme* our sample data is,
+we need to first construct the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of sample mean,
+conditioned on our null hypothesis.
+The Central Limit Theorem (CLT hereafter) suggests that,
+under fair conditions (especially when the second moment of the population is finite),
+the sampling distribution of sample mean $\bar{X}$ with sample size $N$ is asymptotically [Normal](https://en.wikipedia.org/wiki/Normal_distribution):
+
+$$
+\begin{equation} \label{eq:clt}
+\bar{X} \overset{d}\sim \mbox{Normal}(\mu, \frac{\sigma}{\sqrt{N}}),
+\end{equation}
+$$
+
+where $\mu$ and $\sigma$ is the population mean and standard deviation,
+respectively.
+
+So we have a very strong scientific ground (CLT) that states the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) of the sampling distribution of sample mean is Normal.
+Let's plot it given the null hypothesis is true:
+
+```{r simple_data_plot_sampling_dist}
+plot_sampling_dist <- function(X, true_mean, true_sd=NULL) {
+  sample_mean <- mean(X)
+  se <- 
+    if ( is.null(true_sd) ) {
+      # If true population sd is unknown (practically always the case),
+      # we can plug in the sample sd instead as an approximation.
+      sample_sd <- sd(X)
+      sample_sd / sqrt(length(X))
+    } else {
+      true_sd / sqrt(length(X))
+    }
+  x <- seq(true_mean - 3*se, true_mean + 3*se, length=1000)
+  density <- dnorm(x, mean=true_mean, sd=se)
+  plot(x, density, type="l", yaxs="i",
+       main=bquote(bar(X) ~ "Sampling Distribution | Null Hypothesis" ~ H[0]),
+       xlab=bquote(bar(X)))
+  abline(v=true_mean, lty=2)
+  text(true_mean, mean(density), pos=4, bquote("H[0] mean = " ~ .(true_mean)))
+  abline(v=sample_mean, col="red")
+  text(sample_mean, mean(density) / 2, pos=4, col="red",
+       sprintf("Observed sample mean = %s", round(sample_mean, 4)))
+  polygon(c(min(x), x[x <= sample_mean], sample_mean),
+          c(0, density[which(x <= sample_mean)], 0),
+          col=rgb(1, 0, 0, 0.5), border=NA)
+}
+
+# Calculate the population sd of a Beta(a, b).
+sd_beta <- function(a, b) {
+  sqrt((a*b) / ((a + b)^2*(a + b + 1)))
+}
+true_sd <- sd_beta(beta_a, beta_b)
+
+plot_sampling_dist(X1, true_mean=h0_mean, true_sd=true_sd)
+```
+
+The curve is the probability density of sample mean.
+It means that it calculates the likelihood of observing a specific sample mean given a random dataset from our population.
+
+In plain words,
+if we can draw an infinite number of random sample datasets with size 1000 (which we certainly can't in the real world),
+and calculating the sample mean for all of them,
+the distribution of these resulting sample means will behave exactly like the curve we just plotted,
+provided that the null hypothesis is true.
+This is an established mathematical fact under a very loose assumption:
+as long as the random sample is truely i.i.d. (identically and independently distributed) and the population has a finite variance.
+
+The shaded area size is *the probability of observing a sample mean more extreme than the current one we have, provided that the null hypothesis is true*.
+Indeed it is the famous (and also notorious) *p-value* of the test.^[Under the context of a two-tailed test the actual p-value will be 2 times the shaded area size,
+since the distribution is symmetric and we are considering $Pr(x > |z|) = Pr(x > z) + Pr(x < -z)$.]
+
+The idea of rejecting the null hypothesis due to a low p-value hence has a clear rationale:
+If the null hypothesis is true, 
+it is so unlikely that we will observe a even more extreme sample dataset than the current one at hand.
+So maybe the null hypothesis is just not correct in the first place?
+
+In the example we use a so-called *z-test* for simplicity while in practice usually a *t-test* is preferred. 
+That is,
+instead of using the Normal distribution directly for the sampling distribution,
+using the [Student's t distribution](https://en.wikipedia.org/wiki/Student%27s_t-distribution) which is also asymptotically Normal but can conservatively account for small sample distortion and unknown population variance.
+
+A t-test can be done by a one-liner in R:
+
+```{r simple_data_ttest}
+t.test(X1, mu=h0_mean)
+```
+
+We can check that the shaded area size in our z-test plot should be approximately the same as the t-test result since we have a fairly large sample size (plus that the population distribution is simple):
+
+```{r simple_data_check_ztest}
+# Integral over -Inf ~ sample mean at the sampling distribution pdf.
+pnorm(mean(X1), mean=h0_mean, sd=sd(X1)/sqrt(length(X1)))*2  # Doubling since this is a two-sided test.
+```
+
+### Confidence Interval
+
+Confidence interval is another common statistic used to describe the test.
+Based on a sample dataset,
+it calculates the range of values that cannot be rejected under a certain level of significance.
+
+We can calculate the 95% interval based on the z-test limiting sampling distribution:
+
+```{r simple_data_ci_ztest}
+# qnorm is the quantile function for a Normal cdf.
+z_lb <- qnorm(.025, mean=mean(X1), sd=sd(X1)/sqrt(length(X1)))
+z_hb <- qnorm(.975, mean=mean(X1), sd=sd(X1)/sqrt(length(X1)))
+c(z_lb, z_hb)
+```
+
+Or under t-test:
+
+```{r simple_data_ci_ttest}
+# qt is the quantile function for a standard students' t cdf.
+t_lb <- qt(.025, df=length(X1) - 1)*sd(X1)/sqrt(length(X1)) + mean(X1)
+t_hb <- qt(.975, df=length(X1) - 1)*sd(X1)/sqrt(length(X1)) + mean(X1)
+c(t_lb, t_hb)  # Check if it is consistent with the result of a t.test.
+```
+
+The interpretation of the frequentist confidence interval is not straightforward and has been mis-understood quite often.
+A 95% confidence interval means that the interval has 95% chance to contain the true parameter value.
+It does NOT mean that the true parameter value has a 95% chance to be within the interval.
+The confidence level is describing the interval but not the population parameter.
+
+In the frequentist world any population parameter is a constant,
+so there is no probabilistic description on it.
+Given any confidence interval the parameter will be either inside or outside the range.
+It is a *deterministic* but unknown event.
+The probabilistic description exists only for a random variable.
+Sample mean is a random variable.
+*Confidence interval is a random variable*.
+So a 95% confidence interval is a probabilistic description on the interval but not on the parameter.
+
+Put it differently,
+if we were to repeat the sampling experiment many many times,
+then approximately 95% of the experiments we will have the resulting confidence interval containing the true parameter.
+For a given sample dataset,
+the confidence interval of the sample mean merely picks up all the values that cannot be rejected assuming the sample mean is the true mean at the given $\alpha$% where $1 - \alpha$ is called the level of confidence.
+
+When confidence interval is used in a hypothesis test,
+we simply check if the interval covers the null value.
+If a 95% interval covers the null value,
+it is equivalently to say that we are not able to reject the null at 5% significance level.
+
+To illustrate visually,
+we plot the sampling distribution of sample mean under the true mean (in black),
+along with an extreme case of a sample mean whose 95% C.I. barely contains the true mean (in blue and red).
+
+```{r simple_data_plot_ci}
+plot_ci <- function(X, true_mean, compare_mean=NULL, true_sd=NULL, 
+                    annotate_sample_mean=TRUE, xlim_adj=c(3, 6), ...) {
+  sample_mean <- mean(X)  # Not used.
+  se <- 
+    if ( is.null(true_sd) ) {
+      # If true population sd is unknown (practically always the case),
+      # we can plug in the sample sd instead as an approximation.
+      sample_sd <- sd(X)
+      sample_sd / sqrt(length(X))
+    } else {
+      true_sd / sqrt(length(X))
+    }
+  err <- qnorm(.975, mean=0, sd=se)
+  if ( is.null(compare_mean) ) {
+    compare_mean <- true_mean + err
+  }
+  z_hb <- compare_mean + err
+  z_lb <- compare_mean - err
+  x <- seq(true_mean - xlim_adj[1]*se, true_mean + xlim_adj[2]*se, length=1000)
+  density_true <- dnorm(x, mean=true_mean, sd=se)
+  density_compare <- dnorm(x, mean=compare_mean, sd=se)
+  plot(x, density_true, type="l", yaxs="i", ylab="Density", ...)
+  lines(x, density_compare, type="l", col="blue")
+  abline(v=compare_mean, col="blue", lty=2)
+  abline(v=c(z_lb, z_hb), col="red", lty=2)
+  if ( annotate_sample_mean ) {
+    text(compare_mean, mean(density_compare) / 2, pos=4, col="blue", lty=2,
+         sprintf("Extreme Sample Mean = %s", round(sample_mean, 4)))
+  }
+  arrows(x0=z_lb, y0=diff(range(density_true))/2, 
+         x1=z_hb, y1=diff(range(density_true))/2,
+         code=3, lty=2, col="red")
+  text(compare_mean, diff(range(density_true))/2,
+       "95% Confidence Interval", pos=1, col="red")
+  
+  # Two-tailed p-value area under the truth. (Plot one side only.)
+  area_col <- rgb(1, 0, 0, 0.5)
+  if ( compare_mean >= true_mean ) {  
+    polygon(c(compare_mean, x[x >= compare_mean], max(x)),
+            c(0, density_true[which(x >= compare_mean)], 0),
+            col=area_col, border=NA)
+  } else {
+    polygon(c(min(x), x[x <= compare_mean], compare_mean),
+            c(0, density_true[which(x <= compare_mean)], 0),
+            col=area_col, border=NA)
+  }
+}
+
+plot_ci(X1, true_mean=true_mean,
+        main=bquote(bar(X) ~ "Sampling Distribution under True Mean"),
+        sub="Extreme C.I. to Contain True Mean",
+        xlab=bquote(bar(X)))
+```
+
+The red area corresponds to the two-tailed 95% significance,
+with a size of exactly 0.025.
+(We only colorize the right side.)
+It is also the p-value in this case since we purposely make the sample mean just as extreme to be on the edge of 95% significance level.
+Any resulting sample mean value falling into the area will have a C.I. not able to cover the true mean.
+The sampling distribution based on the extreme sample mean (in blue) is simply a shift of the true sampling distribution to the right.
+
+To reiterate the fact that C.I. is a random variable,
+let's repeat the sampling experiment for 9 times and plot all the results:
+
+```{r simple_data_plot_more_ci, fig.height=6, fig.width=10}
+set.seed(777)
+
+par(mfrow=c(3, 3), oma=c(3, 3, 0, 0), mar=c(3, 3, 2, 2))
+for ( i in 1:9 ) {
+  X2 <- rbeta(1000, beta_a, beta_b)
+  plot_ci(X2, true_mean=true_mean, compare_mean=mean(X2),
+          annotate_sample_mean=FALSE, xlim_adj=c(4, 4))
+}
+mtext(text="Confidence Interval as Random Variable", side=1, line=0, outer=TRUE)
+```
+
+As one can see,
+out of our 9 independent experiments there is one case where we wrongly rejected the true model.
+(The so-called Type-I Error.)
+
+The key take-away about frequentist confidence interval:
+
++ It is a sampling statistic; hence a random variable.
++ There is no distributional information inside the interval; it's either the interval does contain or does not contain the true parameter. (Which we will never know since the true parameter is an unknown constant.)
++ The larger the sample size the narrower the interval, since it is derived from a sampling distribution which by LLN will converge in probability to the true parameter value.
+
+### Generalization
+
+Though in this section we only cover a very simple one-sample hypothesis testing under a univariate context,
+the general idea behind the scene for a full-fledged statistical model is about the same.
+
+For example,
+in order to make inference about a coefficient $\beta$ in a regression model $y = X\beta + \epsilon$,
+a frequentist first tries to develop the asymptotic property of the sampling distribution of $\beta$, 
+then apply the hypothesis testing with a null of $\beta = 0$ to test if the linear association between the target $y$ and the variable $X$ is significantly present.
+It turns out that CLT also applies to linear model coefficients.
+The rationale is that these coefficients are indeed a kind of weighted-average where the weights are determined by the covariance.
+
+### Critiques
+
+This section describes the critiques well documented in @rouder2009bayesian.
+
+One crucial limitation of the frequentist approach is that it does not allow us to state evidience for but only against the null hypothesis.
+What does this exactly mean?
+Let's examine the behavior of p-value under two different scenarios: when the null model is false and when the null model is true.
+
+#### When Null is False {-}
+
+As sample size grows,
+the z-statistic (or t-statistic) grows unboundedly,
+resulting in p-value approching zero.
+
+Let's assume the null model is:
+
+```{r critique_null}
+# Derive sampling distribution under the null.
+null_mean <- 0.25
+null_sd <- 1
+null_model_pdf <- function(x, n) dnorm(x, null_mean, null_sd / sqrt(n))
+```
+
+`r sprintf("$\\mbox{Normal(%s, %s)},$", null_mean, null_sd)`
+
+and the true model is:
+
+```{r critique_true}
+# Derive sampling distribution under the truth.
+real_mean <- 0
+real_sd <- 1
+real_model_pdf <- function(x, n) dnorm(x, real_mean, real_sd / sqrt(n))
+```
+
+`r sprintf("$\\mbox{Normal(%s, %s)}.$", real_mean, real_sd)`
+
+Now we plot the sampling distribution of both models with random samples of varying sample size:
+
+```{r critique_false_null}
+# Make partial functions for ease of using curve() for plotting.
+null_pdf <- function(n) function(x) null_model_pdf(x, n=n)
+real_pdf <- function(n) function(x) real_model_pdf(x, n=n)
+
+plot_sampling_dist_2 <- function(x, null_pdf, true_pdf, null_mean, true_mean) {
+  sample_mean <- mean(x)
+  se <- sd(x) / sqrt(length(x))
+  p1 <- null_pdf(length(x))
+  xrange <- c(sample_mean - 6*se, sample_mean + 6*se)
+  xticks <- seq(xrange[1], xrange[2], length.out=500)
+  curve(p1, from=xrange[1], to=xrange[2], yaxs="i",
+        main=sprintf("Sampling Dist. at N = %s", length(x)))
+  p2 <- true_pdf(length(x))
+  curve(p2, from=xrange[1], to=xrange[2], add=TRUE, col="red", lty=2)
+  abline(v=true_mean, lty=2, col="red")
+  abline(v=sample_mean, col="red")
+  # Colorize p-value.
+  area_col <- rgb(1, 0, 0, 0.5)
+  if ( sample_mean <= null_mean ) {
+    polygon(c(min(x), xticks[xticks <= sample_mean], sample_mean),
+            c(0, p1(xticks)[which(xticks <= sample_mean)], 0),
+            col=area_col, border=NA)
+  } else {
+    polygon(c(sample_mean, xticks[xticks > sample_mean], max(x)),
+            c(0, p1(xticks)[which(xticks > sample_mean)], 0),
+            col=area_col, border=NA)
+  }
+}
+
+set.seed(777)
+par(mfrow=c(2, 2), oma=c(3, 3, 0, 0), mar=c(3, 3, 2, 2))
+for ( n in c(10, 30, 100, 300) ) {
+  x <- rnorm(n, real_mean, real_sd)
+  plot_sampling_dist_2(x, null_pdf, real_pdf, null_mean, real_mean)
+}
+mtext(text="Vanishing P-Value Given Null is False", side=1, line=0, outer=TRUE)
+```
+
+We use red-dot line as the true sampling distrubition while the solid-black line as sampling distribution under the null.
+The solid-red line is our simulated sample mean at different sample size.
+
+As one can see, as sample size increases, p-value will converge to 0 since the null distribution will concentrate more and more on the wrong mean,
+making it less and less possible for the sample mean to fall into the range;
+hence making our sample data extremely unlikely, which in turn leads to rejection of the null.
+
+This statistical property is a desired one *as long as the null is actually false*.
+It suggests that the evidence against the null can be strengthen if we collect a larger random sample.
+In other words, the test is *statistically consistent* thanks to its convergence in large sample.
+
+#### When Null is True {-}
+
+What if the null model is actually true?
+That is, our null is the same as the true model: `r sprintf("$\\mbox{Normal(%s, %s)}$", real_mean, real_sd)`.
+We again plot the simulation of p-value under different sample sizes:
+
+```{r critique_true_null}
+par(mfrow=c(2, 2), oma=c(3, 3, 0, 0), mar=c(3, 3, 2, 2))
+for ( n in c(10, 30, 100, 300) ) {
+  x <- rnorm(n, real_mean, real_sd)
+  plot_sampling_dist_2(x, real_pdf, real_pdf, real_mean, real_mean)
+}
+mtext(text="Vanishing P-Value Given Null is True", side=1, line=0, outer=TRUE)
+```
+
+As one may already realize,
+in this case *p-value is invariant in sample size*.
+No matter how large our random sample is, there is no way to strengthen the evidence *for* the null.
+This is indeed why in the frequentist statistical wordings we never *accept* the null,
+but we either reject or *cannot reject* the null.
+
+To sum up,
+the test is statistically *consistent* when the null is false.
+The error rate of not rejecting the null converge to 0 as sample size grows infinitely.
+The test is, however, *inconsistent* when the null is true.
+There is always a $\alpha$% of error to reject the correct null model regardless of the sample size,
+may it be a 5% or a 10% at the choice of conventional practice.
+Such property leads to potential overstatement of evidence against the null.
+
+## A Binomial Problem
+
+Before we take a full Baysian approach to our first example,
+let's consider another example with analytical solution avalable.
+
+Consider a coin toss game, with $N$ number of tosses and we are counting the number of heads as $y$.
+The number of heads follows a [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution) with two parameters:
+
+$$
+Y \sim \mbox{Binomial}(N, p).
+$$
+
+We are interested in guessing the (unknown) true proportion of heads (denoted as $p$) out of $N$ tosses.
+
+Let's simulate a set of $N$ trials and count the heads:
+
+```{r coin_data}
+set.seed(777)
+N <- 10
+p <- .5
+(y <- rbinom(1, N, p))
+```
+
+By observing the fact that out of `r N` trials we got `r y` heads, 
+we'd like to test the following two-sided hypothesis:
+
+$$
+\begin{aligned}
+H_0 &: \mbox{The coin is fair with p = .5}, \\
+H_1 &: \mbox{The coin is biased}.
+\end{aligned}
+$$
+
+This is also called a proportion test in the literature.
+
+### Frequentist Proportion Test
+
+We can quickly explore the frequentist solution for this task first.
+
+We calculate the sample proportion as $\hat{p}$ and again by CLT we have the sample proportion to distribute asymptotically Normal:^[Note that $\hat{p}$ is indeed a discrete random variable but we are using a continous distribution for approximation. The approximation is of course better for larger $N$.]
+
+$$
+\begin{equation}
+\hat{p} \overset{d}\sim \mbox{Normal}(p, \sqrt{\frac{p(1-p)}{N}}).
+\end{equation}
+$$
+
+Calculation of the p-value is then very straightforward:
+
+```{r coin_pvalue}
+# Calculate the area under the PDF of the sampling distribution,
+# provided that the null hypothesis is true.
+prop_p <- 
+  if ( y/N > p ) {
+    (1 - pnorm(y/N, p, sqrt(p*(1-p)/N)))*2
+  } else {
+    pnorm(y/N, p, sqrt(p*(1-p)/N))*2
+  }
+prop_p
+```
+
+We can verify the result via using R's built-in `prop.test`:
+
+```{r coin_prop_test}
+# We purposely turn off the continuity correction factor for comparison.
+# But the correction can be sizable if sample size is small since 
+# when sample size is small the Normal approximation is not very good.
+# Another way is to do the exact Binomial test: see ?binom.test for details.
+prop.test(y, N, p, correct=FALSE)
+```
+
+```{r coin_test_conclusion, echo=FALSE, results="asis"}
+cat("Based on the result,  ")
+if ( prop_p < .05 ) {
+  cat("we can reject the null hypothesis at the conventional significance level (5%).")
+} else {
+  cat("we have no enough evidence to reject the null hypothesis at the conventional significance level (5%).")
+}
+```
+
+### Analytical Bayesian
+
+Now move onto a Baysian approach.
+
+Here we focus on our alternative hypothesis which suggests the coin is not fair.
+To do Bayesian one must lay out one's exact prior on being "not fair."
+Let's first consider a discrete set of possible $\theta$
+
+```{r coin_discrete_theta}
+(theta <- seq(0, 1, length.out=5))
+```
+
+with equal probability
+
+```{r coin_discrete_prior}
+(theta_prior <- rep(1, length(theta)) / length(theta))  # Density function for theta.
+```
+
+That is,
+we believe *a priori* that there are in total `r length(theta)` possible theta values listed above for the model parameter $p$.
+Every value is equally possible.
+(Obviosuly, the coin is only fair if $\theta = 0.5$ with probability 1.)
+
+The probability mass function of a binomial distribution can be written as:
+
+$$
+P(y) = C^N_y \cdot p^y(1-p)^{N-y}.
+$$
+
+Here $p$ is our model parameter and it follows our discrete prior $\theta$.
+
+In order to derive the complete posterior $P(\theta|y)$ (using the Bayes' Law from equation $\eqref{eq:bayeslaw}$) for our alternative model,
+we need to calculate $P(y)$ the marginal probability of data at the denominator:
+
+$$
+P(y) = \sum_nP(y|\theta_n)P(\theta_n).
+$$
+
+Note that the above is just a discrete version of equation $\eqref{eq:marginal_lik}$.
+
+Here comes the results:
+
+```{r coin_discrete_solution}
+# P(y|theta) for all theta. The data likelihood.
+p_y_theta <- choose(N, y)*theta^y*(1 - theta)^(N-y)
+
+# P(y). Marginal probability of y. This is based on the law of total probability. 
+p_y <- sum(theta_prior * p_y_theta)
+
+# P(theta|y). Derived by the Bayes' Law.
+p_theta_y <- (p_y_theta * theta_prior) / p_y
+
+data.frame(theta, theta_prior, p_y_theta, p_theta_y)
+```
+
+The table is a full analytical solution for our Bayesian model under the alternative hypothesis given the observed data and our discrete prior.
+
+The table reveals how our naive prior is shaped by the data observed.
+For example,
+originally we think there is a `r scales::percent(theta_prior[1])` chance of $\theta = 0$ meaning that the coin is completely biased toward the tail.
+But the data tells us that out of `r N` tosses we got `r y` heads.
+So indeed there is no chance that $\theta = 0$!
+Same logic applies to the prior of $\theta = 1$.
+Their posteriors both become zero based on evidence brought by data.
+
+Another subtle fact is that,
+there is no way for us to support a value that is not covered by the prior.
+Since our prior only support `r length(theta)` possible values,
+our posterior can only adapt to these `r length(theta)` as well.
+This is exactly why we'd like to replace the discrete prior with a continous one, unless we have a very strong prior that dictates the discrete case instead.
+
+Among all the possible parameter values,
+the one with the highest posterior is called the *maximum a posteriori* (MAP) estimate:
+
+```{r coin_map_est}
+theta[which.max(p_theta_y)]
+```
+
+Usually the Bayesian point estimate of a parameter is instead the expected value of the posterior.
+In this case our point estimate with the discrete prior will be:
+
+```{r coin_discrete_point_est}
+# Check our posterior follows the law of prob.
+stopifnot(sum(p_theta_y) == 1)
+
+# Bayesian point estimate under the alternative hypothesis.
+sum(p_theta_y * theta)
+```
+
+which is interestingly quite close to the sample mean `r y/N`.
+
+Indeed,
+if our prior is a standard Uniform,
+MAP estimate is the same as the MLE estimate.
+
+To see this clearly,
+let's assume a discrete prior but with much more possible values and plot the prior along with the posterior:
+
+```{r coin_update_plot}
+plot_update <- function(theta, p_theta) {
+  p_y_theta <- choose(N, y)*theta^y*(1 - theta)^(N-y)
+  p_y <- sum(p_theta * p_y_theta)
+  p_theta_y <- (p_y_theta * p_theta) / p_y
+  
+  plot(x=theta, y=p_theta_y, type="l", col="red",
+       main=sprintf("Bayesian Update on Binomial(%s, %s)", N, p),
+       xlab=expression(theta), ylab="Mass (Probability)")
+  lines(x=theta, y=p_theta, col="blue")
+  abline(v=y/N, lty=2)
+  text(y/N, p_theta[1]*.8, pos=4, sprintf("Observed p = %s", round(y/N, 2)))
+  legend("topleft", legend=c("Posterior", "Prior"),
+         col=c("red", "blue"), lty=1)
+}
+
+many_theta <- seq(0, 1, length.out=1000)
+p_theta <- rep(1, length(many_theta)) / length(many_theta)
+plot_update(many_theta, p_theta)
+```
+
+The posterior will have its maximum exactly at the sample mean.
+
+Uniform distribution in this case can be regarded as a general *noninformative* or *flat* prior.
+Under such prior our test becomes:
+
+$$
+\begin{aligned}
+H_0 &: Y \sim \mbox{Binomial}(N=10, p=0.5), \\
+H_1 &: Y \sim \mbox{Binomial}(N=10, p=\theta); \mbox{ } \theta \sim \mbox{Uniform}(0,1).
+\end{aligned}
+$$
+
+That is,
+we believe a priori the coin can be of any kind of bias with equal possibility.
+
+Our marginal probability of the observed data given the alternative hypothesis becomes:^[This is a special integral function called the [Beta function](https://en.wikipedia.org/wiki/Beta_function).]
+
+$$
+\begin{aligned}
+P(y|H_1) 
+&= \int_0^1C_6^{10}\theta^6(1 - \theta)^{4}d\theta \\
+&= C_6^{10} \times \frac{6!\cdot4!}{(10+1)!} \\
+&= 0.09\overline{09}.
+\end{aligned}
+$$
+
+Instead of solving for the analytical solution which could cause a headache,
+here we take the chance to demo a numerical solution using simulation.
+We will generate random draws of $\theta$ from its prior (a standard Uniform) and calculate the resulting probability provided that our observed data $y$ is `r y`.
+
+```{r coin_h1_uniform}
+set.seed(777)
+(p_y_h1a <- mean(dbinom(y, N, runif(1e6))))
+```
+
+As one can see, 
+for a large repetitions,
+the numerical solution is very close to the analytical one.
+This is indeed the concept of Monte Carlo method,
+which we will cover later in this tutorial.^[For this particular example, another maybe even smarter way to approximate the solution is to use a discrete Uniform that takes many many possible values. Then we can just calculate the discrete version of the integral, as in the first part of the section, which will also give very good approximations.]
+
+### Generalization to Logistic Regression
+
+How is this simple Binomial problem even relevant to our real world modeling?
+
+Indeed the problem can be re-formulated as a logistic regression with only a constant term as the predictor variable.
+Each trial in a Binmoial is just a [Bernoulli process](https://en.wikipedia.org/wiki/Bernoulli_distribution).
+Consider each Bernoulli as our outcome observation without any other explanatory variable,
+a $\mbox{Binomial}(N, p)$ means we have $N$ records of observation.
+This is a binary classification problem modeled by logistic regression.
+In R we can use the built-in `glm` function to estimate the model:
+
+```{r coin_constant_logistic}
+# Create raw data. Binom(N, p) is simply N records of Bernoulli(p).
+yl <- numeric(N)
+yl[1:y] <- 1
+d <- data.frame(y=yl)
+
+# Constant-only logit model.
+coef(glm(y ~ 1, data=d, family=binomial))
+```
+
+The MLE estimator of the coefficient on constant term is the *log odds ratio* of the observed data.
+To confirm this:
+
+```{r coin_log_odds}
+odds <- (y/N) / (1 - y/N)
+log(odds)
+```
+
+And we can of course solve for the $p$ from odds ratio:
+
+```{r coin_logit_mle}
+odds / (1 + odds)
+```
+
+which is just the sample mean.
+
+## Bayes Factor
+
+In the previous section we examine a Bayesian model under the alternative model.
+But we didn't come to any conclusion about the comparsion between the alternative and the null model.
+How do Bayesians look at the hypothesis testing task?
+
+First of all, Bayesians depict belief as a distribution rather than a constant.
+So the hypothesis itself can become probability distribution.
+Again by Bayes' Law:
+
+$$
+\begin{aligned}
+P(H_0 | y) = \frac{P(y|H_0) \cdot P(H_0)}{P(y)}, \\
+P(H_1 | y) = \frac{P(y|H_1) \cdot P(H_1)}{P(y)}.
+\end{aligned}
+$$
+
+In some cases we may also have $P(H_0) + P(H_1) = 1$,
+which is not necessary in a more general setup.
+
+Based on the above formula,
+we can calculate the *posterior odds* of two competing beliefs (or models) as:
+
+$$
+\begin{equation}
+\underbrace{\frac{P(H_0|y)}{P(H_1|y)}}_\text{posterior odds} = 
+\underbrace{\frac{P(y|H_0)}{P(y|H_1)}}_\text{Bayes factor} \cdot
+\underbrace{\frac{P(H_0)}{P(H_1)}}_\text{prior odds}.
+\end{equation}
+$$
+
+Bayes factor here is defined as the ratio of posterior odds to prior odds for two competing models.
+It can be viewed as *an update* of model preference from prior to posterior given the information provided by the data.
+One can regard Bayes factor as the counterpart of the frequentist p-value in their philosophy about hypothesis testing.
+The higher the factor,
+the more the prior belief shifts toward the posterior,
+or equivalently the larger the update.
+Bayes factor is a measure of change in relative belief after observing the data.
+
+Usually it is natural to set the prior odds $\frac{P(H_0)}{P(H_1)} = 1$ to express neutrality before observing the data as long as no strong prior preference presents.
+Calculating the Bayes factor then involves determination of the marginal likelihood conditioned on model: $P(y|H_0)$ and $P(y|H_1)$.
+
+To be specific,
+
+$$
+\begin{equation} \label{eq:marginal_lik_h0}
+P(y|H_0)
+= \int P(y|\theta, H_0)P(\theta|H_0)d\theta
+= E_{prior}\big[ P(y|\theta, H_0) \big], 
+\end{equation}
+$$
+
+where $\theta$ is the parameter under hypothesis $H_0$.
+This is exactly the marginal probability of data under $H_0$,
+we are essentially rewriting equation $\eqref{eq:marginal_lik}$ to be conditioned on the given hypothesis.
+
+Readers should not confuse $P(y|H_0)$ with $P(y|\theta)$.
+The latter is the data likelihood given a specific model parameter (implicitly following a model hypothesis),
+while the former is the data likelihood given the model hypothesis,
+or the marginal likelihood with consideration of all possible parameter values under that hypothesis.
+
+Back to our binomial example.
+We can now calculate the Bayes factor $\frac{P(y|H_0)}{P(y|H_1)}$ analytically.
+
+Marginal probability under the null $P(y|H_0)$ is
+
+```{r coin_p_y_h0}
+(p_y_h0 <- choose(N, y)*p^y*(1 - p)^(N-y) )  # Or equivalently: dbinom(y, N, p)
+```
+
+For marginal probability under the alternative $P(y|H_1)$,
+with the discrete prior it is:
+
+```{r coin_p_y_h1_discrete}
+(p_y_h1d <- sum(theta_prior * (choose(N, y)*theta^y*(1 - theta)^(N-y))))
+```
+
+or with a continuous prior it is:
+
+```{r coin_p_y_h1_uniform}
+(p_y_h1c <- choose(N, y) * factorial(y)*factorial(N-y)/factorial(N + 1))
+```
+
+The Bayes factor is hence:
+
+```{r coin_bf_discrete}
+p_y_h0 / p_y_h1d
+```
+
+for the discrete prior or
+
+```{r coin_bf_uniform}
+p_y_h0 / p_y_h1c
+```
+
+for a Uniform prior.
+
+The larger the Bayes factor the more supporting evidence for the numerator model against the denominator model.
+
+The package `BayesFactor` [@jeffery2018bf] in R implements a variety of different hypothesis testing tools based on the usage of Bayes factor.
+There is a function `proportionBF` for a proportion test at our disposal:
+
+```{r coin_bf_logistic_prior}
+library(BayesFactor)
+BayesFactor::proportionBF(y, N, p=.5)
+```
+
+One may find that the BF value is a bit off from our calculation.
+This is because `BayesFactor::proportionBF` uses a different prior on the default alternative model.
+Based on the document (`?proportionBF`) we realize that the default prior is indeed a logistic distribution,
+while ours is simply a standard Uniform.
+
+**Numerical Bayesian on Marginal Likelihood**
+
+In this simple example we are able to calculate the marginal probability and hence the Bayes factor analytically.
+In a more general setup,
+however,
+analytical solution may well not exist or may not be tractable.
+In such case usually we need to resort to numerical solutions.
+In the literature there are quite some different approaches proposed to overcome the issue.
+Out of all those proposals,
+a Monte Carlo method called *bridge sampling* becomes the most promising one and is now the go-to method for numerical solution for estimation of marginal likelihood.
+
+## The JZS Prior for Mean Test
+
+It's time to revisit our very first example in this tutorial.
+
+Remember that in the example we have the following test for population mean:
+
+`r sprintf("$$H_0: \\mu = %s, \\\\ H_1: \\mu \\neq %s.$$", h0_mean, h0_mean)`
+
+given a sample dataset randomgly drawn from a (unknown) Beta distribution.
+
+In order to proceed with a Bayesian approach,
+we need to explicitly setup our prior.
+We will introduce the well-known Jeffreys-Zellner-Siow (JZS) prior for Baysian hypothesis testing on population mean.
+
+There are indeed different ways of doing Bayesian on a hypothesis testing task.
+Research in this field is still active and evolving.
+In this tutorial we will only walk-through the classical one with JZS prior as a baseline approach.
+
+To re-formulate the one-sample test,
+one may rewrite it as something like:
+
+$$
+\begin{align}
+H_0 &: \mu = 0, \\
+H_1 &: \mu \sim \mbox{Normal}(0, \sigma_{\mu}^2),
+\end{align}
+$$
+
+along with another prior on the population standard deviation $\sigma$.
+
+Here a noninformative prior (hence the most objective) on $\sigma_{\mu}^2$ will technically mean to set $\sigma_{\mu}^2 = \infty$.
+This is because the larger the variance the more the uncertainty about the distribution.
+Intuitively,
+the larger the variance the more the prior will be shifted toward the posterior by data.
+But mathematically setting it to infinity will result in unbounded support for the null model as sample size grows,
+which in turn makes the test useless.
+The fact is called the Jeffreys-Lindley paradox in the literature. 
+To work-around this,
+it is proposed to test the *standardized effect size* defined as:
+
+$$
+\delta \equiv \frac{\mu}{\sigma}.
+$$
+
+The test then becomes:
+
+$$
+\begin{align}
+H_0 &: \delta = 0, \\
+H_1 &: \delta \sim \mbox{Normal}(0, \sigma_{\delta}^2).
+\end{align}
+$$
+
+With a inverse-chi-squared prior on $\sigma_{\delta}^2$ it is effectively saying:^[The [inverse-chi-squared](https://en.wikipedia.org/wiki/Inverse-chi-squared_distribution) is commonly used as a choice of prior for unknown variance in Bayesian literature.]
+
+$$
+\begin{align}
+H_0 &: \delta = 0, \\
+H_1 &: \delta \sim r \cdot \mbox{Cauchy},
+\end{align}
+$$
+
+where $r$ is a scale factor to control the expected size of the effect a priori. 
+
+JZS further assumes the prior on $\sigma$ to be noninformative as well:
+$P(\sigma^2) \propto \frac{1}{\sigma^2}$. (See [Jeffreys' prior](https://en.wikipedia.org/wiki/Jeffreys_prior) for more technical details.)
+
+`BayesFactor` implements exactly the JZS prior for one-sample testing:
+
+```{r simple_data_ttest_bf10}
+BayesFactor::ttestBF(X1, mu=h0_mean, rscale=1)  # rscale = 1 for standard Cauchy.
+
+# Or equivalently:
+# BayesFactor::ttestBF(X1 - h0_mean, mu=0, rscale=1)
+```
+
+`BayesFactor::ttestBF` by default reports the Bayes factor for the alternative against the null.
+That is, 
+the numerator model is the alternative and the denominator the null.
+
+Or we take the reciproal of the test:
+
+```{r simple_data_ttest_bf01}
+bftest_01 <- 1 / BayesFactor::ttestBF(X1, mu=h0_mean, rscale=1)
+exp(bftest_01@bayesFactor$bf)  # Take expotential since the raw number is in log.
+```
+
+JZS is not the only prior proposed in the literature but surely is a classical one.
+It also comes with a clear advantage back in the old time:
+it has a closed-form (though tedious) solution.
+In reality,
+however,
+closed-form solution does not exist for most of the probablistic models, even a moderately parameterized one.
+So the marginal likelihood can not be calculated analytically.
+In such case we need to resort to numerical method.
+Indeed,
+even for the closed-form integral in this problem,
+we need to use an approximation method called [Gaussian quadrature](https://en.wikipedia.org/wiki/Gaussian_quadrature) to solve for it.
+
+Other than calculating the marginal probability,
+we can also use `BayesFactor` to generate posterior parameter samples using Markov chain Monte Carlo (MCMC) method:
+
+```{r simple_data_ttest_bf_mcmc, message=FALSE}
+bftest_mcmc_samples <- BayesFactor::ttestBF(X1, mu=h0_mean, rscale=1, 
+                                            posterior=TRUE, iterations=1000,
+                                            progress=FALSE)
+head(bftest_mcmc_samples)
+
+# Even more, to plot sample distribution and trace:
+# plot(bftest_mcmc_samples[,1:2])
+```
+
+As MCMC has become the dominant approach to solve for a Bayesian model,
+we will deep-dive into it in the next section.
+
+# Markov Chain Monte Carlo
+
+In most applications the posterior density can not be derived analytically,
+we need to resort to simulation method to numerically approximate the solution.
+This is where MCMC comes in handy.
+
+The goal of MCMC is to generate random samples without knowing the exact probability distribution function of the target distribution--This is the Markov chain part.
+Then we can calculate our estimator of interest based on the random samples--this is the Monte Carlo part.
+
+The idea is that if we can construct a [Markov chain](https://en.wikipedia.org/wiki/Markov_chain) with transition probabilities that converges to equilibrium probabilities that match the target distribution, 
+we can effectively generate random samples from the equilibrium probabilities by starting at any state with initial samples discarded.
+There are multiple methods for constructing Markov chain with equilibrium, such as Metropolis sampling, Gibbs sampling, Hamiltonian method, ..., etc.
+
+MCMC is useful since in Bayesian modeling, 
+usually the model distribution functions are NOT analytically tractable. 
+(No closed-form solution.)
+Generating random samples from a Normal distribution is easy since its analytical form is clearly determined.
+A moderately configured Bayesian probabilistic model,
+on the other hand,
+can easily become intractable without the intention to make it really complicated.
+
+## Monte Carlo for Central Limit Theorem
+
+First we illustrate Monte Carlo by examining CLT using computer-driven random drawing simulation rather than direct mathematic derivation.
+
+Again that CLT suggests the limiting distribution of sample mean $\bar{X}$ with sample size $N$ is Normal as in equation $\eqref{eq:clt}$.
+
+Let's use Monte Carlo simulation to verify if this is true.
+For simplicity we assume the population is a standard Uniform distribution $X \sim \mbox{Uniform}(0,1)$.
+However, remember that in reality virtually any population distribution (with finite variance) should work.
+
+The process is as the followings:
+
+1. Draw sample data of a size $N$
+2. Calculate the sample mean from the above sample data 
+3. Repeat step 1 and 2 for many times (say, 100 times of repetition)
+
+And we plot the distribution of all the sample means,
+with the blue line depicting the theoretical limiting sampling distribution that we'd like to approximate.
+We also do this for different values of sample sizes.
+The results are plotted all together as below.
+
+```{r mc_clt_r100}
+plot_mc_sample_mean_clt <- function(N, sample_func=runif, n_rep=100, seed=777, ...) {
+  set.seed(seed)
+  # Generate random draws from Uniform(0,1) and calculate the sample mean.
+  # Do this for `n_rep` times.
+  x_bar <- numeric(n_rep)
+  for ( r in 1:n_rep ) {
+    x_bar[r] <- mean(sample_func(N))
+  }
+  # Plot.  
+  title <-bquote("Sampling Distribution of " ~ bar(X) ~ " at N = " ~ .(N))
+  x <- seq(min(x_bar), max(x_bar), length=100) 
+  y <- dnorm(x, .5, sqrt(1/12)/sqrt(N))  # Based on true mean and sd of a standard Uniform.
+  hist(x_bar, probability=TRUE, main=title, xlab=NULL, ylim=c(0, max(y)*1.1), ...)
+  lines(x, y, col="blue", lwd=2)
+}
+
+par(mfrow=c(2, 2))
+for ( n in c(50, 100, 500, 1000) ) plot_mc_sample_mean_clt(N=n)
+mtext(text="Monte Carlo Simulation with 100 Repetitions", side=1, line=-2, outer=TRUE)
+```
+
+Obviously the approximation by Monte Carlo is quite good at various values of sample size $N$ with even a small number of repetition in this simple case.
+If we enlarge the simulation repetition number, the approximation can be of course better:
+
+```{r mc_clt_r1000}
+par(mfrow=c(2, 2))
+for ( n in c(50, 100, 500, 1000) ) plot_mc_sample_mean_clt(N=n, n_rep=1000)
+mtext(text="Monte Carlo Simulation with 1000 Repetitions", side=1, line=-2, outer=TRUE)
+```
+
+Usually a Monte Carlo exercise involves in number of repetition at thousands at least.
+
+To reiterate the importance of random sampling,
+let's do the same simulation but this time with a biased sampler.
+We create a sequentially correlated sampler from a standard Uniform.
+
+```{r mc_clt_biase}
+non_random_sampler <- function(n) {
+  # A random process drawing from Uniform that is auto-related.
+  get_y_t1 <- function(y_t0) {
+    sample(c(runif(1, 0, y_t0), runif(1, y_t0, 1)), size=1, prob=c(.7, .3))
+  }
+  y_t0 <- runif(1)
+  y <- numeric(n)
+  y[1] <- y_t0
+  for ( i in 2:n ) {
+    y[i] <- get_y_t1(y_t0)
+    y_t0 <- y[i]
+  }
+  y
+}
+
+plot_mc_sample_mean_clt(N=50, sample_func=non_random_sampler, n_rep=1000,
+                        sub="Monte Carlo for Biased Samples")
+```
+
+As one can see,
+the resulting MCMC samples can no longer approximate the theoretical limiting distribution of the sample mean.
+
+## Monte Carlo for the Law of Large Number
+
+Continue from the above example,
+we can also use Monte Carlo to examine the Law of Large Number (LLN hereafter).
+LLN suggests that the sample mean will converge to population mean in probability.
+That is,
+
+$$
+(\bar{x} - \mu) \overset{p}\rightarrow 0.
+$$
+
+By ploting the overlapping density at a variety of sample sizes we can clearly see that the sampling distribution of sample mean error is converging around 0.
+So the intuitive conclusion: The larger the sample, the less the variance of our guessing.
+
+```{r mc_lln}
+plot_mc_sample_mean_lln <- function(N_list, n_rep=500) {
+  require(lattice, quietly=TRUE)
+  
+  mc_mean <- function(N, n_rep) {
+    x_bar <- numeric(n_rep)
+    for ( r in 1:n_rep ) {
+      x_bar[r] <- mean(runif(N))
+    }
+    x_bar
+  }
+  
+  res <- matrix(NA_real_, nrow=n_rep, ncol=length(N_list))
+  for ( i in 1:length(N_list)) {
+    res[,i] <- mc_mean(N_list[i], n_rep) - .5
+  }
+  res <- as.data.frame(res)
+  colnames(res) <- paste0("N = ", N_list)
+  res <- stack(res)
+  title <-bquote("Sampling Distribution of " ~ bar(X) - mu)
+  lattice::densityplot(~ values, group=ind, data=res, auto.key=TRUE,
+                       main=title, xlab="Sample Mean Error")
+}
+
+plot_mc_sample_mean_lln(c(50, 100, 500, 1000, 10000))
+```
+
+## Monte Carlo for Confidence Interval
+
+Previously to illustrate the idea that confidence interval is a random variable,
+we conduct 9 independent experiments and visualize the results.
+As a software engineer one should probably think:
+Why stop at only 9 experiments?
+
+We can extend the exercise as a Monte Carlo one by generating as many experiments as we want.
+We can then summarize the overall results to examine whether the 95% confidence interval actually contains the true parameter approximately 95% of the time.
+
+```{r mc_ci}
+run_ci_exp <- function(X, true_mean) {
+  xbar <- mean(X)
+  err <- qnorm(.975, mean=0, sd=sd(X)/sqrt(length(X)))
+  z_hb <- xbar + err
+  z_lb <- xbar - err
+  true_mean >= z_lb & true_mean <= z_hb
+}
+
+set.seed(777)
+nr <- 1000
+mc_ci_result <- rep(NA, nr)
+for ( r in 1:nr ) {
+  mc_ci_result[r] <- run_ci_exp(rbeta(1000, beta_a, beta_b), true_mean)
+}
+
+mean(mc_ci_result)
+```
+
+The result suggests that out of `r nr` independent experiments there are `r sum(mc_ci_result)` experiments we have the 95% C.I. containing the true mean.
+The Monte Carlo method has confirmed our interpretation of C.I..
+
+## Rejection Sampling
+
+The previous example works perfectly fine since we have absolutely no problem in generating random samples from a well-known distribution which is the Standard Uniform distribution.
+In cases where the target distribution is not tractable,
+we need to rely on Markov chain Monte Carlo method.
+The sampling here is termed rejection sampling since it involves in a Markov process where the next sample is based on the previous one and subject to a rate of rejection.
+
+Here is the general process of rejection sampling in one round:
+
+1. **[Initialization]** Start with an initial sample
+2. **[Sample Proposal]** Propose a new sample based on the previous one with a random noise
+3. **[Acceptance Test]** Accept or reject the new sample stochastically based on likelihood ratio of the new sample to the previous one
+    + If the proposed sample is accepted, the next proposed sample will be based on it
+    + It the proposed sample is rejected, the previous example is counted again as a valid sample, and a new sample is proposed based on it
+
+Based on various ways of implementing the step 2 and step 3,
+different algorithms have been developed.
+The process will run as many rounds as possible to get the required sample size.
+
+The random noise in step 2 is usually drawn from a Normal distribution centered at zero,
+referred to as the *proposal distribution*.
+A Normal proposal distribution with zero mean will make the sample generating process effectively a [random walk](https://en.wikipedia.org/wiki/Random_walk) stochastic process.
+
+Step 3 is indeed the key component of the process,
+referred to as the *acceptance test*.
+Without this step,
+there is no chance that a random walk can approximate a given distribution.
+
+### Metropolis-Hastings Sampling
+
+The Metropolis-Hastings algorithm is a classical method in MCMC family.
+It is probably one of the mostly quoted MCMC methods.
+Many other modern methods are based on top of it instead of a re-invention.
+In the acceptance test of Metropolis sampler,
+the proposed sample will be accepted if its posterior likelihood is larger than the previous sample.
+If the likelihood is lower,
+the proposed sample will still have a chance to be accepted,
+with the probability matching the likelihood ratio of the proposed sample to the previously accepted sample.
+
+To illustrate,
+if the proposed sample has a likelihood value of 1 and that of the previous sample is 5,
+then the proposed sample will have a $1/5 = 20\%$ chance to be still accpeted.
+
+Let's implement a Metropolis sampler for a target distribution which is Normal.
+This is for us to easily verify the (otherwise usually unknown) true population and the resulting samples from our sampler.
+
+We can implement its very basic concept in just a few lines of code:
+
+```{r metro_sampler}
+calc_lik_norm <- function(x, mean=10, sd=5) {
+  # In actual application,
+  # this function should calculate the posterior density of the parameter x given the data.
+  # Here we just assume that is a N(mean,sd) for educational purpose.
+  dnorm(x, mean, sd)
+}
+
+metro_sample <- function(likelihood, init_val, niter, seed=777) {
+  # The function is not optimized at all. It is for illustration purpose only.
+  set.seed(seed)
+  
+  current_val <- init_val
+  current_val_lik <- likelihood(current_val)
+  accepted_samples <- init_val
+  n_accepted <- 0
+  
+  # Iteration.
+  # No obvious way to vectorize this operation since it is serially dependent.
+  for ( i in 1:niter ) {
+    proposed_val <- current_val + rnorm(1, 0, 1)  # The proposal distribution is N(0,1).
+    proposed_val_lik <- likelihood(proposed_val)
+    accept_prob <- proposed_val_lik / current_val_lik
+    if ( accept_prob > runif(1) ) {
+      current_val <- proposed_val
+      current_val_lik <- proposed_val_lik
+      n_accepted <- n_accepted + 1
+    }
+    # Not that if the proposed sample is rejected,
+    # the current sample is duplicated.
+    accepted_samples <- c(accepted_samples, current_val)
+  }
+  
+  list(accept_rate=n_accepted / niter, sample=accepted_samples)
+}
+```
+
+We can plot the *trace* of the sampling process:
+The accepted sample values along the iteration.
+
+```{r metro_plot_trace}
+init_val_1 <- 9
+mcmc_res <- metro_sample(calc_lik_norm, init_val_1, niter=5000)
+
+plot(mcmc_res$sample, type="l", 
+     main="Metropolis Sampling Trace",
+     xlab="Iteration", ylab="MCMC Sample Value")
+```
+
+In this toy example, the acceptance rate of our sampler should be very high:
+
+```{r metro_accept_rate}
+mcmc_res$accept_rate
+```
+
+We can also plot the distribution of resulting samples along with the true population density (in blue line) for comparison:
+
+```{r metro_plot_hist}
+plot_mc_sample <- function(x, init_val, ...) {
+  hist(x, prob=TRUE, xaxs="i", yaxs="i", ...)
+  density <- curve(calc_lik_norm, from=min(x), to=max(x), 
+                   col="blue", add=TRUE)
+  abline(v=init_val, col="red")
+  text(init_val, mean(density$y)*.5, pos=2, "Initial Value", col="red")
+}
+
+plot_mc_sample(mcmc_res$sample, init_val_1)
+```
+
+#### On Initival Value {-}
+
+If the parameter value initializes at a reasonable location,
+we should see the trace plot exhibits [stationarity](https://en.wikipedia.org/wiki/Stationary_process) over iterations.
+Any obvious non-stationarity in the beginning of the trace plot suggest a "burn-in" may be necessary--dropping samples generated in the early rounds.
+
+For example,
+let's purposely start the value at a far off location and plot the trace again:
+
+```{r metro_plot_trace_2}
+init_val_2 <- 50
+mcmc_res_2 <- metro_sample(calc_lik_norm, init_val_2, niter=5000)
+
+plot(mcmc_res_2$sample, type="l", 
+     main="Metropolis Sampling Trace",
+     xlab="Iteration", ylab="MCMC Sample Value")
+```
+
+```{r metro_plot_hist_2}
+plot_mc_sample(mcmc_res_2$sample, init_val_2)
+```
+
+We see the resulting distribution of samples has a fat right tail due to an inappropriate initial value, 
+and the trace plot is obviously not stationary at the beginning rounds of iteration.
+The sampler still makes its way to the target distribution,
+but early draws should be removed or we will end up with an incorrect approximation if the number of sample size is not large enough to make the initial draws negligible.
+
+We can examine the stability of the resulting distribution on different number of iterations with the far off initial value:
+
+```{r metro_less_iter_hist}
+niter_1 <- 500L
+
+par(mfrow=c(3, 3), oma=c(3, 3, 0, 0), mar=c(3, 3, 2, 2))
+for ( i in 1:9 ) {
+  s1 <- metro_sample(calc_lik_norm, init_val_2, niter=niter_1)$sample
+  plot_mc_sample(s1, init_val_2, main=sprintf("%s Iterations@%s", niter_1, i))
+}
+mtext(text="Metropolis Sampling Exercises 1", side=1, line=0, outer=TRUE)
+mtext(text="Density", side=2, line=0, outer=TRUE)
+```
+
+```{r metro_more_iter_hist}
+niter_2 <- 10000L
+
+par(mfrow=c(3, 3), oma=c(3, 3, 0, 0), mar=c(3, 3, 2, 2))
+for ( i in 1:9 ) {
+  s2 <- metro_sample(calc_lik_norm, init_val_2, niter=niter_2)$sample
+  plot_mc_sample(s2, init_val_2, main=sprintf("%s Iterations@%s", niter_2, i))
+}
+mtext(text="Metropolis Sampling Exercises 2", side=1, line=0, outer=TRUE)
+mtext(text="Density", side=2, line=0, outer=TRUE)
+```
+
+For `niter` at `r niter_1` and `r niter_2` we repeat the entire sampling process 9 times independently.
+As one can easily see,
+we need a relatively large number of repetitions in order to get a stable result of the sampler,
+especially when the initial value is not appropriate.
+
+In practice there are several (non-exclusive) ways to handle the initial value:
+
++ Use MLE estimate (whenever available) as the initial value
++ Use multiple Markov chains separately with different initial values and do diagnostic check among results from different chains
++ Use burn-in: Remove early samples based on stationarity check
+
+#### On Proposal Distribution {-}
+
+Of course not only the initial value but also the proposal distribution will affect the effectiveness of the sampling process.
+The size of the permutation is a hyperparameter of Metropolis sampler.
+Size too small will need more time to converge and is riskier to be trapped at local maximum density.
+Size too big will result in too low the acceptance rate since lots of the proposed value may not be even within the range of the target distribution.
+The sampling efficiency hence will be lower.
+
+#### Metropolis Sampler for a Uniform Target? {-}
+
+In the section we do a simple Metropolis sampling exercise for a Normal distribution as the target distribution.
+It serves as a good tutorial since we can compare the actual distribution against our final samples.
+How about we make it even simpler,
+by doing Metropolis sampling for a Uniform distribution?
+
+Indeed,
+it won't work.
+
+Or at least our simple implementation won't work.
+Let's give it a try whatever.
+
+```{r metro_unif, fig.height=5, fig.width=10}
+calc_lik_unif <- function(x, a=0, b=1) {
+  dunif(x, min=a, max=b)
+}
+
+mcmc_res_3 <- metro_sample(calc_lik_norm, .5, niter=500)
+
+par(mfrow=c(1, 2))
+hist(mcmc_res_3$sample, main="Metropolis Samples", xlab="X ~ Uniform(0, 1)",
+     sub="Does it look like a Uniform distribution?")
+plot(mcmc_res_3$sample, type="l", 
+     main="Trace",
+     xlab="Iteration", ylab="MCMC Sample Value")
+```
+
+Obviously,
+it is not working,
+even if we start the initial value at the true mean.
+
+Why?
+Because a $\mbox{Uniform}(a, b)$ has a flat density of 1 everywhere in between the range of $[a, b]$ and a flat density of 0 everywhere else.
+The Metropolis acceptance test simply won't work since the likelihood ratio is always 1!
+Hence the shape of samples ends up follows exactly the proposal distribution which is a random walk.
+
+This is not a practical issue, though.
+Since MCMC is designed for non-trivial distribution.
+
+#### Key Take-Away {-}
+
+The key take-away is that as long as we can calculate the posterior density, 
+even without knowing the target distribution analytically, 
+it is still possible to generate random sample out of it.
+Then we can apply Monte Carlo estimation on the resulting samples for model inference.
+
+Practically speaking,
+thanks to MCMC,
+in the Bayes' Law (equation $\eqref{eq:bayeslaw}$) we don't need to calculate the denominator term (marginal likelihood of outcome) in order to generate random sample of our model parameters from its posterior distribution.
+We only need to calculate the numerator term.
+
+Of course in the toy example here there is no such thing as posterior density per se,
+because we are not calculating the density conditioned on data observed. 
+(We don't observe any data at all!)
+In the latter section we will have a more realistic walk-through of how Metropolis sampling is applied under a full-fledged probabilistic model.
+
+### Gibbs Sampling
+
+Gibbs sampling is yet another very popular MCMC method.
+It is designed particularly for joint distribution.
+That is,
+to draw random samples from multiple parameters with high correlation.
+The general idea is to draw samples from one parameter distribution conditional on the other parameters.
+
+The hello-world example of a Gibbs sampler will be to draw random samples from a (supposedly complicated) target distribution $f(x, y)$ by using only $f(x|y)$ and $f(y|x)$.
+Here $x$ and $y$ can be considered two parameters jointly determining the density function $f(\cdot)$.
+
+Readers interested in more details can refer to @resnik2010gibbs as a gentle introductory write-up with naive Bayes document classification as a detailed working example.
+
+Notably,
+Gibbs sampling can also be used along with Metropolis sampling,
+referred to as "Metropolis within Gibbs."
+
+### Hamiltonian Monte Carlo
+
+Both Metropolis and Gibbs sampling are subject to inefficiency when it comes to complicated target distribution in high dimension.
+
+Hamiltonian Monte Carlo (HMC) is another MCMC method based on top of Metropolis-Hastings algorithm. 
+The difference is that it improves the way the proposed sample is generated,
+such that the search is more efficient and hence overall simulation time can be considerably reduced.
+The general idea of the Metropolis framework still holds.
+But instead of proposing one sample at a time purely at random,
+HMC proposes a series of new samples as a path to explore the probability space.
+And such path is guided by the gradient of the target density function.
+But gradient alone will not do the trick since gradient will guide the path directly to the mode of the density where the density is the largest but the volume is too small to fairly calculate the integral.
+To effectively explore the probability space we need to traverse within area with both moderate density and volume (area called the [*typical set*](https://en.wikipedia.org/wiki/Typical_set)).
+To accomplish this in HMC auxiliary momentum parameters are introduced such that the gradient together with the momentum will allow the path to have just enough "energy" to traverse the typical set without being pull to the density mode.
+
+The detailed math involves differntial geometry and is way beyond the scope of our discussion.
+One can refer to @betancourt2017conceptual for a more in-depth but yet soft introduction to HMC.
+
+# Bridge Sampling
+
+Bridge sampling is yet another Monte Carlo numerical method,
+designed to estimate marginal likelihood for a Bayesian model.
+Different from MCMC aiming at estimation for the posterior,
+the goal of bridge sampling is to estimate particularly for the denominator term in the Bayes' Law given a model.
+Although the denominator is not neccessary at all when using MCMC to simulate samples drawn from the posterior density,
+there are other cases where we may want to solve for this term.
+The most common scenario is model comparison,
+with one obvious example being the calculation of Bayes factor.
+(Remember that Bayes factor is the ratio of marginal probability between two models.)
+
+The package `bridgesampling` [@bridge2018] in R implements bridge sampling and is compatible with many other Bayesian libraries (notably `rstan`, among others).
+
+```{r bridge_import}
+library(bridgesampling)
+```
+
+Let's use our binomial example previously discussed to illustrate the inner working of bridge sampling.
+A Binomial model with Uniform prior on the probability parameter is sometimes refered to as the Beta-Binomial model.
+(Apparently due to the fact that the marginal probability follows a form of Beta function.)
+
+Formally,
+
+$$
+\begin{aligned}
+Y &\sim \mbox{Binomial}(N, \theta), \\
+\theta &\sim \mbox{Uniform}(0, 1).
+\end{aligned}
+$$
+
+An interesting fact about this model we didn't mention previously is that the posterior is actually a Beta distribution
+
+$$
+\theta|y \sim \mbox{Beta}(y+1, N-y+1),
+$$ 
+
+where $y$ is the actual number of positive outcome out of $N$ trials.
+
+In the previous section we've tried using a naive Monte Carlo method to approximate the marginal likelihood,
+by taking advantage of the fact from $\eqref{eq:marginal_lik_h0}$.
+That is,
+we simply generate random draws from prior and calculate the mean of the resulting conditional data likelihood as our approximation.
+It went well due to the simplicity of this particular problem.
+In general,
+however,
+the approximation may not be good for such a naive approach.
+Bridge sampling is then the solution for more complicated model setup.
+
+The following write-up mainly follows @gronau2017tutorial.
+
+The idea of bridge sampling is to introduce a proposal distribution $g(\theta)$ along with a bridge function $h(\theta)$ such that
+
+$$
+\begin{aligned}
+P(y)
+&= \int P(y|\theta)P(\theta)d\theta \\
+&= \frac{\int P(y|\theta)P(\theta)h(\theta)g(\theta)d\theta}{\int P(y|\theta)P(\theta)h(\theta)g(\theta)d\theta} \cdot \frac{1}{\frac{1}{P(y)}} \\
+&= \frac{\int P(y|\theta)P(\theta)h(\theta)g(\theta)d\theta}{\int \frac{P(y|\theta)P(\theta)}{P(y)}h(\theta)g(\theta)d\theta} \\
+&= \frac{\int P(y|\theta)P(\theta)h(\theta)g(\theta)d\theta}{\int P(\theta|y)h(\theta)g(\theta)d\theta} \\
+&= \frac{E_{g(\theta)}\big[P(y|\theta)P(\theta)h(\theta)\big]}{E_{post}\big[h(\theta)g(\theta)\big]}
+\end{aligned}.
+$$
+
+In the above equation the denominator can be approximated by random parameter draws from the posterior and the numerator can be approximated by random parameter draws from the proposal distribution.
+We already know that we can use MCMC to generate random samples from the posterior;
+hence no problem in approximating the denominator term.
+The remaining question is how do we obtain a suitable proposal distribution and bridge function such that we can also approximate the numerator term.
+
+We will skip the detailed mathematical derivation but in general we want a proposal distribution to resemble the posterior distribution as much as possible and with sufficient overlap in their support.
+A good candidate is a Normal distribution with its first two moments matching those of the posterior.
+But for a more complicated posterior (especially in very high dimension) other candidates may be more appropriate.
+
+The choice of the bridge function is way beyond the scope of this tutorial.
+Roughly speaking it will be a function of sample sizes from both posterior and proposal sampling,
+and depend on data likelihood and marginal likelihood.
+Since it depends on marginal likelihood which is the very value we want to solve for,
+the actual bridge sampling will invovle in an iterative process where in each step the bridge function will be updated by the newest estimate of the marginal likelihood under convergence.
+
+Back to our beta-binomial example,
+let's do the bridge sampling using the package `bridgesampling`:
+
+```{r bridge_beta_binom}
+# Generate posterior samples.
+# For a real-world problem we need to use MCMC.
+# Here we simply take the mathematical advantage of knowing the posterior is indeed a Beta.
+set.seed(777)
+post_samples <- as.matrix(rbeta(5000, y+1, N-y+1))
+colnames(post_samples) <- "theta"
+
+# Define function to calculate the log unnormalized posterior density.
+# We can use this function with a Metroplis sampler to derive the random posterior samples as well.
+lup_betabinom <- function(theta, data) {
+  log(choose(10, data)*theta^data*(1-theta)^(10-data))
+}
+
+mlh <- bridge_sampler(post_samples, log_posterior=lup_betabinom, data=y, 
+                      lb=setNames(-Inf, "theta"), ub=setNames(Inf, "theta"), silent=TRUE)
+exp(mlh$logml)
+```
+
+The result is very close to the analytical solution derived in our previous section.
+
+# Bayesian Logistic Regression using R
+
+The package `mcmc` [@geyer2019mcmc] implements seriously the Metropolis-Hastings algorithm.
+It also provieds a good example of a Bayesian logistic regression model.
+In this section we will take a close look at its introductory example.
+(Run `vignette("demo", "mcmc")` for the original write-up.)
+
+## Model Setup
+
+The logistic regression model can be written as:
+
+$$
+P(y = 1) = \frac{1}{1+e^{-(X\beta)}}.
+$$
+
+Simply put,
+a linear model $\nu = X\beta + \epsilon$ is transformed into a probability space $\mathbb{R} \in [0,1]$ via a logistic function $\delta(t) = \frac{1}{1 + e^{-t}}$.
+
+In order to do Bayesian analysis on this model,
+we need two more things:
+
+1. Our prior on all the regression coefficients $\beta$, aka model parameters
+2. Function to calculate the posterior density of the parameters $P(\beta|y)$, so that we can do MCMC sampling for the model parameters
+
+Remember again (and again!) from Bayes' Law $\eqref{eq:bayeslaw}$,
+in order to calculate the posterior density,
+we need the data likelihood $P(y|\beta)$ AND a prior on $\beta$ that can help us specify $P(\beta)$.
+What we are going to calculate is usually called the *unnormalized* density $P(y|\beta) \cdot P(\beta)$, since the denominator won't affect our MCMC solution to the system (and also in practice we will hardly know $P(y)$ the true population distribution).
+
+Let's examine the toy example in `mcmc` package:
+
+```{r mcmc_logit_data}
+library(mcmc)
+data(logit)  # This is a built-in dataset in `mcmc`.
+head(logit)
+```
+
+And the result of a traditional frequentist approach:
+
+```{r mcmc_logit_frequentist}
+fitted_model <- glm(y ~ x1 + x2 + x3 + x4, data=logit, family=binomial, x=TRUE)
+summary(fitted_model)
+```
+
+The parameter point estimate is solved by [Newton's method](https://en.wikipedia.org/wiki/Newton%27s_method) for a maximum likelihood estimator (MLE) implemented in R's bulit-in `glm` function.^[For machine learning application usually gradient descent (a 1st-order optimizer) is used instead of Newton's method (a 2nd-order optimizer) due to computational complexity in large scale application. This is, however, less of an issue in the field of Econometrics. And since R is designed for statistics in a pre-Big Data era, the most concerned field of application will be traditional social science where observational data is usually very limited in volume.] The inference on these point estimates (based on the estimated variance of the point estimate and its sampling distribution property) is a frequentist's point of view.
+
+## Constructing the Posterior
+
+Now move on to the Bayesian approach of exactly the same model.
+To use `mcmc::metrop` the Metropolis sampling function we first need to implement our own function for calculating the unnormalized posterior density given the data and parameters.
+
+In practice,
+in order to maintain numerical stability,
+we always use [log-likelihood](https://en.wikipedia.org/wiki/Log_probability) instead of the likelihood in raw scale.
+So instead of calculating
+
+$$
+\underbrace{P(\beta|y)}_\text{posterior density} \propto 
+\underbrace{P(y|\beta)}_\text{data likelihood} \times
+\underbrace{P(\beta)}_\text{prior density},
+$$
+
+we end up with
+
+$$
+\underbrace{\ln P(\beta|y)}_\text{posterior log-likelihood} \propto 
+\underbrace{\ln P(y|\beta)}_\text{data log-likelihood} + 
+\underbrace{\ln P(\beta)}_\text{prior log-likelihood}.
+$$
+
+Hence the posterior will be the sum of all log-likelihood of each observed data point and the log-likelihood of our parameter prior.
+
+The data likelihood is very straightforward since the model is already expressed in probability:
+
+$$
+\begin{aligned}
+\mbox{data log-likelihood} \equiv 
+\ln P(y = 1) &= - \ln (1 + e^{-X\beta})  \\
+&= X\beta - \ln (1 + e^{X\beta}).
+\end{aligned}
+$$
+
+The case of $P(y = 0)$ can be derived similarly:^[We are taking advantage of the fact that $\frac{1}{1+e^{-v}} = \frac{e^v}{1 + e^v}$ to express the log likelihood differently in favor of our numerical computation stability.]
+
+$$
+\begin{aligned}
+\mbox{data log-likelihood} \equiv \ln P(y = 0) 
+&= \ln \big[1 - P(y=1)\big] \\
+&= - X\beta - \ln (1 + e^{-X\beta})  \\
+&= - \ln (1 + e^{X\beta}) .
+\end{aligned}
+$$
+
+The prior density is purely determined by our assumption about the prior itself.
+For example,
+the probabilidy density function of a Normal distribution $x \sim N(\mu, \sigma)$ prior is:
+
+$$
+f(x) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{(x - \mu)^2}{2\sigma^2}}.
+$$
+
+Then the natural log of the pdf will be:
+
+$$
+\ln f(x) = 
+\underbrace{-\frac{1}{2}\ln(2\pi\sigma^2)}_\text{a constant} - 
+\frac{(x - \mu)^2}{2\sigma^2},
+$$
+
+where the first term is a constant that can be safely ignored in the actual computation.
+
+Now let's assume our prior on $\beta$ is just $\beta \sim N(0, 1)$ for all coefficients independently.
+A numerically stable likelihood function can be implemented as the following code chunk.
+
+```{r mcmc_logit_post_density}
+get_log_unnorm_post_fun <- function(X, y) function(beta, mu_beta=0, sigma_beta=2) {
+  # Return a function that calculate the numerically stable log-likelihood given Xy.
+  # To do so, make sure that v < 0 for all exp(v) in the calculation.
+  v <- as.numeric(X %*% beta)
+  # Sum of data log-likelihood for all observed data, conditional on beta.
+  logp <- ifelse(v < 0, v - log1p(exp(v)), - log1p(exp(-v)))
+  logq <- ifelse(v < 0, - log1p(exp(v)), - v - log1p(exp(-v)))
+  logl <- sum(logp[y == 1]) + sum(logq[y == 0])
+  # Assume beta ~ N(mu_beta, sigma_beta), 
+  # calculate only the data-dependent part of the log likelihood.
+  logl - sum((beta - mu_beta)^2) / (2*sigma_beta^2)
+}
+
+lup_fun <- get_log_unnorm_post_fun(fitted_model$x, fitted_model$y)
+```
+
+## Metropolis-Hastings Sampling using `mcmc`
+
+Once we have the posterior density function, we can plug-and-play the sampling API to get the MCMC samples.
+
+```{r mcmc_logit_bayes}
+set.seed(777)
+
+# Do Metropolis sampling with initial parameter values set to the MLE estimates.
+beta_mle <- as.numeric(coefficients(fitted_model))
+mcmc_result <- mcmc::metrop(lup_fun, beta_mle, nbatch=1000)
+
+str(mcmc_result)
+```
+
+The returned object contains all the information useful for latter analysis, 
+including acceptance rate, 
+an indicator vector of which sample is accepted, 
+the final estimates, 
+processing time,
+etc.
+
+Also the returned object can be re-used to run further sampling chain:
+
+```{r mcmc_check_rerun}
+mcmc_result2 <- mcmc::metrop(mcmc_result)
+
+# Check that the sampling chain is consecutive.
+all(mcmc_result$final == mcmc_result2$initial)
+```
+
+We can use the argument `scale` to adjust the proposal distribution, that is, the step size of the random walk in the sampling process:
+
+```{r mcmc_change_step_size}
+mcmc_result <- mcmc::metrop(mcmc_result, scale=.5, nbatch=10000)
+mcmc_result$accept
+```
+
+In general the step size and the acceptance rate is negatively correlated:
+Bigger steps give lower acceptance rates.
+
+We can plot the trace for all parameters:
+
+```{r mcmc_beta_trace}
+plot(ts(mcmc_result$batch, names=sprintf("\U03B2%s", 1:length(beta_mle) - 1)),
+     main="Trace of Metropolis Sampling for Logistic Model Coefficients",
+     xlab="Iteration")
+```
+
+Or the auto-correlation plot among all parameters:
+
+```{r mcmc_beta_autocor, fig.height=7.5, fig.width=7.5}
+acf(mcmc_result$batch)
+```
+
+Since the sampling process is a Markov chain,
+serial correlation is expected.
+
+## MCMC Estimation and Standard Error
+
+Be aware that the full Metropolis algorithm implemented in `mcmc` is a mini-batched process.
+The returned `batch` vector is indeed a vector of (mini-)*batch means*.
+By default `mcmc::metrop` use a batch length (`blen`) equal to 1, so there is no mini-batch at all.
+The total number of MC iterations hence is `nbatch` times `blen`.
+
+```{r mcmc_minibatch}
+# This time we return both the batch mean of raw value and the squared value
+# in order to calculate variance of the estimate.
+mcmc_result_mb <- mcmc::metrop(mcmc_result, scale=.5, nbatch=500, blen=500,
+                               outfun=function(z) c(z, z^2))
+```
+
+Now to get our Monte Carlo point estimates about the model parameters:
+
+```{r mcmc_estimation_mean}
+# The grand mean: The mean of all the batch means.
+batch_means <- colMeans(mcmc_result_mb$batch)
+point_est <- batch_means[1:5]
+point_est
+```
+
+and also the variance of the estimates
+
+```{r mcmc_estimation_variance}
+# Based on the fact that Var(X) = E(X^2) - E(X)^2.
+var_est <- batch_means[6:10] - batch_means[1:5]^2
+var_est
+```
+
+Monte Carlo itself is a random process that can introduce its own statistical noise.
+Such noise purely due to Monte Carlo is termed the Monte Carlo standard error (MCSE).
+
+### MCSE of Point Estimate
+
+This is analogous to the sampling distribution of $\bar{X}$ based on samples of $X$,
+which by CLT has a standard error of $\frac{\sigma}{\sqrt{N}}$.
+
+Now we have a finite sample set of $N$ MCMC batch means for $\beta$, 
+denoted as $\beta_i, i \in \{1,2,...,N\}$.
+Our grand mean (the final point estimator) $\bar{\beta} = \frac{1}{N}\sum_i^N\beta_i$,
+again by CLT,
+will have a standard error of $\frac{\sigma}{\sqrt{N}}$ as well.
+To calculate the error the population standard deviation $\sigma$ is estimated by the sample standard deviation:
+
+```{r mcmc_mcse_mean}
+mcse_mean <- apply(mcmc_result_mb$batch[,1:5], 2, sd) / sqrt(mcmc_result_mb$nbatch)
+mcse_mean
+```
+
+MCSE is a good metric for us to determine our scale of MCMC.
+That is, how long we'd like to run the simulation.
+A general rule of thumb is to reach MCSE < 1%.
+
+### MCSE of Variance Estimate
+
+We not only estimate the point of parameter, but also the variance if it.
+And since the estimation is done by finite MCMC,
+so again there will be additional errors solely attributable to the adoption of MCMC.
+
+The calculation of MCSE of parameter variance is trickier.
+We need to use the [delta method](https://en.wikipedia.org/wiki/Delta_method):
+
+```{r mcmc_mcse_var}
+calc_var_mcse <- function(u, v, n) {
+  # u: batch mean of first moment
+  # v: batch mean of second moment
+  # ubar: grand mean of batch mean u 
+  # vbar: grand mean of batch mean v
+  ubar <- colMeans(u)
+  vbar <- colMeans(v)
+  deltau <- sweep(u, 2, ubar)
+  deltav <- sweep(v, 2, vbar)
+  foo <- sweep(deltau, 2, ubar, "*")
+  sqrt(colMeans((deltav - 2 * foo)^2) / n)
+}
+
+mcse_var <- calc_var_mcse(u=mcmc_result_mb$batch[,1:5], 
+                          v=mcmc_result_mb$batch[,6:10],
+                          n=mcmc_result_mb$nbatch)
+mcse_var
+```
+
+To sum up our Bayesian modeling results:
+
+```{r mcmc_final}
+baysian_result <- rbind(point_est, mcse_mean, var_est, mcse_var)
+colnames(baysian_result) <- sprintf("\U03B2%s", 1:length(beta_mle) - 1)
+baysian_result
+```
+
+## Credible Interval
+
+Credible interval is the Bayesian counterpart of the confidence interval defined in frequentist statistics.
+Unlike the easily-misunderstood confidence interval,
+credible interval is rather intuitive.
+A 95% credible interval is simply the range of 2.5% percentile and 97.5% percentile on the posterior distribution of a parameter.
+
+That is,
+unlike frequentist confidence interval is a probablistic description about the interval itself,
+Bayesian credible interval is a probablistic description about the parameter of interest.
+The astonishing difference results from the very different philosophy about model parameter:
+Frequentists see parameters as unknown constants while Bayeisans see parameters as random variables.
+
+For our estimated logistic model,
+the 95% credible interval for all parameters can be obtained as the followings.
+
+```{r mcmc_ci}
+beta_ci <- apply(mcmc_result_mb$batch[,1:5], 2, quantile, c(.025, .975))
+colnames(beta_ci) <- sprintf("\U03B2%s", 1:length(beta_mle) - 1)
+beta_ci
+```
+
+Easy?
+The calculation here has a problem though.
+Since the returning posterior samples are batch means of mini batches,
+the interval is not describing the original distribution but instead the sampling distribution of its mean.
+To construct the credible interval for the posterior we need to do sampling without mini-batching:
+
+```{r mcmc_ci_no_minibatch}
+# Here we also do a burn-in for the first 10000 rounds.
+mcmc_result_no_batch <- mcmc::metrop(lup_fun, beta_mle, scale=.5, nbatch=10000, blen=1)
+mcmc_result_no_batch <- mcmc::metrop(mcmc_result_no_batch, scale=.5, nbatch=10000, blen=1)
+
+# Now the credible interval is describing the posterior itself.
+beta_ci2 <- apply(mcmc_result_no_batch$batch, 2, quantile, c(.025, .975))
+colnames(beta_ci2) <- sprintf("\U03B2%s", 1:length(beta_mle) - 1)
+beta_ci2
+```
+
+The Bayesian credible interval seems to agree with the frequentist confidence interval on that the last 2 coefficients are not statistically significant,
+since the interval encompass 0.
+
+# Bayesian Modeling with Stan
+
+[Stan](https://mc-stan.org/) is a probabilistic programming language (based on C++) that is widely adopted in practical bayesian modeling.
+Before its presence,
+there are two other popular alternatives:
+[BUGS](https://www.mrc-bsu.cam.ac.uk/software/bugs/) and [JAGS](http://mcmc-jags.sourceforge.net/).
+We will focus on using Stan since it is relatively new with a much more advacned MCMC algorithm and showing increasing influence in the community and also is better documented and smoothly integrated with a variety of other eco-systems for modern developers.
+
+[`rstan`](https://github.com/stan-dev/rstan)[@stan2018] is the Stan offical R API to interface directly with Stan model code using R.
+Notably there are a lot more higher-level packages based on top of `rstan` to make life even easier,
+avoiding the need to write native Stan model code all together.
+In this tutorial however we will purposely ignore them and use only `rstan` alone since we'd like to understand the very basic concept of how Stan work.
+It turns out that this is also a very good opportunity to tidy up our thought on what we are exactly modeling in a Baysian framework,
+without being abstracted away too far due to higher-level implementations.
+
+To work with Stan, we write Stan model code in a separate `.stan` text file or as a string variable in R.
+We then compile the code using `rstan` API which will give us the Stan object to interact with directly within a R session.
+
+```{r stan_import, results="hide"}
+library(rstan)
+
+rstan_options(auto_write=TRUE)
+if ( Sys.info()["sysname"] == "Windows" )
+  Sys.setenv(LOCAL_CPPFLAGS="-march=native")
+```
+
+## Probabilistic Simulation
+
+A Stan model code contains several mandatory and optional blocks.
+Code block for `data`, `parameters`, and `model` are mandatory, even if they contain nothing.
+
+Though it is very easy to run probabilistic simulation using R alone, 
+here we illustrate how to do it using Stan with its optional `function` code block.
+The following Stan model code implements a function to generate random draws from a student's t distribution based on a linear model $y = X\beta + \epsilon$ (i.e., the residuals follow the student's t distribution):
+
+```{stan stan_dgp, output.var="stan_dgp"}
+functions {
+  vector st_rng(matrix X, vector beta, real nu, real sigma) {
+    vector[rows(X)] y;
+    for (n in 1:rows(X))
+      y[n] = student_t_rng(nu, X[n] * beta, sigma);
+    return y;
+  }
+}
+data {
+}
+parameters {
+}
+model {
+}
+```
+
+By running `rstan::stan_model` we can convert the native Stan model code into R `stanmodel` object.^[In this tutorial we use Rmd to directly compile the Stan code. For scripting usage, one should use either `stan_model(file="model.stan")` for `stan_model(model_code=model_str)` to compile and return the model object accordingly.]
+
+Some notes on the above Stan model code:
+
++ Variables are strongly typed, with declaration syntax `<type> name`.
++ Operator `*` for two `vector` variables is a dot product (while in R it is an element-wise product).
++ Loops are fast since it is C++.
+
+After compilation,
+functions defined in the `function` block can be exposed to R environment as R functions:
+
+```{r stan_expose_stan_func, results="hide"}
+# We store the compiled stan model in variable `stan_dgp`.
+# This is done directly via Rmd API.
+# For details: https://bookdown.org/yihui/rmarkdown/language-engines.html#stan
+expose_stan_functions(stan_dgp)
+
+# Verify that the Stan function has been exposed as a R function.
+exists("st_rng")
+```
+
+Now we can use the function directly in R:
+
+```{r stan_use_stan_func}
+y_sim <- st_rng(nu=10, X=matrix(rnorm(100*3), 100, 3), sigma=5, beta=rnorm(3))
+hist(y_sim)
+```
+
+Just for completeness,
+the same logic can of course be easily implemented in R:
+
+```{r stan_prob_sim_r_equivalent, eval=FALSE}
+X <- matrix(rnorm(100*3), 100, 3)
+beta <- rnorm(3)
+nu <- 10
+sigma <- 5
+y_sim <- as.vector(X%*%beta) + rt(nrow(X), nu)*sigma
+```
+
+## One-Sample Mean Test Revisited
+
+Let's implement the one-sample test using Stan.
+
+First we re-write the test with JZS prior based on our very first example:
+
+$$
+\begin{aligned}
+\begin{cases}
+\delta &= \frac{\mu}{\sigma}, \\
+P(\sigma^2) &\propto \frac{1}{\sigma^2}, \\
+H_0 &: \delta = 0, \\
+H_1 &: \delta \sim r \cdot \mbox{Cauchy}.
+\end{cases}
+\end{aligned}
+$$
+
+For notational simplicity,
+we shift our original random samples by the null value of `r h0_mean`,
+such that our null model has $\mu = 0$.
+
+```{r stan_simple_data_std}
+Y <- X1 - h0_mean
+```
+
+In order to generate MCMC samples,
+our prior must be fully specified.
+Now we will also assume $Y \sim \mbox{Normal}(\mu, \sigma)$.
+We already know that this is not true since we setup our sandbox problem such that $Y \sim \mbox{Beta}(2, 10)$.
+In reality,
+we will never get to know the true population anyway.
+In Bayesian framework,
+we have the flexibility to dictate our prior on that.
+With no additional information we usually resort to a Normal distribution as a baseline in many cases.
+So here the Normal it is.^[As a comparison, in the frequentist approach in this case we don't need to further assume the population distribution thanks to the CLT. We only need to loosely assume that the variance is finite for the population, such that CLT applies.]
+
+The null model above can be defined in Stan as:
+
+```{stan one_sample_ttest_h0, output.var="ttest_h0"}
+data {
+  int n;
+  vector[n] y;
+}
+parameters {
+  real<lower=0> sigma2;
+}
+transformed parameters {
+  real sigma = sqrt(sigma2);
+}
+model {
+  target += log(1/sigma2);
+  target += normal_lpdf(y | 0, sigma);
+}
+generated quantities {
+  vector[n] log_lik;
+  for (i in 1:n) {
+    log_lik[i] = normal_lpdf(y[i] | 0, sigma);
+  }
+}
+```
+
+And the alternative model:
+
+```{stan one_sample_ttest_h1, output.var="ttest_h1"}
+data {
+  int n;
+  vector[n] y;
+  real r;
+}
+parameters {
+  real delta;
+  real<lower=0> sigma2;
+}
+transformed parameters {
+  real sigma = sqrt(sigma2);
+  real mu = delta*sigma;
+}
+model {
+  target += cauchy_lpdf(delta | 0, r);
+  target += log(1/sigma2);
+  target += normal_lpdf(y | mu, sigma);
+}
+generated quantities {
+  vector[n] log_lik;
+  for (i in 1:n) {
+    log_lik[i] = normal_lpdf(y[i] | mu, sigma);
+  }
+}
+```
+
+Some more tricks in writing Stan model code is summarized below:
+
++ `parameters` block
+  + To define model parameters subject to MCMC; for model hyperparameter use `data` block to pass through.
+  + To bound variable value, add `<lower=>` or `<higher=>` suffix in the type declaration.
++ `transformed parameters` block
+  + is useful for derived parameters and in some cases can benefit from performance speedup.
++ `model` block
+  + To define a distribution purely for sampling purpose, use the operator `~`.
+  + To define a distribution used for calculating likelihood, use `target += *_lpdf()` notation.
+  + For parameters that are not specified, t`hey are assumed to follow a Uniform prior.
++ `generated quantities` block
+  + Can be used to calculate output. It will appear in the resulting `stanfit` object as additional parameters. Common output will be the data likelihood or the simulated model outcome (Bayesain predicates).
+
+In the `model` block when we write down something like `y ~ normal(0, 1)` in Stan model code it is indeed a vectorized instruction to calculate the sum of all log-likelihood from the specified distribution.
+If we instead write `target += normal_lpdf(y | 0, 1)` the only difference is that the former drops all constant terms (not used for sampling purpose) and the latter keeps them well.
+
+By default the MCMC method used in Stan is an enhanced version of Hamiltonian Monte Carlo,
+called the No-U-Turn sampler [@hoffman2014no].
+We can perform the sampling by just one function call using the compiled Stan model:
+
+```{r stan_one_sample_test_sampling}
+# We store the compiled stan model in ttest_h0 and ttest_h1, respectively.
+# This is done directly via Rmd API.
+# For details: https://bookdown.org/yihui/rmarkdown/language-engines.html#stan
+stan_h0 <- rstan::sampling(ttest_h0, data=list(y=Y, n=length(Y)),
+                           iter=10000, chains=4, cores=1, seed=777,
+                           refresh=0)
+stan_h1 <- rstan::sampling(ttest_h1, data=list(y=Y, n=length(Y), r=1),
+                           iter=10000, chains=4, cores=1, seed=777,
+                           refresh=0)
+```
+ 
+Several things to note about the `rstan::sampling` API:
+
++ Variables defined in the `data` block must be passed through a `named list`.
++ Multiple chains can be set, with support for parallellization among CPU cores.
++ Use `refresh = 0` to suppress the overwhelming progress logs whenver appropriate.
+
+We can do a lof of post processing on the resulting `stanfit` object.
+
+To extract the data likelihood we defined in `generated quantities` block:
+
+```{r stan_extract_log_lik}
+# If the sampler contains multiple chains, they are stacked together.
+log_lik_h0 <- as.matrix(stan_h0, pars="log_lik")
+str(log_lik_h0)
+```
+
+To print the summary of Bayesian estimation for parameters:
+
+```{r stan_print_h1_par}
+print(stan_h1, pars=c("delta", "sigma2", "lp__"))
+```
+
+To extract parameter MCMC samples:
+
+```{r stan_extract_par}
+h1_params <- rstan::extract(stan_h1, par="log_lik", include=FALSE)
+names(h1_params)
+mean(h1_params$delta)  # Check if the reported mean is derived from the sample.
+```
+
+For all applicable methods for a `stanfit` object one can refer to ``?`stanfit``.
+
+We can now use bride sampling to estimate the marginal likelihood of our models.
+Package `bridgesampling` directly support `rstan` so it is embarrassingly easy to perform the estimation:
+
+```{r stan_bridge_sampling}
+h0_marginal_lik <- bridgesampling::bridge_sampler(stan_h0, silent=TRUE)
+h1_marginal_lik <- bridgesampling::bridge_sampler(stan_h1, silent=TRUE)
+
+# Calculate the Bayes factor.
+bf(h1_marginal_lik, h0_marginal_lik)
+```
+
+We can check if the result is aligned with the one calculated from package `BayesFactor`:
+
+```{r stan_check_bf}
+BayesFactor::ttestBF(Y, mu=0, r=1)
+```
+
+## Bayesian Logistic Regression
+
+Let's repeat the exercise we previously did with the R package `mcmc`,
+but now use `rstan`.
+
+We rewrite the simple model here:
+
+$$
+\begin{aligned}
+P(y = 1) &= \frac{1}{1+e^{-(X\beta+\epsilon)}}, \\
+\beta &\sim \mbox{Normal}(0, 1).
+\end{aligned}
+$$
+
+Convert it into Stan model code:
+
+```{stan stan_logit_model, output.var="logit_model"}
+data {
+  int n;
+  matrix[n, 5] X;
+  int y[n];
+}
+parameters {
+  vector[5] beta;
+}
+model {
+  beta ~ normal(0, 1);
+  y ~ bernoulli_logit(X*beta);
+}
+```
+
+Notes on the above Stan model code:
+
++ For integer vector of length n, use `int y[n]` instead of `vector[n] y` since `vector` only applies to reals.
++ Use `bernoulli_logit` directly for logistic function.
+
+Now do MCMC and print the modeling result:
+
+```{r stan_logistic_fit}
+fitted_blogit <- rstan::sampling(
+  logit_model, data=list(X=fitted_model$x, y=fitted_model$y, n=length(fitted_model$y)),
+  iter=10000, chains=4, cores=1, seed=777, refresh=0)
+
+fitted_blogit
+```
+
+One can compare the result with that of `mcmc` in our previous section.
+They should show qualitatively similar result even though the underlying sampler is different.
+
+## Bayesian Model Diagnositics
+
+The Stan offical comes with a very handy GUI tool for investigation with Stan model fit:
+`shinystan` [@shinystan2018].
+
+For the model we just fitted, we can simply run:
+
+```{r stan_shiny, eval=FALSE}
+shinystan::launch_shinystan(fitted_blogit)
+```
+
+and be prepared to get your mind blown. :)
+
+## Bayesian Linear Regression
+
+For completeness,
+let's also do an exercise on a linear model with Stan:
+
+$$
+y = X \beta + \epsilon.
+$$
+
+The linear model is NOT a probabilistic model until we make assumption about its model residual $\epsilon$.
+For example,
+we can assume the residual to follow
+
+$$
+\epsilon \sim \mbox{Student's t}(\nu, 0, \sigma),
+$$
+
+which gives us
+
+$$
+y \sim \mbox{Student's t}(\nu, X\beta, \sigma),
+$$
+
+where $\nu$ is the degrees of freedom of the student's t distribution. 
+Now the linear model has turned into a probabilistic model.
+Our model parameters in this case will be $\theta = (\beta, \sigma)$.
+We need to setup our priors on them.
+To explore more possibility with Stan let's have a prior such that the first $\beta$ coefficient is nonnegatively normally distributed:
+
+$$
+\beta_{1} \sim\mbox{Normal}_{+}(\mu_{1}, \sigma_{1}),
+$$
+
+while the rest of them are just Normal:
+
+$$
+\beta_{p} \sim \mbox{Normal}(\mu_{p}, \sigma_{p}), \forall p \in \{2, ..., P\}.
+$$
+
+It's quite common to use a truncated Cauchy prior on variance.
+(Another popular choice is inverse-chi-squared.)
+
+$$
+\sigma \sim\mbox{Cauchy}_{+}(\mu_{\sigma}, \gamma_{\sigma}).
+$$
+
+Here $\mu_{\sigma}$ and $\gamma_{\sigma}$ are constants that parameterize the prior.
+
+Now create some fake data for this modeling exercise.
+
+```{r stan_lm_fake_data}
+set.seed(777)
+
+# Number of data.
+N <- 1000
+# Number of features.
+P <- 5
+# Observed data with a constant term.
+X <- cbind(1, matrix(rnorm(N*(P-1)), N, P-1))
+colnames(X) <- sprintf("\U03B2%s", 1:P)
+# Model parameters.
+nu <- 5
+sigma <- 5
+beta <- rnorm(P)
+beta[1] <- abs(beta[1])
+names(beta) <- colnames(X)
+# Simulated outcome.
+outcome <- as.vector(X%*%beta) + rt(nrow(X), nu)*sigma
+Xy <- cbind(outcome, X)
+
+head(Xy)
+```
+
+```{r stan_lm_fake_coef}
+# True model coefficients.
+beta
+```
+
+First we report the regression result from the frequentist approach (not constrained by the prior):
+
+```{r stan_lm_freq_fit}
+lm_fit_freq <- lm(outcome ~ . - 1, data=as.data.frame(Xy))
+summary(lm_fit_freq)
+```
+
+The the Stan code for Bayesian approach: 
+
+```{stan stan_lm, output.var="blm"}
+data {
+  int N;
+  int P;
+  matrix[N, P] X;
+  vector[N] y;
+}
+parameters {
+  real<lower = 0> beta_1;
+  vector[P-1] beta_2;
+  real<lower=0> sigma;
+  real<lower=0> nu;
+}
+transformed parameters {
+  vector[P] beta;
+  beta = append_row(rep_vector(beta_1, 1), beta_2);
+}
+model {
+  target += normal_lpdf(beta | 0, 5);
+  target += cauchy_lpdf(sigma | 0, 2.5);
+  target += cauchy_lpdf(nu | 7, 5);
+  target += student_t_lpdf(y | nu, X*beta, sigma);
+}
+generated quantities {
+  vector[N] y_sim;
+  for (i in 1:N) {
+    y_sim[i] = student_t_rng(nu, X[i,]*beta, sigma);
+  }
+}
+```
+
+Again some additional notes on Stan model coding:
+
++ To concatenate two `vector` use `append_row`. Scalar cannot be directly concatenated to `vector` so we need to convert it into a `vector` first by using `rep_vector()`.
++ This time we use `generated quantities` to also calculate Bayesian model predicates. They are random draws from the predicted distribution of our model.
+
+Note that we hardcode our prior parameter for all $\beta$s for simplicity.
+We can instead pass them into Stan model by using `data` block.
+
+```{r stan_lm_bayes_fit}
+blm_fitted <- rstan::sampling(blm, data=list(N=N, P=P, X=X, y=outcome),
+                              iter=10000, chains=4, cores=1, seed=777,
+                              refresh=0)
+
+print(blm_fitted, pars=c("beta", "sigma", "nu"))
+```
+
+# References

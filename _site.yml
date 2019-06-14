@@ -1,0 +1,14 @@
+name: "k9-gh-page"
+output_dir: "."
+navbar:
+  title: "k9"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "About Me"
+      href: about.html
+    - text: "Learning Bayesian"
+      href: bayesian/bayesian_modeling_explained.nb.html
+output:
+  html_document:
+    theme: flatly
