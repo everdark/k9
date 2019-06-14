@@ -99,7 +99,7 @@ P(y) = \int P(y|\theta)P(\theta)d\theta.
 \end{equation}
 $$
 
-The integral is usually analytically untractable,
+The integral is usually analytically intractable,
 even for a moderately parameterized model.
 By using MCMC method we can avoid calculation of this term all together when solving for the Bayesian estimator.
 But there are other scenarios we may still need to calculate this term.
@@ -543,7 +543,7 @@ Such property leads to potential overstatement of evidence against the null.
 ## A Binomial Problem
 
 Before we take a full Baysian approach to our first example,
-let's consider another example with analytical solution avalable.
+let's consider another example with analytical solution available.
 
 Consider a coin toss game, with $N$ number of tosses and we are counting the number of heads as $y$.
 The number of heads follows a [Binomial distribution](https://en.wikipedia.org/wiki/Binomial_distribution) with two parameters:
@@ -917,10 +917,14 @@ for a Uniform prior.
 The larger the Bayes factor the more supporting evidence for the numerator model against the denominator model.
 
 The package `BayesFactor` [@jeffery2018bf] in R implements a variety of different hypothesis testing tools based on the usage of Bayes factor.
+
+```{r coin_import, results="hide"}
+library(BayesFactor)
+```
+
 There is a function `proportionBF` for a proportion test at our disposal:
 
 ```{r coin_bf_logistic_prior}
-library(BayesFactor)
 BayesFactor::proportionBF(y, N, p=.5)
 ```
 
@@ -1155,7 +1159,7 @@ plot_mc_sample_mean_clt(N=50, sample_func=non_random_sampler, n_rep=1000,
 ```
 
 As one can see,
-the resulting MCMC samples can no longer approximate the theoretical limiting distribution of the sample mean.
+the resulting MC samples can no longer approximate the theoretical limiting distribution of the sample mean.
 
 ## Monte Carlo for the Law of Large Number
 
@@ -1529,7 +1533,7 @@ with one obvious example being the calculation of Bayes factor.
 
 The package `bridgesampling` [@bridge2018] in R implements bridge sampling and is compatible with many other Bayesian libraries (notably `rstan`, among others).
 
-```{r bridge_import}
+```{r bridge_import, results="hide"}
 library(bridgesampling)
 ```
 
@@ -1649,8 +1653,12 @@ What we are going to calculate is usually called the *unnormalized* density $P(y
 
 Let's examine the toy example in `mcmc` package:
 
-```{r mcmc_logit_data}
+```{r mcmc_import, results="hide"}
 library(mcmc)
+```
+
+
+```{r mcmc_logit_data}
 data(logit)  # This is a built-in dataset in `mcmc`.
 head(logit)
 ```
@@ -2212,7 +2220,7 @@ We rewrite the simple model here:
 
 $$
 \begin{aligned}
-P(y = 1) &= \frac{1}{1+e^{-(X\beta+\epsilon)}}, \\
+P(y = 1) &= \frac{1}{1+e^{-(X\beta)}}, \\
 \beta &\sim \mbox{Normal}(0, 1).
 \end{aligned}
 $$
