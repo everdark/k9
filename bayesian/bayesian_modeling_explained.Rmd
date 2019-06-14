@@ -11,7 +11,7 @@ output:
     theme: flatly
     toc: yes
     toc_depth: 3
-bibliography: bayesian_inference.bib
+bibliography: bayesian_modeling_explained.bib
 nocite: | 
   @van2018simple
 abstract: |
@@ -1384,8 +1384,10 @@ for ( i in 1:9 ) {
   s1 <- metro_sample(calc_lik_norm, init_val_2, niter=niter_1)$sample
   plot_mc_sample(s1, init_val_2, main=sprintf("%s Iterations@%s", niter_1, i))
 }
+{
 mtext(text="Metropolis Sampling Exercises 1", side=1, line=0, outer=TRUE)
 mtext(text="Density", side=2, line=0, outer=TRUE)
+}
 ```
 
 ```{r metro_more_iter_hist}
@@ -1396,8 +1398,10 @@ for ( i in 1:9 ) {
   s2 <- metro_sample(calc_lik_norm, init_val_2, niter=niter_2)$sample
   plot_mc_sample(s2, init_val_2, main=sprintf("%s Iterations@%s", niter_2, i))
 }
+{
 mtext(text="Metropolis Sampling Exercises 2", side=1, line=0, outer=TRUE)
 mtext(text="Density", side=2, line=0, outer=TRUE)
+}
 ```
 
 For `niter` at `r niter_1` and `r niter_2` we repeat the entire sampling process 9 times independently.
