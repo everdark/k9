@@ -143,7 +143,7 @@ the OLS estimator will converge in probability to the true model weights and dis
 The issue of the above approach is that equation $\eqref{eq:ols}$ is not numerically stable when it comes to large-scale application where we may have lots of observations and lots of features.
 One very useful solution to solve the estimator numerically in large-scale application is the *gradient descent* approach.
 
-### Gradient Descent
+### Gradient Descent with Mean Squared Error
 
 Instead of solving the first-order condition analytically,
 we can do it numerically.
@@ -551,13 +551,14 @@ $$
 By taking the average as well,
 the negative log-likelihood is exactly the cross entropy.
 
+### Gradient Descent with Log Loss
+
 Now let's also implement a batch gradient descent optimizer for a logistic regression model.
 We will use the same toy example and create additional random binary labels for this exercise.
 
 ```{python logit_fake_data}
 y2 = np.array([np.random.binomial(1, v) for v in sigmoid(X.dot(beta))])
 ```
-
 
 The gradient function must be derived with respect to model weights.
 To simplify the math we replace log of base 2 with natural log (with no impact on the optimization),
@@ -574,12 +575,20 @@ $$
 \end{aligned}
 $$
 
-The gradient in our univariate model w.r.t. the bias term will be:
+The gradient in our univariate model w.r.t. the bias term will be:^[Here we use the common derivative $\frac{d\ln f(x)}{dx} = \frac{f'(x)}{f(x)}$ and the [chain rule](https://en.wikipedia.org/wiki/Chain_rule) to handle the term $\frac{\partial\ln q_i}{\partial\beta_0}$ where $q_i$ is the sigmoid computed for the $i$-th example.]
 
 $$
 \begin{aligned}
 \frac{\partial\mbox{LogLoss}}{\partial\beta_0} 
-&= - \frac{1}{N}\sum_i \big[ y_i(1 - q_i) - (1 - y_i)q_i \big] \\
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{\partial\ln q_i}{\partial\beta_0} + 
+  (1 - y_i)\frac{\partial\ln(1 - q_i)}{\partial\beta_0}\bigg] \\
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial q_i}{\partial\beta_0} + 
+  (1 - y_i)\frac{1}{1 - q_i}\frac{\partial(1 - q_i)}{\partial\beta_0}\bigg] \\
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial (\beta_0 + \beta_1x_i)}{\partial\beta_0}\frac{\partial q_i(t)}{\partial t} - 
+  (1 - y_i)\frac{1}{1 - q_i}\frac{\partial (\beta_0 + \beta_1x_i)}{\partial\beta_0}\frac{\partial q_i(t)}{\partial t}\bigg] \\
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}q_i(1 - q_i) - 
+  (1 - y_i)\frac{1}{1 - q_i}q_i(1 - q_i)\bigg] \\
+&= - \frac{1}{N}\sum_i \bigg[ y_i(1 - q_i) - (1 - y_i)q_i \bigg] \\
 &= - \frac{1}{N}\sum_i (y_i - q_i).
 \end{aligned}
 $$
@@ -590,6 +599,8 @@ $$
 \frac{\partial\mbox{LogLoss}}{\partial\beta_1}
 = - \frac{1}{N}\sum_i (y_i - q_i)x_i.
 $$
+
+Now the Python code for batch gradient descent with logistic loss:
 
 ```{python logit_gd}
 def logloss(X, y, b):
@@ -633,7 +644,7 @@ htmltools::includeHTML(py$ofile)
 
 Comparing to linear regression,
 a logistic regression model is harder to converge.
-Since our naive implementation does not do convergence dignostics,
+Since our naive implementation does not do convergence diagnostics,
 let's use R's built-in `glm` function which use Newton's method (a 2nd-order optimizer utilizing not only 1st-order but also 2nd-order derivatives) to check the estimation result of our toy example:
 
 ```{r logit_check_solution}
