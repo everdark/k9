@@ -1,0 +1,483 @@
+---
+title: "Neural Networks Fundamentals"
+subtitle: "with Examples using Python"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_notebook: 
+    number_sections: yes
+    theme: flatly
+    toc: yes
+---
+<!-- Embed plotly javascript library.
+  The preview of plotly output in RStudio won't work
+  since we don't include the plotly.js in each individual plot.
+--> 
+<script src="js/plotly-latest.min.js"></script>
+
+<!--For equation reference.--> 
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+```{r setup, include=FALSE}
+PYTHON_PATH <- "/usr/local/opt/python/bin/python3.7"
+
+library(reticulate)
+use_python(PYTHON_PATH, required=TRUE)
+```
+
+# Prerequisites
+
+Before we even start,
+it is of crucial importance to first understand deeply linear and logistic regression.
+This is because (as we will see in later discussion) they are the very basic components in a general neural network model.
+
+## Linear Regression
+
+A linear model can be written in a matrix form
+
+$$
+Y = X\beta + \epsilon,
+$$
+where $Y$ is the output or label vector of length $N$ (number of observations),
+$X$ is the input feature matrix (referred to as the *design matrix* in statistics) with dimension $N$ by $P$ (number of features),
+$\beta$ is the model weights/coefficients (a column vector of length $P$) for which we'd like to solve,
+$\epsilon$ is the model residual or error vector.
+
+### Ordinary Least Squares
+
+The classical way to solve for $\beta$ is [ordinary least squares](https://en.wikipedia.org/wiki/Ordinary_least_squares).
+The idea of OLS is find out the weights that minimize the mean of squared model errors:
+
+$$
+\begin{aligned}
+\mbox{mse (loss)}
+&= \frac{1}{N}\sum_i\epsilon^2_i \\
+&= \frac{1}{N}\sum_i(y_i - \beta x_i)^2,
+\end{aligned}
+$$
+
+where $y_i$ and $x_i$ is the $i$-th observation.
+The first-order condition (requiring that the first-order derivative w.r.t. weights are zero) gives us the OLS solution for model weights $\beta$ analytically (in matrix notation):
+
+$$
+\begin{equation} \label{eq:ols}
+\hat{\beta} = (X'X)^{-1}X'Y.
+\end{equation}
+$$
+
+```{python linear_reg_ols}
+def ols(X, y):
+    return inv(X.T.dot(X)).dot(X.T).dot(y)
+```
+
+Let's consider a toy model with only one non-constant feature:
+
+$$
+y_i = 6 + 4x_i + \epsilon_i.
+$$
+
+In this model the outcome $y$ is determined by a bias term plus a single variable $x$,
+with an independently distributed noise term $\epsilon \sim \mbox{Normal}(0, 1)$.
+
+Let's create some random data generated from this model.
+
+```{python linear_reg_toy_example}
+# Create toy example.
+import numpy as np
+from numpy.linalg import inv
+
+np.random.seed(777)
+
+N = 10
+X = np.stack([np.ones(N), np.arange(N)], axis=1)
+beta = np.array([6, 4], dtype=np.float32)  # True model weights.
+e = np.random.normal(size=N)
+y = X.dot(beta) + e
+
+print(X[:10])
+```
+
+```{python linear_reg_plot, results="hide"}
+from plotly.offline import plot, init_notebook_mode
+import plotly.graph_objs as go
+
+p = plot({
+  "data": [go.Scatter(x=X[:,1], y=y)],
+  "layout": go.Layout(title="Data Generated from Toy Model",
+            xaxis=dict(title="x"),
+            yaxis=dict(title="y"))
+}, filename="plots/toy_reg.html", auto_open=False, include_plotlyjs=False)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("plots/toy_reg.html")
+```
+
+Without consideration of the noise term,
+the OLS estimator will solve precisely for the true model weights:
+
+```{python linear_reg_ols_deterministic}
+print(ols(X, y - e))
+```
+
+Of course in the real world the noise term cannot be determined and usually the feature alone cannot explain entirely the variation in the outcome.
+This means that what we actually estimate will be the expected value of model weights:
+
+```{python linear_reg_ols_with_epsilon}
+print(ols(X, y))
+```
+
+By the [Law of Large Number](https://en.wikipedia.org/wiki/Law_of_large_numbers) and [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem),
+the OLS estimator will converge in probability to the true model weights and distributed asymptotically Normal in large sample.^[One can try increase the sample size arbitrarily to see the behavior of the estimator.]
+
+The issue of the above approach is that equation $\eqref{eq:ols}$ is not numerically stable when it comes to large-scale application where we may have lots of observations and lots of features.
+One very useful solution to solve the estimator numerically in large-scale application is the *gradient descent* approach.
+
+### Gradient Descent
+
+Instead of solving the first-order condition analytically,
+we can do it numerically.
+Gradient descent is a 1st-order optimization technique to find local optimum of a given function.
+
+In the model training exercise our target function is the loss so the optimization problem is:
+
+$$
+\operatorname*{argmin}_\beta \mbox{Loss} = \frac{1}{N}\sum_i(y_i - \beta x_i)^2.
+$$
+
+That is,
+we'd like to figure out model weights that minimize the loss which is defined by the mean squared errors when the model is a regression model.
+
+The idea of gradient descent is to
+
+1. Derive the functional form of the gradient of loss w.r.t. to all weights
+2. Initialize all model weights randomly
+3. Calculate the gradient value using the actual data and the current value of weights
+4. Update the weights by (partially) the amount of gradient just calculated
+5. Repeat 3 and 4 until the resulting gradients become small enough
+
+Let's use the toy example to actually implement a gradent descent optimizer from scratch.
+First we re-write the loss function explicitly with our setup of one coefficient with a constant ($\beta = [\beta_0, \beta_1]$):
+
+$$
+\mbox{Loss} = \frac{1}{N}\sum_i\big[y_i-(\beta_0 + \beta_1x_i)\big]^2.
+$$
+
+Now the gradient (or equivalently the 1st-order derivative) w.r.t. to weights will be:
+
+$$
+\begin{aligned}
+\frac{\partial\mbox{Loss}}{\partial\beta_0} 
+&= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big], \\
+\frac{\partial\mbox{Loss}}{\partial\beta_1} 
+&= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big]x_i.
+\end{aligned}
+$$
+
+The corresponding python function can be coded as:
+
+```{python linear_reg_grad_func}
+def grad_func_beta_0(X, y, beta):
+  return -2 * (y - X.dot(beta)).mean()
+
+def grad_func_beta_1(X, y, beta):
+  return -2 * ((y - X.dot(beta)) * X[:,1]).mean()
+```
+
+If we set the above equations to zero we can solve for $\beta_0$ and $\beta_1$ analytically and the solution will be exactly just equation $\eqref{eq:ols}$.
+But as we just pointed out it suffers from numerical stability issue.
+
+The minimum implementation of our gradient descent optimizer is just a few lines:
+
+```{python linear_reg_gd}
+def gd_optimize(X, y, lr=.01, n_step=100):
+  b = np.random.normal(size=X.shape[1])
+  for step in range(n_step):
+    b[0] -= lr*grad_func_beta_0(X, y, b)
+    b[1] -= lr*grad_func_beta_1(X, y, b)
+  return b
+
+gd_optimize(X, y, n_step=3000)
+```
+
+As we can see the result is very closed to our analytical solution.
+
+#### On Learning Rate
+
+Learning rate is a hyper-parameter for gradient descent optimizer.
+The gradient update to our model weights is scaled down by the learning rate to make sure convergence.
+Too large the learning rate will explode the gradient.
+Too small the learning rate will slow down the convergence and sometimes result in the optimizer trapped at local sub-optimum.
+
+Let's re-write our gradient descent optimizer to also track the loss from each training step.
+And we use the same initialization for a fair comparison.
+
+```{python linear_reg_gd_with_loss}
+def loss(X, y, beta):
+  return ((X.dot(beta) - y)**2).mean()
+
+def gd_optimize(X, y, lr=.01, n_step=100):
+  b = np.array([0.0, 0.0])
+  l = [loss(X, y, b)]
+  for step in range(n_step):
+    b[0] -= lr*grad_func_beta_0(X, y, b)
+    b[1] -= lr*grad_func_beta_1(X, y, b)
+    l.append(loss(X, y, b))
+  return b, l
+```
+
+Now we run the optimization with a variety of different learning rates.
+For illustration purpose we will only run a few steps.
+
+```{python linear_reg_diff_lr}
+betas = {}
+losses = {}
+for lr in [.001, .01, .04]:
+  betas[lr], losses[lr] = gd_optimize(X, y, lr=lr, n_step=10)
+
+from pprint import pprint
+pprint(betas)
+```
+
+The result suggests that a learning rate of 0.04 is already too large for our problem.
+The gradient explodes which make our solution diverge.
+And a rate of 0.001 converges much slower than a rate of 0.01.
+
+This can be more clearly seen if we plot the trace of our training losses:
+
+```{python linear_reg_diff_lr_plot}
+p = plot({
+  "data": [go.Scatter(x=np.arange(len(losses[.001])), y=losses[.001], name="0.001"),
+           go.Scatter(x=np.arange(len(losses[.01])), y=losses[.01], name="0.01"),
+           go.Scatter(x=np.arange(len(losses[.04])), y=losses[.04], name="0.04")],
+  "layout": go.Layout(title="Trace of Training Loss",
+            xaxis=dict(title="Step"),
+            yaxis=dict(title="Loss"))
+}, filename="plots/toy_reg_loss_compare.html".format(lr), auto_open=False, include_plotlyjs=False)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("plots/toy_reg_loss_compare.html")
+```
+
+Unlike our toy implementation,
+in modern implementation of any numerical optimizer there will be a lot of techniques to do the best to avoid convergence failure.
+But it is the model developer's responsibility to diagnose the training behavior before anything is delivered to the stakeholder.
+Checking the dynamics of loss is usually the first and quick step to examine whether the model training is functioning as expected.
+
+#### Batch Gradient Descent
+
+The vanilla gradient descent optimizer we just implemented has one issue.
+Since for each update it needs to traverse over the entire dataset,
+it becomes too slow when it comes to large dataset.
+
+Batch gradient descent is too overcome this issue.
+Instead of calculate the gradient using the entire dataset,
+we can use only a random subset of it.
+It will be less precise but statistically the result will be consistent.
+
+Let's implement a batch gradient descent optimizer:
+
+```{python linear_reg_gd_batch}
+def gd_batch_optimize(X, y, lr=.01, n_step=100, batch_size=2):
+  b = np.random.normal(size=X.shape[1])
+  l = [loss(X, y, b)]
+  for step in range(n_step):
+    sid = np.random.randint(X.shape[0], size=batch_size)
+    Xb = X[sid,:]
+    yb = y[sid]
+    b[0] -= lr*grad_func_beta_0(Xb, yb, b)
+    b[1] -= lr*grad_func_beta_1(Xb, yb, b)
+    l.append(loss(Xb, yb, b))
+  return b, l
+
+batch_beta, batch_loss = gd_batch_optimize(X, y, n_step=3000, batch_size=2)
+print(batch_beta)
+```
+
+Batch optimizer is currently the best practice of training neural networks in large scale application.
+
+#### Stocahstic Gradient Descent
+
+If we set the batch size as exactly 1,
+i.e.,
+to calculate the gradient update only use one data observation at a time,
+this is referred to as stochastic gradient descent.
+
+Here we introduce the term "epoch":
+One epoch is for the optimizer to traverse the entire dataset once (no matter how many examples are used to calculate the gradient and do the update).
+In stochastic gradient descent number of epochs can be considered another hyper-parameter of the model.
+
+```{python linear_reg_sgd}
+def sgd_optimize(X, y, lr=.01, n_epoch=100):
+  b = np.random.normal(size=X.shape[1])
+  l = [loss(X, y, b)]
+  for epoch in range(n_epoch):
+    sid = np.random.permutation(X.shape[0])
+    for i in sid:
+      b[0] -= lr*grad_func_beta_0(X[None,i,:], y[i], b)
+      b[1] -= lr*grad_func_beta_1(X[None,i,:], y[i], b)
+      l.append(loss(X[None,i,:], y[i], b))
+  return b, l
+
+sgd_beta, sgd_loss = sgd_optimize(X, y, lr=.01, n_epoch=100)
+print(sgd_beta)
+```
+
+We can also implement epoch in our previous batch gradient descent optimizer but for simplicity we ignore that.
+
+
+```{python linear_reg_sgd_plot}
+p = plot({
+  "data": [go.Scatter(x=np.arange(len(sgd_loss)), y=sgd_loss)],
+  "layout": go.Layout(title="Trace of SGD Training Loss",
+            xaxis=dict(title="Step"),
+            yaxis=dict(title="Loss"))
+}, filename="plots/toy_reg_sgd_loss.html".format(lr), auto_open=False, include_plotlyjs=False)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("plots/toy_reg_sgd_loss.html")
+```
+
+## Logistic Regression
+
+A logistic regression model model the outcome probablistically:
+
+$$
+Pr(Y = 1) = \frac{1}{1 + e^{-X\beta}},
+$$
+
+TODO:
+
+do viz for
+real value -> odds -> log odds
+
+# Automatic Differentiation
+
+In the previous section we implement a simple gradient descent optimizer by manually derive the functional form of gradient on our own.
+This could be troublesome if our model becomes more and more complicated,
+as in the case of a deep neural net.
+
+Automatci differentiation is a programming technique to calculate the gradient of any given function.
+One of the most popular library for this purpose is [TensorFlow](https://github.com/tensorflow/tensorflow).
+
+Let's use `tensorflow` to implement our simple gradient descent optimizer again.
+But this time we will NOT explicitly derive the gradient function.
+Instead,
+we will only specify the target function which is just the loss function of our model.
+
+```{python tf_ad}
+import tensorflow as tf
+tf.enable_eager_execution()
+
+# Use tensor to represent our data.
+# Note that we need to be very specific about dtype/shape of our tensors.
+X_tf = tf.convert_to_tensor(X, dtype=tf.float32)
+beta_tf = tf.reshape(tf.convert_to_tensor(beta, dtype=tf.float32), (2,1))
+e_tf = tf.reshape(tf.convert_to_tensor(e, dtype=tf.float32), (N, 1))
+y_tf = tf.matmul(X_tf, beta_tf) + e_tf
+
+def loss_mse_tf(X, y, beta):
+  y_hat = tf.matmul(X, beta)
+  return tf.reduce_mean(input_tensor = (y_hat - y)**2)
+
+grad_func_tf = tf.contrib.eager.gradients_function(loss_mse_tf, params=[2])
+
+def gd_optimize_tf(X, y, lr=.01, n_step=100):
+  beta = tf.random_normal((2, 1))
+  for step in range(n_step):
+    grad = grad_func_tf(X, y, beta)[0]
+    beta -= lr * grad
+  return beta.numpy()
+
+gd_optimize_tf(X_tf, y_tf, n_step=3000)
+```
+
+In the above coding example one should realize that we no longer need to hardcode the functional form of the gradients.
+Instead we just plug-in the loss function and let `tensorflow` to do the gradient calculation for us.
+
+Of course in actual development we will use higher-level APIs to implement our model,
+where the entire optimization process is abstracted away from the application code.
+
+# Neural Networks
+
+## Activation Function
+
+The role of actiation function in a neural network model is to make the model non-linear.
+Without activator,
+no matter how deep the network architecture is the model will eventually collapse into a linear model.
+
+## Single-Neuron Neural Networks
+
+A linear regression estimator is indeed a single-neuron neural networks without activator.
+And a logistic regression estimator is a single-neuron neural networks with a sigmoid activator.
+
+## Analytical Lab: 2-Layer Neural Networks
+
+In this section we'd like to explore a 2-layer neural nets from scratch.
+We are going to derived the gradient function manually and use only `numpy` to implement the model training with a vanilla gradient descent.
+
+
+```python
+import math
+
+def sigmoid(x):
+    """A numerically stable sigmoid function."""
+    return np.exp(-np.logaddexp(0, -x))
+
+
+def deriv_sigmoid(z):
+    """Derivative of the sigmoid function."""
+    return z*(1 - z)
+
+
+class NeuralNetwork:
+    """Simple 2-layer neural network model assuming sum of squared errors as the loss."""
+    def __init__(self, x, y):
+        self.input = x
+        self.w1 = np.random.rand(self.input.shape[1], 4)
+        self.w2 = np.random.rand(4, 1)
+        self.y = y
+        self.output = np.zeros(y.shape)
+
+    def feedforward(self):
+        self.layer1 = sigmoid(np.dot(self.input, self.w1))
+        self.output = sigmoid(np.dot(self.layer1, self.w2))
+
+    def backprop(self):
+        # Derivative of the loss function w.r.t. the weights.
+        self.dy = self.y - self.output
+        dw2 = np.dot(self.layer1.T, (2*self.dy*deriv_sigmoid(self.output)))
+        dw1 = np.dot(self.input.T, (np.dot(2*self.dy*deriv_sigmoid(self.output),
+                                           self.w2.T)*deriv_sigmoid(self.layer1)))
+        # Update. (Learning rate is 1.)
+        self.w1 += dw1
+        self.w2 += dw2
+
+
+X = np.array(
+    [[0, 0, 1],
+     [0, 1, 1],
+     [1, 0, 1],
+     [1, 1, 1]])
+y = np.array([[0], [1], [1], [0]])
+nn = NeuralNetwork(X, y)
+
+print("Actual y:")
+print(",".join([str(y) for y in np.squeeze(y)]))
+print("Predicted y:")
+for i in range(10000):
+    nn.feedforward()
+    nn.backprop()
+    yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
+    print(yhat, end="\r", flush=True)
+```
+
+
