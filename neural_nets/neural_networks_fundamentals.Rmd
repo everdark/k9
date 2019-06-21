@@ -25,10 +25,8 @@ MathJax.Hub.Config({
 </script>
 
 ```{r setup, include=FALSE}
-PYTHON_PATH <- "/usr/local/opt/python/bin/python3.7"
-
 library(reticulate)
-use_python(PYTHON_PATH, required=TRUE)
+use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
 ```
 
 # Prerequisites
@@ -72,6 +70,9 @@ $$
 $$
 
 ```{python linear_reg_ols}
+import numpy as np
+from numpy.linalg import inv
+
 def ols(X, y):
     return inv(X.T.dot(X)).dot(X.T).dot(y)
 ```
@@ -89,13 +90,10 @@ Let's create some random data generated from this model.
 
 ```{python linear_reg_toy_example}
 # Create toy example.
-import numpy as np
-from numpy.linalg import inv
-
 np.random.seed(777)
 
-N = 10
-X = np.stack([np.ones(N), np.arange(N)], axis=1)
+N = 1000
+X = np.stack([np.ones(N), np.random.normal(size=N)], axis=1)
 beta = np.array([6, 4], dtype=np.float32)  # True model weights.
 e = np.random.normal(size=N)
 y = X.dot(beta) + e
@@ -103,20 +101,21 @@ y = X.dot(beta) + e
 print(X[:10])
 ```
 
-```{python linear_reg_plot, results="hide"}
-from plotly.offline import plot, init_notebook_mode
+```{python linear_reg_plot}
+from plotly.offline import plot
 import plotly.graph_objs as go
 
+ofile = "plots/toy_reg.html"
 p = plot({
-  "data": [go.Scatter(x=X[:,1], y=y)],
+  "data": [go.Scatter(x=X[:,1], y=y, mode="markers")],
   "layout": go.Layout(title="Data Generated from Toy Model",
             xaxis=dict(title="x"),
             yaxis=dict(title="y"))
-}, filename="plots/toy_reg.html", auto_open=False, include_plotlyjs=False)
+}, filename=ofile, auto_open=False, include_plotlyjs=False)
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("plots/toy_reg.html")
+htmltools::includeHTML(py$ofile)
 ```
 
 Without consideration of the noise term,
@@ -134,7 +133,7 @@ print(ols(X, y))
 ```
 
 By the [Law of Large Number](https://en.wikipedia.org/wiki/Law_of_large_numbers) and [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem),
-the OLS estimator will converge in probability to the true model weights and distributed asymptotically Normal in large sample.^[One can try increase the sample size arbitrarily to see the behavior of the estimator.]
+the OLS estimator will converge in probability to the true model weights and distributed asymptotically Normal in large sample.^[One can try change the sample size arbitrarily to see the behavior of the estimator.]
 
 The issue of the above approach is that equation $\eqref{eq:ols}$ is not numerically stable when it comes to large-scale application where we may have lots of observations and lots of features.
 One very useful solution to solve the estimator numerically in large-scale application is the *gradient descent* approach.
@@ -203,12 +202,12 @@ def gd_optimize(X, y, lr=.01, n_step=100):
     b[1] -= lr*grad_func_beta_1(X, y, b)
   return b
 
-gd_optimize(X, y, n_step=3000)
+print(gd_optimize(X, y, n_step=3000))
 ```
 
 As we can see the result is very closed to our analytical solution.
 
-#### On Learning Rate
+#### On Learning Rate {-}
 
 Learning rate is a hyper-parameter for gradient descent optimizer.
 The gradient update to our model weights is scaled down by the learning rate to make sure convergence.
@@ -238,40 +237,47 @@ For illustration purpose we will only run a few steps.
 ```{python linear_reg_diff_lr}
 betas = {}
 losses = {}
-for lr in [.001, .01, .04]:
-  betas[lr], losses[lr] = gd_optimize(X, y, lr=lr, n_step=10)
+for lr in [.001, .01, .05, .1, 1]:
+  betas[lr], losses[lr] = gd_optimize(X, y, lr=lr, n_step=30)
 
-from pprint import pprint
-pprint(betas)
+for r, b in betas.items():
+  print("Learning Rate {:5} | Estimate: {}".format(r, b))
 ```
 
-The result suggests that a learning rate of 0.04 is already too large for our problem.
+The result suggests that a learning rate of 1 is too large for our problem.
 The gradient explodes which make our solution diverge.
-And a rate of 0.001 converges much slower than a rate of 0.01.
+And a lower learning rate in general converges slower to the optimum.
+Number of examples used to calculate the gradient also will affect the convergence behavior.
+In general if the sample size is too small a smaller learning rate should be used to avoid gradient explosion.
 
 This can be more clearly seen if we plot the trace of our training losses:
 
 ```{python linear_reg_diff_lr_plot}
+ofile = "plots/toy_reg_loss_compare.html"
+pdata = [go.Scatter(x=np.arange(len(losses[lr])), y=losses[lr], name=lr) 
+         for lr in losses.keys()]
 p = plot({
-  "data": [go.Scatter(x=np.arange(len(losses[.001])), y=losses[.001], name="0.001"),
-           go.Scatter(x=np.arange(len(losses[.01])), y=losses[.01], name="0.01"),
-           go.Scatter(x=np.arange(len(losses[.04])), y=losses[.04], name="0.04")],
-  "layout": go.Layout(title="Trace of Training Loss",
-            xaxis=dict(title="Step"),
-            yaxis=dict(title="Loss"))
-}, filename="plots/toy_reg_loss_compare.html".format(lr), auto_open=False, include_plotlyjs=False)
+  "data": pdata,
+  "layout": go.Layout(
+    title="Trace of Training Loss with Various Learning Rates",
+    xaxis=dict(title="Step"),
+    yaxis=dict(title="Loss"))
+}, filename=ofile, auto_open=False, include_plotlyjs=False)
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("plots/toy_reg_loss_compare.html")
+htmltools::includeHTML(py$ofile)
 ```
+
+If the loss doesn't decrease over training iteration,
+it is a signal that something is wrong with our model.
 
 Unlike our toy implementation,
 in modern implementation of any numerical optimizer there will be a lot of techniques to do the best to avoid convergence failure.
 But it is the model developer's responsibility to diagnose the training behavior before anything is delivered to the stakeholder.
-Checking the dynamics of loss is usually the first and quick step to examine whether the model training is functioning as expected.
+Checking the dynamics of loss is usually the first and quick step to examine whether the training task is functioning as expected.
 
-#### Batch Gradient Descent
+#### Batch Gradient Descent {-}
 
 The vanilla gradient descent optimizer we just implemented has one issue.
 Since for each update it needs to traverse over the entire dataset,
@@ -285,7 +291,7 @@ It will be less precise but statistically the result will be consistent.
 Let's implement a batch gradient descent optimizer:
 
 ```{python linear_reg_gd_batch}
-def gd_batch_optimize(X, y, lr=.01, n_step=100, batch_size=2):
+def gd_batch_optimize(X, y, lr=.01, n_step=100, batch_size=64):
   b = np.random.normal(size=X.shape[1])
   l = [loss(X, y, b)]
   for step in range(n_step):
@@ -297,22 +303,23 @@ def gd_batch_optimize(X, y, lr=.01, n_step=100, batch_size=2):
     l.append(loss(Xb, yb, b))
   return b, l
 
-batch_beta, batch_loss = gd_batch_optimize(X, y, n_step=3000, batch_size=2)
+batch_beta, batch_loss = gd_batch_optimize(X, y, n_step=3000, batch_size=64)
 print(batch_beta)
 ```
 
 Batch optimizer is currently the best practice of training neural networks in large scale application.
 
-#### Stocahstic Gradient Descent
+#### Stocahstic Gradient Descent {-}
 
 If we set the batch size as exactly 1,
 i.e.,
 to calculate the gradient update only use one data observation at a time,
 this is referred to as stochastic gradient descent.
 
-Here we introduce the term "epoch":
-One epoch is for the optimizer to traverse the entire dataset once (no matter how many examples are used to calculate the gradient and do the update).
-In stochastic gradient descent number of epochs can be considered another hyper-parameter of the model.
+Here we introduce the term *epoch*:
+One epoch is for the optimizer to traverse the entire dataset once (no matter how many examples are used to calculate the gradient as each update).
+Number of epochs can be considere d another hyper-parameter of the model.
+We can also implement epoch in our previous batch gradient descent optimizer but for simplicity we ignore that.
 
 ```{python linear_reg_sgd}
 def sgd_optimize(X, y, lr=.01, n_epoch=100):
@@ -326,25 +333,27 @@ def sgd_optimize(X, y, lr=.01, n_epoch=100):
       l.append(loss(X[None,i,:], y[i], b))
   return b, l
 
-sgd_beta, sgd_loss = sgd_optimize(X, y, lr=.01, n_epoch=100)
+sgd_beta, sgd_loss = sgd_optimize(X, y, lr=.01, n_epoch=10)
 print(sgd_beta)
 ```
 
-We can also implement epoch in our previous batch gradient descent optimizer but for simplicity we ignore that.
-
-
 ```{python linear_reg_sgd_plot}
+ofile = "plots/toy_reg_sgd_loss.html"
 p = plot({
   "data": [go.Scatter(x=np.arange(len(sgd_loss)), y=sgd_loss)],
   "layout": go.Layout(title="Trace of SGD Training Loss",
             xaxis=dict(title="Step"),
             yaxis=dict(title="Loss"))
-}, filename="plots/toy_reg_sgd_loss.html".format(lr), auto_open=False, include_plotlyjs=False)
+}, filename=ofile, auto_open=False, include_plotlyjs=False)
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("plots/toy_reg_sgd_loss.html")
+htmltools::includeHTML(py$ofile)
 ```
+
+Unlike the vanilla gradient descent,
+stochastic gradient descent doesn't ensure the loss is always decreasing.
+But statistiaclly it should converge to the same solution as the vanilla approach.
 
 ## Logistic Regression
 
@@ -353,6 +362,8 @@ A logistic regression model model the outcome probablistically:
 $$
 Pr(Y = 1) = \frac{1}{1 + e^{-X\beta}},
 $$
+
+Here the sigmoid function $s(t) = \frac{1}{1 + e^{-t}}$ is used to transform a real number into probability space $[0, 1]$.
 
 TODO:
 
