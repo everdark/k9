@@ -337,10 +337,12 @@ sgd_beta, sgd_loss = sgd_optimize(X, y, lr=.01, n_epoch=10)
 print(sgd_beta)
 ```
 
+Plot the losses for the first 500 updates.
+
 ```{python linear_reg_sgd_plot}
 ofile = "plots/toy_reg_sgd_loss.html"
 p = plot({
-  "data": [go.Scatter(x=np.arange(len(sgd_loss)), y=sgd_loss)],
+  "data": [go.Scatter(x=np.arange(len(sgd_loss[:500])), y=sgd_loss[:500])],
   "layout": go.Layout(title="Trace of SGD Training Loss",
             xaxis=dict(title="Step"),
             yaxis=dict(title="Loss"))
