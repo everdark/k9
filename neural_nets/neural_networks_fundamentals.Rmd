@@ -86,7 +86,7 @@ $$
 In this model the outcome $y$ is determined by a bias term plus a single variable $x$,
 with an independently distributed noise term $\epsilon \sim \mbox{Normal}(0, 1)$.
 
-Let's create some random data generated from this model.
+Create some random data generated from this model:
 
 ```{python linear_reg_toy_example}
 # Create toy example.
@@ -105,13 +105,18 @@ print(X[:10])
 from plotly.offline import plot
 import plotly.graph_objs as go
 
+def plot_offline(data, layout, ofile):
+  p = plot({"data": data, "layout": layout},
+           filename=ofile, auto_open=False, include_plotlyjs=False)
+  return p
+
 ofile = "plots/toy_reg.html"
-p = plot({
-  "data": [go.Scatter(x=X[:,1], y=y, mode="markers")],
-  "layout": go.Layout(title="Data Generated from Toy Model",
-            xaxis=dict(title="x"),
-            yaxis=dict(title="y"))
-}, filename=ofile, auto_open=False, include_plotlyjs=False)
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=X[:,1], y=y, mode="markers")],
+  layout=go.Layout(title="Data Generated from Toy Model",
+                   xaxis=dict(title="x"),
+                   yaxis=dict(title="y")))
 ```
 
 ```{r, echo=FALSE}
@@ -182,11 +187,9 @@ $$
 The corresponding python function can be coded as:
 
 ```{python linear_reg_grad_func}
-def grad_func_beta_0(X, y, beta):
-  return -2 * (y - X.dot(beta)).mean()
-
-def grad_func_beta_1(X, y, beta):
-  return -2 * ((y - X.dot(beta)) * X[:,1]).mean()
+def grad_func(X, y, beta):
+  """Calculate vectorized gradients."""
+  return -2 * ((y - X.dot(beta)).dot(X)) / X.shape[0]
 ```
 
 If we set the above equations to zero we can solve for $\beta_0$ and $\beta_1$ analytically and the solution will be exactly just equation $\eqref{eq:ols}$.
@@ -198,8 +201,7 @@ The minimum implementation of our gradient descent optimizer is just a few lines
 def gd_optimize(X, y, lr=.01, n_step=100):
   b = np.random.normal(size=X.shape[1])
   for step in range(n_step):
-    b[0] -= lr*grad_func_beta_0(X, y, b)
-    b[1] -= lr*grad_func_beta_1(X, y, b)
+    b -= lr*grad_func(X, y, b)
   return b
 
 print(gd_optimize(X, y, n_step=3000))
@@ -225,8 +227,7 @@ def gd_optimize(X, y, lr=.01, n_step=100):
   b = np.array([0.0, 0.0])
   l = [loss(X, y, b)]
   for step in range(n_step):
-    b[0] -= lr*grad_func_beta_0(X, y, b)
-    b[1] -= lr*grad_func_beta_1(X, y, b)
+    b -= lr*grad_func(X, y, b)
     l.append(loss(X, y, b))
   return b, l
 ```
@@ -238,7 +239,7 @@ For illustration purpose we will only run a few steps.
 betas = {}
 losses = {}
 for lr in [.001, .01, .05, .1, 1]:
-  betas[lr], losses[lr] = gd_optimize(X, y, lr=lr, n_step=30)
+  betas[lr], losses[lr] = gd_optimize(X, y, lr=lr, n_step=15)
 
 for r, b in betas.items():
   print("Learning Rate {:5} | Estimate: {}".format(r, b))
@@ -256,13 +257,13 @@ This can be more clearly seen if we plot the trace of our training losses:
 ofile = "plots/toy_reg_loss_compare.html"
 pdata = [go.Scatter(x=np.arange(len(losses[lr])), y=losses[lr], name=lr) 
          for lr in losses.keys()]
-p = plot({
-  "data": pdata,
-  "layout": go.Layout(
+p = plot_offline(
+  ofile=ofile,
+  data=pdata,
+  layout=go.Layout(
     title="Trace of Training Loss with Various Learning Rates",
     xaxis=dict(title="Step"),
-    yaxis=dict(title="Loss"))
-}, filename=ofile, auto_open=False, include_plotlyjs=False)
+    yaxis=dict(title="Loss")))
 ```
 
 ```{r, echo=FALSE}
@@ -298,8 +299,7 @@ def gd_batch_optimize(X, y, lr=.01, n_step=100, batch_size=64):
     sid = np.random.randint(X.shape[0], size=batch_size)
     Xb = X[sid,:]
     yb = y[sid]
-    b[0] -= lr*grad_func_beta_0(Xb, yb, b)
-    b[1] -= lr*grad_func_beta_1(Xb, yb, b)
+    b -= lr*grad_func(Xb, yb, b)
     l.append(loss(Xb, yb, b))
   return b, l
 
@@ -308,6 +308,7 @@ print(batch_beta)
 ```
 
 Batch optimizer is currently the best practice of training neural networks in large scale application.
+The batch size depends on the actual application but usually ranges from 8 to 1024.
 
 #### Stocahstic Gradient Descent {-}
 
@@ -317,9 +318,10 @@ to calculate the gradient update only use one data observation at a time,
 this is referred to as stochastic gradient descent.
 
 Here we introduce the term *epoch*:
-One epoch is for the optimizer to traverse the entire dataset once (no matter how many examples are used to calculate the gradient as each update).
-Number of epochs can be considere d another hyper-parameter of the model.
+One epoch is for the optimizer to traverse the entire dataset once (no matter how many examples are used to calculate the gradient in each update).
+Number of epochs can be considered as another hyper-parameter of a model.
 We can also implement epoch in our previous batch gradient descent optimizer but for simplicity we ignore that.
+Let's implement it in our SGD optimizer:
 
 ```{python linear_reg_sgd}
 def sgd_optimize(X, y, lr=.01, n_epoch=100):
@@ -328,8 +330,7 @@ def sgd_optimize(X, y, lr=.01, n_epoch=100):
   for epoch in range(n_epoch):
     sid = np.random.permutation(X.shape[0])
     for i in sid:
-      b[0] -= lr*grad_func_beta_0(X[None,i,:], y[i], b)
-      b[1] -= lr*grad_func_beta_1(X[None,i,:], y[i], b)
+      b -= lr*grad_func(X[None,i,:], y[i], b)
       l.append(loss(X[None,i,:], y[i], b))
   return b, l
 
@@ -341,12 +342,13 @@ Plot the losses for the first 500 updates.
 
 ```{python linear_reg_sgd_plot}
 ofile = "plots/toy_reg_sgd_loss.html"
-p = plot({
-  "data": [go.Scatter(x=np.arange(len(sgd_loss[:500])), y=sgd_loss[:500])],
-  "layout": go.Layout(title="Trace of SGD Training Loss",
-            xaxis=dict(title="Step"),
-            yaxis=dict(title="Loss"))
-}, filename=ofile, auto_open=False, include_plotlyjs=False)
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=np.arange(len(sgd_loss[:500])), y=sgd_loss[:500])],
+  layout=go.Layout(
+    title="Trace of SGD Training Loss",
+    xaxis=dict(title="Step"),
+    yaxis=dict(title="Loss")))
 ```
 
 ```{r, echo=FALSE}
@@ -359,18 +361,293 @@ But statistiaclly it should converge to the same solution as the vanilla approac
 
 ## Logistic Regression
 
-A logistic regression model model the outcome probablistically:
+A logistic regression models the outcome probablistically:
 
 $$
-Pr(Y = 1) = \frac{1}{1 + e^{-X\beta}},
+\begin{equation} \label{eq:logit}
+P(Y = 1) = \frac{1}{1 + e^{-X\beta}},
+\end{equation}
 $$
 
 Here the sigmoid function $s(t) = \frac{1}{1 + e^{-t}}$ is used to transform a real number into probability space $[0, 1]$.
 
-TODO:
+We can interpret the model as a linear model in log-odds.
+Assuming Y is binary and take a value of 0 or 1,
+the odds of $Y = 1$ is defined as $\frac{P(Y = 1)}{P(Y = 0)} = \frac{P(Y = 1)}{1 - P(Y = 1)}$.
+We can re-arrange the logistic model equation:
 
-do viz for
-real value -> odds -> log odds
+$$
+\begin{aligned}
+\ln \Bigg[ \frac{P(Y = 1)}{1 - P(Y = 1)} \Bigg] 
+&= \ln \Bigg[ \frac{\frac{1}{1 + e^{-X\beta}}}{\frac{e^{-X\beta}}{1 + e^{-X\beta}}} \Bigg] \\
+&= \ln(1 + e^{-X\beta}) - \ln e^{-X\beta}(1 + e^{-X\beta}) \\
+&= \ln(1 + e^{-X\beta}) - \ln e^{-X\beta} - \ln(1 + e^{-X\beta}) \\
+&= - \ln e^{-X\beta} \\
+&= X\beta.
+\end{aligned}
+$$
+
+That is,
+the model weights are linear in the log-odds of our target outcome.
+
+When the probability is transformed into odds,
+the range is transformed from $[0,1]$ to $[0,\infty]$.
+
+```{python logit_prob_odds_plot}
+# We plot only up to .95 since the value of odds will grow unboundedly.
+prob = np.linspace(.001, .95, num=100)
+odds = prob / (1 - prob)
+log_odds = np.log(odds)
+
+ofile = "plots/prob_odds.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=prob, y=odds)],
+  layout=go.Layout(
+    title="Event Probabilities to Odds",
+    xaxis=dict(title="Probability"),
+    yaxis=dict(title="Odds")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+If we further transform odds to log-odds,
+the range is transformed from $[0,\infty]$ to $[-\infty,\infty]$.
+
+```{python logit_odds_logodds_plot}
+ofile = "plots/prob_odds.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=odds, y=log_odds)],
+  layout=go.Layout(
+    title="Event Odds to Log-Odds",
+    xaxis=dict(title="Odds"),
+    yaxis=dict(title="Log-Odds")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+Put it together is the effect of the sigmoid function:
+
+```{python logit_sigmoid_plot}
+# Note that instead of coding s = 1 / (1 + np.exp(-t)),
+# which is numerically unstable,
+# we should use a math trick to make it stable.
+def sigmoid(t):
+  """Numerically stable sigmoid."""
+  return np.exp(-np.logaddexp(0, -t))
+
+t = np.linspace(-10, 10, num=100)
+ofile = "plots/sigmoid.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=t, y=sigmoid(t))],
+  layout=go.Layout(
+    title="A Sigmoid Function",
+    xaxis=dict(title="Raw Value"),
+    yaxis=dict(title="Probability")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+### Cross Entropy
+
+How do we solve for the model weights $\beta$ in equation $\eqref{eq:logit}$?
+In the linear regression model we solve for the weights by minimizing the mean squared error.
+In logistic regression model we need to define measurement for modeling error as well.
+Intuitively,
+
+Put it differently,
+we'd like to calculate the distance between our predicted probability and the real event label distribution (called the empirical distribution).
+In information theory the cross entropy is used to measure the distance between two probability distribution.
+
+The [entropy](https://en.wikipedia.org/wiki/Entropy_(information_theory)) of a discrete probability distribution is defined as:
+
+$$
+H(p) = - \sum_i p_i \log_2p_i,
+$$
+
+where $p_i$ is the probability for event $i$.
+It measures the uncertainty of a stochastic event.
+
+Take a coin flip event as example.
+We plot the entropy value at different value of coin bias (the probability of having a head instead of a tail.)
+
+```{python logit_coin_flip_entropy_plot}
+def entropy_binary(p):
+  return -p*np.log2(p) - (1 - p)*np.log2(1 - p)
+  
+prob = np.linspace(.01, .99, num=100)
+
+ofile = "plots/entropy.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=prob, y=entropy_binary(prob))],
+  layout=go.Layout(
+    title="Entropy of a Binary Event (Coin Flip)",
+    xaxis=dict(title="Probability of a Head"),
+    yaxis=dict(title="Entropy")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+It is obvious that the entropy of this event is maximized when the probability of flipping a head is exactly 0.5.
+At this level the event has a highest level of uncertainty in a sense that it is the most difficult case to predict the outcome of a flip.
+
+Now move on to cross entropy.
+Cross entropy between two discrete probability distribution $p$ and $q$ over the same support is defined as:
+
+$$
+H(p, q) = - \sum_i p_i \log_2q_i.
+$$
+
+For our logistic regression model,
+distribution $p$ is the empirical distribution (label distribution) and distribution $q$ is our model predicted distribution.
+Denote $q_i = P(y_i = 1)$ for the prediction of $i$-th example.
+The cross-entropy-loss of our model hence can be written as:
+
+$$
+\mbox{Cross-Entropy Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\log_2q_i + (1 - y_i)\log_2(1 - q_i)\bigg],
+$$
+
+where $y_i \in \{0,1\}$ is the $i$-th binary training label and $P(y_i = 1)$ the model prediction for the $i$-th example out of $N$ total training examples.
+This is the mean value of cross entropy for each training example.
+
+Since $q_i = P(y_i = 1)$ is expressed by our model equation $\eqref{eq:logit}$,
+now we can apply gradient descent to the loss function to find out the optimum model weights that minimize the cross-entropy loss.
+
+### Maximum Liklihood Estimator
+
+Before we implement our optimizer for a logistic regression model,
+we demonstrate that minimizing cross entropy is indeed equivalent to maximizing data likelihood.
+
+The data likelihood is just the product of all predicted probabilities for individual example,
+provided that they are independent.
+
+$$
+\mbox{likelihood} = \prod_i^N q_i^{y_i}(1 - q_i)^{1 - y_i}.
+$$
+
+The maximum likelihood estimator will try to maximize the log of the likelihood,
+which is:
+
+$$
+\begin{aligned}
+\mbox{log-lik} 
+&= \log_2 \prod_i^N q_i^{y_i}(1 - q_i)^{1 - y_i} \\
+&= \sum_i^N \log_2 q_i^{y_i}(1 - q_i)^{1 - y_i} \\
+&= \sum_i^N \bigg[ y_i\log_2 q_i + (1 - y_i)\log_2(1 - q_i) \bigg].
+\end{aligned}
+$$
+
+By taking the average as well,
+the negative log-likelihood is exactly the cross entropy.
+
+Now let's also implement a batch gradient descent optimizer for a logistic regression model.
+We will use the same toy example and create additional random binary labels for this exercise.
+
+```{python logit_fake_data}
+y2 = np.array([np.random.binomial(1, v) for v in sigmoid(X.dot(beta))])
+```
+
+
+The gradient function must be derived with respect to model weights.
+To simplify the math we replace log of base 2 with natural log (with no impact on the optimization),
+and we take advantage of the fact that the derivative of the sigmoid function is:^[Here we use the common derivatives: $\frac{df(x)^n}{dx} = nf(x)^{n-1}f'(x)$ and $\frac{de^{f(x)}}{dx} = f'(x)e^{f(x)}.$]
+
+$$
+\begin{aligned}
+\frac{ds(t)}{dt}
+&= \frac{d\frac{1}{1 + e^{-t}}}{dt} \\
+&= -(1 + e^{-t})^{-2} \cdot (- e^{-t}) \\
+&= \frac{e^{-t}}{(1 + e^{-t})^2} \\
+&= \frac{1}{1 + e^{-t}} \cdot \frac{e^{-t}}{1 + e^{-t}} \\
+&= s(t) \cdot [1 - s(t)].
+\end{aligned}
+$$
+
+The gradient in our univariate model w.r.t. the bias term will be:
+
+$$
+\begin{aligned}
+\frac{\partial\mbox{LogLoss}}{\partial\beta_0} 
+&= - \frac{1}{N}\sum_i \big[ y_i(1 - q_i) - (1 - y_i)q_i \big] \\
+&= - \frac{1}{N}\sum_i (y_i - q_i).
+\end{aligned}
+$$
+
+Similary for the weight:
+
+$$
+\frac{\partial\mbox{LogLoss}}{\partial\beta_1}
+= - \frac{1}{N}\sum_i (y_i - q_i)x_i.
+$$
+
+```{python logit_gd}
+def logloss(X, y, b):
+  logloss_pos = y*np.log(sigmoid(X.dot(b)))
+  logloss_neg = (1 - y)*np.log(1 - sigmoid(X.dot(b)))
+  return - (logloss_pos + logloss_neg).mean()
+
+def logit_grad_func(X, y, b):
+  return - (y - sigmoid(X.dot(b))).dot(X) / X.shape[0]
+
+def cross_entropy_gd_optimize(X, y, lr=.01, n_step=100, batch_size=64):
+  b = np.random.normal(size=X.shape[1])
+  l = [logloss(X, y, b)]
+  for step in range(n_step):
+    sid = np.random.randint(X.shape[0], size=batch_size)
+    Xb = X[sid,:]
+    yb = y[sid]
+    b -= lr*logit_grad_func(Xb, yb, b)
+    l.append(logloss(Xb, yb, b))
+  return b, l
+
+log_beta, log_loss = cross_entropy_gd_optimize(X, y2, lr=.01, n_step=3000)
+print(log_beta)
+```
+
+```{python logit_loss_plot}
+ofile = "plots/toy_log_loss.html"
+pdata = [go.Scatter(x=np.arange(len(log_loss)), y=log_loss)]
+p = plot_offline(
+  ofile=ofile,
+  data=pdata,
+  layout=go.Layout(
+    title="Trace of Training Log-Loss",
+    xaxis=dict(title="Step"),
+    yaxis=dict(title="Loss")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+Comparing to linear regression,
+a logistic regression model is harder to converge.
+Since our naive implementation does not do convergence dignostics,
+let's use R's built-in `glm` function which use Newton's method (a 2nd-order optimizer utilizing not only 1st-order but also 2nd-order derivatives) to check the estimation result of our toy example:
+
+```{r logit_check_solution}
+# This is R code.
+coef(glm(y ~ x, data=data.frame(y=py$y2, x=py$X[,2]), family=binomial))
+```
+
+Now increase both the learning rate and training step of our naive gradient descent optimizer:
+
+```{python}
+cross_entropy_gd_optimize(X, y2, lr=.5, n_step=5000)[0]
+```
+
+Seems better.
 
 # Automatic Differentiation
 
