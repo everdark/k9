@@ -461,10 +461,9 @@ htmltools::includeHTML(py$ofile)
 How do we solve for the model weights $\beta$ in equation $\eqref{eq:logit}$?
 In the linear regression model we solve for the weights by minimizing the mean squared error.
 In logistic regression model we need to define measurement for modeling error as well.
-Intuitively,
 
 Put it differently,
-we'd like to calculate the distance between our predicted probability and the real event label distribution (called the empirical distribution).
+we'd like to calculate the distance between our predicted probability and the real event label distribution (called the *empirical distribution*).
 In information theory the cross entropy is used to measure the distance between two probability distribution.
 
 The [entropy](https://en.wikipedia.org/wiki/Entropy_(information_theory)) of a discrete probability distribution is defined as:
