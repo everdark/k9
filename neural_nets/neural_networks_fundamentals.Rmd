@@ -524,7 +524,7 @@ This is the mean value of cross entropy for each training example.
 Since $q_i = P(y_i = 1)$ is expressed by our model equation $\eqref{eq:logit}$,
 now we can apply gradient descent to the loss function to find out the optimum model weights that minimize the cross-entropy loss.
 
-### Maximum Liklihood Estimator
+### Maximum Likelihood Estimator
 
 Before we implement our optimizer for a logistic regression model,
 we demonstrate that minimizing cross entropy is indeed equivalent to maximizing data likelihood.
@@ -600,7 +600,7 @@ $$
 = - \frac{1}{N}\sum_i (y_i - q_i)x_i.
 $$
 
-Now the Python code for batch gradient descent with logistic loss:
+Now the Python code for batch gradient descent with log-loss:
 
 ```{python logit_gd}
 def logloss(X, y, b):
