@@ -776,7 +776,8 @@ $$
 
 Similarly $Y_{12}$ is another such model (with the same input feature set but different model weights)
 
-$$Y_{12} = \Phi(W_{112}X_1 + W_{212}X_2 + W_{312}X_3).
+$$
+Y_{12} = \Phi(W_{112}X_1 + W_{212}X_2 + W_{312}X_3).
 $$
 
 Model $Y_2$ is yet another additive model but takes the output of the above two models:
@@ -785,8 +786,9 @@ $$
 Y_2 = \Phi(W_{1121}Y_{11} + W_{1221}Y_{12}).
 $$
 
-The above setup is a minimum architecture of a neural network model,
+The above setup is a simple architecture of a neural network model,
 with only one hidden layer of two *neurons*.
+(We also ignore the constant/bias term in each layer for simplicity.)
 A neuron is simply an additive model with a so-called activation function $\Phi(\cdot)$ to transform the output from any real number into a scaled signal.
 
 One now can easily realize that a logistic regression model could be viewed as a degenerated neural network model with single neuron and using sigmoid as the activation function.
@@ -823,43 +825,101 @@ Some popular activation functions:
 
 ## Backpropagation
 
-In this section will build a neural network optimizer from scratch.
+To solve for model weights in a neural network,
+we use a technique called backpropagation which is essentially an iterative process of gradient descent.
+
+To simplify notation we assume each neuron is simply a univariate model.
+Consider the following minimum architecture:
+
+```{r simplified_nn_diagram, echo=FALSE}
+DiagrammeR::grViz("
+digraph subscript {
+
+  graph [layout = dot rankdir = LR ordering = in ranksep=2]
+
+  node [shape = circle]
+
+  x0 [label = '1']
+  x1 [label = 'x']
+  z0 [label = '1']
+  z1 [label = 'z']
+  y  [label = 'y']
+
+  edge [arrowsize = .25]
+
+  x0 -> z1 [label = 'b@_{0}']
+  x1 -> z1 [label = 'w@_{0}']
+  z0 -> y  [label = 'b@_{1}']
+  z1 -> y  [label = 'w@_{1}']
+
+}")
+```
+
+Mathematically:
+
+$$
+\begin{aligned}
+\hat{y} 
+&= \Phi(b_1 + w_1z) \\
+&= \Phi(b_1 + w_1\Phi(b_0 + w_0x)).
+\end{aligned}
+$$
+
+### MSE Loss
+
+$$
+\mbox{MSE-Loss} = \frac{1}{N}\sum_i^N  (y_i - \hat{y_i})^2.
+$$
+
+
+
+### Cross-Entropy Loss
+
+$$
+\mbox{Log-Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y_i} + (1 - y_i)\ln(1 - \hat{y_i})\bigg].
+$$
+
 
 
 ```{python}
 def sigmoid(x):
-    """A numerically stable sigmoid function."""
-    return np.exp(-np.logaddexp(0, -x))
+  """A numerically stable sigmoid function."""
+  return np.exp(-np.logaddexp(0, -x))
 
 
 def deriv_sigmoid(z):
-    """Derivative of the sigmoid function."""
-    return z*(1 - z)
+  """Derivative of the sigmoid function."""
+  return z*(1 - z)
 
 
 class NeuralNetwork:
-    """Simple 2-layer neural network model assuming sum of squared errors as the loss."""
-    def __init__(self, x, y):
-        self.input = x
-        self.w1 = np.random.rand(self.input.shape[1], 2)
-        self.w2 = np.random.rand(2, 1)
-        self.y = y
-        self.output = np.zeros(y.shape)
+  """Simple neural network with MSE loss."""
+  def __init__(self, x, y):
+    self.input = x
+    self.w1 = np.random.rand(self.input.shape[1], 4)
+    self.w2 = np.random.rand(4, 1)
+    self.y = y
+    self.output = np.zeros(y.shape)
 
-    def feedforward(self):
-        self.layer1 = sigmoid(np.dot(self.input, self.w1))
-        self.output = sigmoid(np.dot(self.layer1, self.w2))
+  def feedforward(self):
+    self.layer1 = sigmoid(np.dot(self.input, self.w1))
+    self.output = sigmoid(np.dot(self.layer1, self.w2))
 
-    def backprop(self):
-        # Derivative of the loss function w.r.t. the weights.
-        self.dy = self.y - self.output
-        dw2 = np.dot(self.layer1.T, (2*self.dy*deriv_sigmoid(self.output)))
-        dw1 = np.dot(self.input.T, (np.dot(2*self.dy*deriv_sigmoid(self.output),
-                                           self.w2.T)*deriv_sigmoid(self.layer1)))
-        # Update. (Learning rate is 1.)
-        self.w1 += dw1
-        self.w2 += dw2
-
+  def backprop(self, lr):
+    # Derivative of the loss function w.r.t. the weights.
+    self.dy = self.y - self.output
+    dw2 = np.dot(self.layer1.T, (2*self.dy*deriv_sigmoid(self.output)))
+    dw1 = np.dot(self.input.T, (np.dot(2*self.dy*deriv_sigmoid(self.output),
+                                       self.w2.T)*deriv_sigmoid(self.layer1)))
+    self.w1 += dw1
+    self.w2 += dw2
+  
+  def train(self, lr, n_step):
+    for step in range(n_step):
+      self.feedforward()
+      self.backprop(lr=lr)
+      yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
+    return yhat
 
 X = np.array(
     [[0, 0, 1],
@@ -868,12 +928,7 @@ X = np.array(
      [1, 1, 1]])
 y = np.array([[0], [1], [1], [0]])
 nn = NeuralNetwork(X, y)
-
-for i in range(10000):
-    nn.feedforward()
-    nn.backprop()
-    yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
-print(yhat)
+nn.train(lr=1, n_step=3000)
 ```
 
 
