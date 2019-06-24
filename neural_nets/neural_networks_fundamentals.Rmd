@@ -708,26 +708,125 @@ where the entire optimization process is abstracted away from the application co
 
 # Neural Networks
 
+Both linear regression and logistic regression can be considered as simple additive model of the form:
+
+$$
+\hat{y} = \Phi\bigg(\sum_{i=1}^Pw_ix_i\bigg),
+$$
+
+where $P$ is the number of features used,
+$x_i$ is the $i$-th feature,
+and $\Phi(\cdot)$ is a function applied to the output.
+In linear regression $\Phi(\cdot)$ is simply an identity function.
+In logistic regression $\Phi(\cdot)$ is the standard sigmoid function.
+
+Now consider there is a way to ensemble multiple such additive models together to generate a potentially better and more sophisticated model.
+We use the following diagram for illustration.
+
+```{r nn_diagram, echo=FALSE}
+# Draw a simple neural nets.
+DiagrammeR::grViz("
+digraph subscript {
+
+  graph [layout = dot rankdir = LR ordering = in ranksep=2 splines=true]
+
+  node [shape = circle]
+
+  subgraph cluster_input_layer {
+    label = 'Input Layer'
+    x1 [label = 'x@_{1}']
+    x2 [label = 'x@_{2}']
+    x3 [label = 'x@_{3}']
+  }
+
+  subgraph cluster_hidden_layer {
+    label = 'Hidden Layer'
+    n11 [label = 'y@_{11}' color = blue fontcolor = blue]
+    n12 [label = 'y@_{12}' color = darkgreen fontcolor = darkgreen]
+  }
+
+  subgraph cluster_output_layer {
+    label = 'Output Layer'
+    n21 [label = 'y@_{2}']
+  }
+
+  edge [arrowsize = .25]
+
+  x1 -> n11 [label = 'w@_{111}' color = blue fontcolor = blue]
+  x1 -> n12 [label = 'w@_{112}' color = darkgreen fontcolor = darkgreen]
+
+  x2 -> n11 [label = 'w@_{211}' color = blue fontcolor = blue]
+  x2 -> n12 [label = 'w@_{212}' color = darkgreen fontcolor = darkgreen]
+
+  x3 -> n11 [label = 'w@_{311}' color = blue fontcolor = blue]
+  x3 -> n12 [label = 'w@_{312}' color = darkgreen fontcolor = darkgreen]
+
+  n11 -> n21 [label = 'w@_{1121}']
+  n12 -> n21 [label = 'w@_{1221}']
+
+}")
+```
+
+In the above diagram,
+$Y_{11}$ is a single additive model
+
+$$
+Y_{11} = \Phi(W_{111}X_1 + W_{211}X_2 + W_{311}X_3).
+$$
+
+Similarly $Y_{12}$ is another such model (with the same input feature set but different model weights)
+
+$$Y_{12} = \Phi(W_{112}X_1 + W_{212}X_2 + W_{312}X_3).
+$$
+
+Model $Y_2$ is yet another additive model but takes the output of the above two models:
+
+$$
+Y_2 = \Phi(W_{1121}Y_{11} + W_{1221}Y_{12}).
+$$
+
+The above setup is a minimum architecture of a neural network model,
+with only one hidden layer of two *neurons*.
+A neuron is simply an additive model with a so-called activation function $\Phi(\cdot)$ to transform the output from any real number into a scaled signal.
+
+One now can easily realize that a logistic regression model could be viewed as a degenerated neural network model with single neuron and using sigmoid as the activation function.
+And a linear regression model is a degenerated neural network model with single neuron and without an activation function.
+
 ## Activation Function
 
-The role of actiation function in a neural network model is to make the model non-linear.
-Without activator,
-no matter how deep the network architecture is the model will eventually collapse into a linear model.
+Why do we need the activation function?
+In the above neural network model in the absence of activation function the final output model $Y_2$ will degenerate into a simple linear model.
+We can use simpler notations to demonstrate this:
 
-## Single-Neuron Neural Networks
+$$
+\begin{aligned}
+y_1 &= ax + b, \\
+y_2 &= cx + d, \\
+y_3 &= e + fy_1 + gy_2 \\
+&= e + f(ax + b) + g(cx + d) \\
+&= \underbrace{(e + fb + gd)}_\text{Bias} + \underbrace{(fa + gc)}_\text{Weight}x.
+\end{aligned}
+$$
 
-A linear regression estimator is indeed a single-neuron neural networks without activator.
-And a logistic regression estimator is a single-neuron neural networks with a sigmoid activator.
+Without activation function,
+no matter how many neurons or layers we design for our model,
+it eventually reduces to a simple linear model.
+With the activation function applied to each neuron,
+the model becomes *non-linear* and hence can handle much more complicated patterns hidden behind the data.
 
-## Analytical Lab: 2-Layer Neural Networks
+Some popular activation functions:
 
-In this section we'd like to explore a 2-layer neural nets from scratch.
-We are going to derived the gradient function manually and use only `numpy` to implement the model training with a vanilla gradient descent.
++ [Sigmoid (Logistic)](https://en.wikipedia.org/wiki/Logistic_function)
++ [Tanh (Hyperbolic Tangent)](https://en.wikipedia.org/wiki/Hyperbolic_function#Hyperbolic_tangent)
++ [ReLU (Rectified Linear Unit)](https://en.wikipedia.org/wiki/Rectifier_(neural_networks))
++ Swish: $f(x) = x \cdot \mbox{sigmoid}(x)$, proposed by [Google Brain](https://ai.google/research/teams/brain/)
+
+## Backpropagation
+
+In this section will build a neural network optimizer from scratch.
 
 
-```python
-import math
-
+```{python}
 def sigmoid(x):
     """A numerically stable sigmoid function."""
     return np.exp(-np.logaddexp(0, -x))
@@ -742,8 +841,8 @@ class NeuralNetwork:
     """Simple 2-layer neural network model assuming sum of squared errors as the loss."""
     def __init__(self, x, y):
         self.input = x
-        self.w1 = np.random.rand(self.input.shape[1], 4)
-        self.w2 = np.random.rand(4, 1)
+        self.w1 = np.random.rand(self.input.shape[1], 2)
+        self.w2 = np.random.rand(2, 1)
         self.y = y
         self.output = np.zeros(y.shape)
 
@@ -770,14 +869,11 @@ X = np.array(
 y = np.array([[0], [1], [1], [0]])
 nn = NeuralNetwork(X, y)
 
-print("Actual y:")
-print(",".join([str(y) for y in np.squeeze(y)]))
-print("Predicted y:")
 for i in range(10000):
     nn.feedforward()
     nn.backprop()
     yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
-    print(yhat, end="\r", flush=True)
+print(yhat)
 ```
 
 
