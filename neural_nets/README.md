@@ -1,8 +1,12 @@
 # Neural Networks Fundamentals
 
-The notebook is created by [`rmarkdown`](https://rmarkdown.rstudio.com/) with [`reticulate`](https://github.com/rstudio/reticulate) to enable Python code interoperation.
+## R Dependencies for Notebook Rendering
 
-## Python Dependencies
++ [`rmarkdown`](https://rmarkdown.rstudio.com/)
++ [`reticulate`](https://github.com/rstudio/reticulate): To enable Python code interoperation in R.
++ [`DiagrammeR`](https://github.com/rich-iannone/DiagrammeR): To draw NN diagram.
+
+## Python Dependencies for Coding Examples
 
 Run
 
