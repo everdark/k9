@@ -659,6 +659,22 @@ cross_entropy_gd_optimize(X, y2, lr=.5, n_step=5000)[0]
 
 Seems better.
 
+Or we can use the Python package `statsmodels` (which also uses a 2nd-order optimizer by default) to check our result: 
+
+```{python}
+import statsmodels.api as sm
+sm.Logit(y2, X).fit().summary()
+```
+
+Or we can use the popular machine learning library `sklearn` to do the same check:
+
+```{python}
+from sklearn.linear_model import LogisticRegression
+# We need to set C to an arbitrarily large number to suppress regularization
+# since our naive approach doesn't implement any regularization.
+LogisticRegression(C=1e16, fit_intercept=False).fit(X, y2).coef_
+```
+
 # Automatic Differentiation
 
 In the previous section we implement a simple gradient descent optimizer by manually derive the functional form of gradient on our own.
