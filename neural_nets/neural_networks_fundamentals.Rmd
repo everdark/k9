@@ -861,22 +861,84 @@ $$
 \begin{aligned}
 \hat{y} 
 &= \Phi(b_1 + w_1z) \\
-&= \Phi(b_1 + w_1\Phi(b_0 + w_0x)).
+&= \Phi(b_1 + w_1\Phi(b_0 + w_0x)),
 \end{aligned}
+$$
+where
+
+$$
+z = \Phi(b_0 + w_0x),
+$$
+
+and
+
+$$
+\Phi(t) = \frac{1}{1 + e^{-t}}.
 $$
 
 ### MSE Loss
 
+Though it may not be very meaningful to use MSE loss when the output layer is applied with an activation function,
+we can still do it for educational purpose.
+
 $$
-\mbox{MSE-Loss} = \frac{1}{N}\sum_i^N  (y_i - \hat{y_i})^2.
+\mbox{MSE-Loss} = \frac{1}{N}\sum_i^N  (y_i - \hat{y}_i)^2.
 $$
 
+Firstly we take the derivative w.r.t. the weight in the last layer:
 
+$$
+\begin{aligned}
+\frac{\partial \mbox{MSE-Loss}}{\partial w_1}
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)\frac{\partial \hat{y}_i}{\partial w_1} \\
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
+\underbrace{  \frac{\partial t}{\partial w_1}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z.
+\end{aligned}
+$$
+
+Similarly for the bias in the last layer:
+
+$$
+\frac{\partial \mbox{MSE-Loss}}{\partial b_1} = - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)).
+$$
+
+Now move on to the bias and weight in the first layer:
+
+$$
+\begin{aligned}
+\frac{\partial \mbox{MSE-Loss}}{\partial w_0}
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)\frac{\partial \hat{y}_i}{\partial w_0} \\
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
+\underbrace{  \frac{\partial t}{\partial w_0}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
+\underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot x, \\
+\frac{\partial \mbox{MSE-Loss}}{\partial b_0} 
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot \Phi(k)(1 - \Phi(k)).
+\end{aligned}
+$$
+
+One can clearly see there is a linkage between the derivative of the weights in consecutive layers:
+
+$$
+\begin{aligned}
+\frac{\partial \mbox{MSE-Loss}}{\partial w_1}
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z, \\
+\frac{\partial \mbox{MSE-Loss}}{\partial w_0}
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
+\underbrace{\Phi(k)(1 - \Phi(k)) \cdot x}_{\frac{\partial z}{\partial w_0} = \frac{\partial \Phi(b0 + w_0x)}{\partial w_0}}.
+\end{aligned}
+$$
+
+In general,
+starting from the output layer,
+to get the gradient of the previous layer (in this case $x$),
+we can use gradient of the current layer with the output from the previous layer (in this case $z$) replaced with the gradient of the output from the previous layer.
 
 ### Cross-Entropy Loss
 
 $$
-\mbox{Log-Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y_i} + (1 - y_i)\ln(1 - \hat{y_i})\bigg].
+\mbox{Log-Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y}_i + (1 - y_i)\ln(1 - \hat{y}_i)\bigg].
 $$
 
 
@@ -887,7 +949,7 @@ def sigmoid(x):
   return np.exp(-np.logaddexp(0, -x))
 
 
-def deriv_sigmoid(z):
+def sigmoid_grad(z):
   """Derivative of the sigmoid function."""
   return z*(1 - z)
 
@@ -908,9 +970,9 @@ class NeuralNetwork:
   def backprop(self, lr):
     # Derivative of the loss function w.r.t. the weights.
     self.dy = self.y - self.output
-    dw2 = np.dot(self.layer1.T, (2*self.dy*deriv_sigmoid(self.output)))
-    dw1 = np.dot(self.input.T, (np.dot(2*self.dy*deriv_sigmoid(self.output),
-                                       self.w2.T)*deriv_sigmoid(self.layer1)))
+    dw2 = np.dot(self.layer1.T, (2*self.dy*sigmoid_grad(self.output)))
+    dw1 = np.dot(self.input.T, (np.dot(2*self.dy*sigmoid_grad(self.output),
+                                       self.w2.T)*sigmoid_grad(self.layer1)))
     self.w1 += dw1
     self.w2 += dw2
   
