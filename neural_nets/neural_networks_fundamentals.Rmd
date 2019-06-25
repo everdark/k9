@@ -10,6 +10,7 @@ output:
     number_sections: yes
     theme: flatly
     toc: yes
+    highlight: pygments
 ---
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
@@ -603,8 +604,8 @@ Now the Python code for batch gradient descent with log-loss:
 
 ```{python logit_gd}
 def logloss(X, y, b):
-  logloss_pos = y*np.log(sigmoid(X.dot(b)))
-  logloss_neg = (1 - y)*np.log(1 - sigmoid(X.dot(b)))
+  logloss_pos = y * np.log(sigmoid(X.dot(b)))
+  logloss_neg = (1 - y) * np.log(1 - sigmoid(X.dot(b)))
   return - (logloss_pos + logloss_neg).mean()
 
 def logit_grad_func(X, y, b):
@@ -699,21 +700,37 @@ X_tf = tf.convert_to_tensor(X, dtype=tf.float32)
 beta_tf = tf.reshape(tf.convert_to_tensor(beta, dtype=tf.float32), (2,1))
 e_tf = tf.reshape(tf.convert_to_tensor(e, dtype=tf.float32), (N, 1))
 y_tf = tf.matmul(X_tf, beta_tf) + e_tf
+y2_tf = tf.reshape(tf.convert_to_tensor(y2, dtype=tf.float32), (N, 1))
 
 def loss_mse_tf(X, y, beta):
   y_hat = tf.matmul(X, beta)
   return tf.reduce_mean(input_tensor = (y_hat - y)**2)
 
-grad_func_tf = tf.contrib.eager.gradients_function(loss_mse_tf, params=[2])
+def logloss_tf_bad(X, y, beta):
+  # This can suffer from numerical stability issue.
+  logloss_pos = y * tf.log(tf.sigmoid(tf.matmul(X, beta)))
+  logloss_neg = (1 - y) * tf.log(1 - tf.sigmoid(tf.matmul(X, beta)))
+  return - tf.reduce_mean(logloss_pos + logloss_neg)
 
-def gd_optimize_tf(X, y, lr=.01, n_step=100):
+def logloss_tf(X, y, beta):
+  # tf.sigmoid is not numerically stable.
+  # But there is a convenient function to do the cross entropy calculation stably.
+  s = tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=tf.matmul(X, beta))
+  return tf.reduce_mean(s)
+
+def gd_optimize_tf(X, y, loss_func, lr=.01, n_step=100):
+  grad_func_tf = tf.contrib.eager.gradients_function(loss_func, params=[2])
   beta = tf.random_normal((2, 1))
   for step in range(n_step):
     grad = grad_func_tf(X, y, beta)[0]
     beta -= lr * grad
   return beta.numpy()
 
-gd_optimize_tf(X_tf, y_tf, n_step=3000)
+# For the MSE loss problem.
+print(gd_optimize_tf(X_tf, y_tf, loss_func=loss_mse_tf, n_step=3000))
+
+# For the cross entropy loss problem.
+print(gd_optimize_tf(X_tf, y2_tf, loss_func=logloss_tf, lr=.5, n_step=5000))
 ```
 
 In the above coding example one should realize that we no longer need to hardcode the functional form of the gradients.
