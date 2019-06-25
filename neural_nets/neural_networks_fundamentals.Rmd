@@ -926,7 +926,7 @@ $$
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)\frac{\partial \hat{y}_i}{\partial w_1} \\
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
 \underbrace{  \frac{\partial t}{\partial w_1}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
-&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z.
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z_i.
 \end{aligned}
 $$
 
@@ -945,7 +945,7 @@ $$
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
 \underbrace{  \frac{\partial t}{\partial w_0}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
-\underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot x, \\
+\underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot x_i, \\
 \frac{\partial \mbox{MSE-Loss}}{\partial b_0} 
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot \Phi(k)(1 - \Phi(k)).
 \end{aligned}
@@ -956,10 +956,10 @@ One can clearly see there is a linkage between the derivative of the weights in 
 $$
 \begin{aligned}
 \frac{\partial \mbox{MSE-Loss}}{\partial w_1}
-&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z, \\
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z_i, \\
 \frac{\partial \mbox{MSE-Loss}}{\partial w_0}
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
-\underbrace{\Phi(k)(1 - \Phi(k)) \cdot x}_{\frac{\partial z}{\partial w_0} = \frac{\partial \Phi(b0 + w_0x)}{\partial w_0}}.
+\underbrace{\Phi(k)(1 - \Phi(k)) \cdot x_i}_{\frac{\partial z}{\partial w_0} = \frac{\partial \Phi(b0 + w_0x)}{\partial w_0}}.
 \end{aligned}
 $$
 
@@ -970,30 +970,41 @@ we can use gradient of the current layer with the output from the previous layer
 
 ### Cross-Entropy Loss
 
+Similarly we can derive the gradients for cross-entropy loss.
+
 $$
 \mbox{Log-Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y}_i + (1 - y_i)\ln(1 - \hat{y}_i)\bigg].
 $$
 
+$$
+\begin{aligned}
+\frac{\partial \mbox{LogLoss}}{\partial w_1}
+&= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)z_i, \\
+\frac{\partial \mbox{LogLoss}}{\partial w_0}
+&= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)\Phi(k)(1 - \Phi(k))x_i.\\
+\end{aligned}
+$$
 
+(Skip the bias terms to save space.)
 
-```{python}
+Now let's implement the simple neural network model in Python:
+
+```{python nn}
 def sigmoid(x):
-  """A numerically stable sigmoid function."""
   return np.exp(-np.logaddexp(0, -x))
 
 
 def sigmoid_grad(z):
-  """Derivative of the sigmoid function."""
   return z*(1 - z)
 
 
 class NeuralNetwork:
-  """Simple neural network with MSE loss."""
   def __init__(self, x, y):
     self.input = x
     self.w1 = np.random.rand(self.input.shape[1], 4)
     self.w2 = np.random.rand(4, 1)
     self.y = y
+    self.loss = loss
     self.output = np.zeros(y.shape)
 
   def feedforward(self):
@@ -1001,13 +1012,7 @@ class NeuralNetwork:
     self.output = sigmoid(np.dot(self.layer1, self.w2))
 
   def backprop(self, lr):
-    # Derivative of the loss function w.r.t. the weights.
-    self.dy = self.y - self.output
-    dw2 = np.dot(self.layer1.T, (2*self.dy*sigmoid_grad(self.output)))
-    dw1 = np.dot(self.input.T, (np.dot(2*self.dy*sigmoid_grad(self.output),
-                                       self.w2.T)*sigmoid_grad(self.layer1)))
-    self.w1 += dw1
-    self.w2 += dw2
+    raise NotImplementedError
   
   def train(self, lr, n_step):
     for step in range(n_step):
@@ -1016,14 +1021,49 @@ class NeuralNetwork:
       yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
     return yhat
 
+
+class NerualNetworkWithMSELoss(NeuralNetwork):
+  def backprop(self, lr):
+    self.dy = self.y - self.output
+    dw2 = - np.dot(self.layer1.T, (self.dy*sigmoid_grad(self.output)))
+    dw1 = - np.dot(self.input.T, (np.dot(self.dy*sigmoid_grad(self.output),
+                                       self.w2.T)*sigmoid_grad(self.layer1)))
+    self.w1 -= lr * dw1
+    self.w2 -= lr * dw2
+
+
+class NerualNetworkWithLogLoss(NeuralNetwork):
+  def backprop(self, lr):
+    self.dy = self.y - self.output
+    dw2 = - np.dot(self.layer1.T, self.dy)
+    dw1 = - np.dot(self.input.T, self.dy*sigmoid_grad(self.layer1))
+    self.w1 -= lr * dw1
+    self.w2 -= lr * dw2
+```
+
+```{python nn_gd_mse_loss}
 X = np.array(
     [[0, 0, 1],
      [0, 1, 1],
      [1, 0, 1],
      [1, 1, 1]])
 y = np.array([[0], [1], [1], [0]])
-nn = NeuralNetwork(X, y)
+nn = NerualNetworkWithMSELoss(X, y)
+
+
 nn.train(lr=1, n_step=3000)
 ```
 
+```{python nn_gd_log_loss}
+X = np.array(
+    [[0, 0, 1],
+     [0, 1, 1],
+     [1, 0, 1],
+     [1, 1, 1]])
+y = np.array([[0], [1], [1], [0]])
+nn = NerualNetworkWithLogLoss(X, y)
+
+
+nn.train(lr=1, n_step=3000)
+```
 
