@@ -655,7 +655,7 @@ coef(glm(y ~ x, data=data.frame(y=py$y2, x=py$X[,2]), family=binomial))
 Now increase both the learning rate and training step of our naive gradient descent optimizer:
 
 ```{python}
-cross_entropy_gd_optimize(X, y2, lr=.5, n_step=5000)[0]
+print(cross_entropy_gd_optimize(X, y2, lr=.5, n_step=5000)[0])
 ```
 
 Seems better.
@@ -897,6 +897,7 @@ $$
 &= \Phi(b_1 + w_1\Phi(b_0 + w_0x)),
 \end{aligned}
 $$
+
 where
 
 $$
@@ -945,7 +946,7 @@ $$
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
 \underbrace{  \frac{\partial t}{\partial w_0}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
-\underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot x_i, \\
+\underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot w_1 \cdot x_i, \\
 \frac{\partial \mbox{MSE-Loss}}{\partial b_0} 
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot \Phi(k)(1 - \Phi(k)).
 \end{aligned}
@@ -958,30 +959,24 @@ $$
 \frac{\partial \mbox{MSE-Loss}}{\partial w_1}
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z_i, \\
 \frac{\partial \mbox{MSE-Loss}}{\partial w_0}
-&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
-\underbrace{\Phi(k)(1 - \Phi(k)) \cdot x_i}_{\frac{\partial z}{\partial w_0} = \frac{\partial \Phi(b0 + w_0x)}{\partial w_0}}.
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot 
+\underbrace{\Phi(t)(1 - \Phi(t))}_{\hat{y}_i(1 - \hat{y}_i)} \cdot 
+\underbrace{\Phi(k)(1 - \Phi(k)) \cdot w_1 \cdot x_i}_{\frac{\partial w_1z}{\partial w_0} = \frac{\partial w_1\Phi(b0 + w_0x)}{\partial w_0}}.
 \end{aligned}
 $$
-
-In general,
-starting from the output layer,
-to get the gradient of the previous layer (in this case $x$),
-we can use gradient of the current layer with the output from the previous layer (in this case $z$) replaced with the gradient of the output from the previous layer.
 
 ### Cross-Entropy Loss
 
 Similarly we can derive the gradients for cross-entropy loss.
 
 $$
-\mbox{Log-Loss} = - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y}_i + (1 - y_i)\ln(1 - \hat{y}_i)\bigg].
-$$
-
-$$
 \begin{aligned}
+\mbox{LogLoss} 
+&= - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y}_i + (1 - y_i)\ln(1 - \hat{y}_i)\bigg], \\
 \frac{\partial \mbox{LogLoss}}{\partial w_1}
 &= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)z_i, \\
 \frac{\partial \mbox{LogLoss}}{\partial w_0}
-&= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)\Phi(k)(1 - \Phi(k))x_i.\\
+&= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)\Phi(k)(1 - \Phi(k))w_1x_i.\\
 \end{aligned}
 $$
 
@@ -999,12 +994,12 @@ def sigmoid_grad(z):
 
 
 class NeuralNetwork:
+  """Simple neural network with 1 hidden layer of 4 neurons."""
   def __init__(self, x, y):
     self.input = x
     self.w1 = np.random.rand(self.input.shape[1], 4)
     self.w2 = np.random.rand(4, 1)
     self.y = y
-    self.loss = loss
     self.output = np.zeros(y.shape)
 
   def feedforward(self):
@@ -1018,52 +1013,80 @@ class NeuralNetwork:
     for step in range(n_step):
       self.feedforward()
       self.backprop(lr=lr)
-      yhat = ",".join([str(y) for y in np.squeeze(nn.output)])
+      yhat = ",".join([str(y) for y in np.squeeze(self.output)])
     return yhat
 
 
 class NerualNetworkWithMSELoss(NeuralNetwork):
   def backprop(self, lr):
+    # We ignore all constant terms in the gradient.
     self.dy = self.y - self.output
     dw2 = - np.dot(self.layer1.T, (self.dy*sigmoid_grad(self.output)))
-    dw1 = - np.dot(self.input.T, (np.dot(self.dy*sigmoid_grad(self.output),
-                                       self.w2.T)*sigmoid_grad(self.layer1)))
+    dw1 = - np.dot(self.input.T, 
+                   (np.dot(self.dy*sigmoid_grad(self.output),
+                           self.w2.T)*sigmoid_grad(self.layer1)))
     self.w1 -= lr * dw1
     self.w2 -= lr * dw2
 
 
 class NerualNetworkWithLogLoss(NeuralNetwork):
   def backprop(self, lr):
+    # We ignore all constant terms in the gradient.
     self.dy = self.y - self.output
     dw2 = - np.dot(self.layer1.T, self.dy)
-    dw1 = - np.dot(self.input.T, self.dy*sigmoid_grad(self.layer1))
+    dw1 = - np.dot(self.input.T, 
+                   np.dot(self.dy, self.w2.T)*sigmoid_grad(self.layer1))
     self.w1 -= lr * dw1
     self.w2 -= lr * dw2
 ```
 
-```{python nn_gd_mse_loss}
+Here we will use the hello-world example of artificial neural network:
+The [XOR](https://en.wikipedia.org/wiki/XOR_gate) problem.
+The XOR logical outcome,
+besides extremely simple,
+is not linearly separable.
+So it serves as a good example of showcasing neural networks' non-linearity.
+
+The input data is simply combination of two binary switches.
+(For completeness we also include a constant term which always evaluate to 1 as the first feature.)
+The output data is the XOR result.
+
+```{python nn_xor_data}
 X = np.array(
-    [[0, 0, 1],
-     [0, 1, 1],
+    [[1, 0, 0],
+     [1, 1, 0],
      [1, 0, 1],
      [1, 1, 1]])
 y = np.array([[0], [1], [1], [0]])
-nn = NerualNetworkWithMSELoss(X, y)
 
+print(X)  # Input features: Bias + two binary switches.
+print(y)  # XOR output.
+```
 
-nn.train(lr=1, n_step=3000)
+Now let's see if our simple neural network model can learn the XOR pattern.
+
+```{python nn_gd_mse_loss}
+nn_mse = NerualNetworkWithMSELoss(X, y)
+nn_mse.train(lr=1, n_step=3000)  # The predicted XOR outcome.
+print(nn_mse.w1)  # Estimated 1st-layer model weights
+print(nn_mse.w2)  # Estimated 2nd-layer model weights
 ```
 
 ```{python nn_gd_log_loss}
-X = np.array(
-    [[0, 0, 1],
-     [0, 1, 1],
-     [1, 0, 1],
-     [1, 1, 1]])
-y = np.array([[0], [1], [1], [0]])
-nn = NerualNetworkWithLogLoss(X, y)
-
-
-nn.train(lr=1, n_step=3000)
+nn_logloss = NerualNetworkWithLogLoss(X, y)
+nn_logloss.train(lr=1, n_step=3000)
 ```
+
+For this simple example,
+both MSE and cross-entropy loss can work fine to figure out the XOR pattern.
+(Strictly speaking cross-entropy loss performs better.)
+
+## Regularization
+
+### L2-Norm
+
+### L1-Norm
+
+### Dropout
+
 
