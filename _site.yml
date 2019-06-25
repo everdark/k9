@@ -9,6 +9,8 @@ navbar:
       href: about.html
     - text: "Bayesian"
       href: bayesian/bayesian_modeling_explained.nb.html
+    - text: "Neural Networks"
+      href: neural_nets/neural_networks_fundamentals.nb.html
     - text: "Learning to Rank"
       href: learning_to_rank/learning_to_rank.html
 output:
