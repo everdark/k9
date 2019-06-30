@@ -26,6 +26,7 @@ MathJax.Hub.Config({
 </script>
 
 ```{r setup, include=FALSE}
+Sys.setenv(PYTHON_PATH="/usr/local/bin/python3")
 library(reticulate)
 use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
 ```
@@ -43,6 +44,7 @@ A linear model can be written in a matrix form
 $$
 Y = X\beta + \epsilon,
 $$
+
 where $Y$ is the output or label vector of length $N$ (number of observations),
 $X$ is the input feature matrix (referred to as the *design matrix* in statistics) with dimension $N$ by $P$ (number of features),
 $\beta$ is the model weights/coefficients (a column vector of length $P$) for which we'd like to solve,
@@ -309,12 +311,12 @@ Number of epochs can be considered as another hyper-parameter of a model.
 Here comes the minimum SGD implementation:
 
 ```{python linear_reg_sgd}
-def sgd_optimize(X, y, grad_func, lr=.01, n_epoch=100):
+def sgd_optimize(X, y, grad_func, lr=.01, n_epoch=10):
   b = np.random.normal(size=X.shape[1])
   l = [loss(X, y, b)]
   out = b.copy()
   for epoch in range(n_epoch):
-    # Shuffle the dataset before each epoch. 
+    # Shuffle the dataset before each epoch.
     sid = np.random.permutation(X.shape[0])
     for i in sid:
       b -= lr * grad_func(X[None,i,:], y[i], b)
@@ -324,8 +326,8 @@ def sgd_optimize(X, y, grad_func, lr=.01, n_epoch=100):
   return out, l
 
 sgd_beta, sgd_loss = sgd_optimize(X, y, grad_func, lr=.01, n_epoch=100)
-for e in [1, 5, 10, 50, 100]:
-  print("Training Epochs {:4} | Estimate: {}".format(e, sgd_beta[e]))
+for epoch in [1, 5, 10, 50, 100]:
+  print("Training Epochs {:4} | Estimate: {}".format(epoch, sgd_beta[epoch]))
 ```
 
 SGD won't be as precise as vanilla GD but for large scale application it can reduce considerable amount of computing time (sometimes from infeasible to feasible).
@@ -351,46 +353,54 @@ htmltools::includeHTML(py$ofile)
 Since the loss is calculated on a per-instance basis,
 it will fluctuate but with a decreasing trend if nothing went wrong about the optimization process.
 
+In `sklearn` there are dedicated SGD classes for a variety of learning algorithms.
+For a linear regression model with SGD solver:
+
+```{python linear_reg_sgd_sklearn}
+from sklearn.linear_model import SGDRegressor
+# Turn off the default elasticnet regularization for comparison.
+print(SGDRegressor(alpha=0, l1_ratio=0, fit_intercept=False).fit(X, y).coef_)
+```
+
 #### Batch Gradient Descent {-}
 
 To reduce the noise in SGD we can modify it by replacing 1 training example with a batch of examples in a single gradient update.
-Here's such implementation of a batch gradient descent optimizer:
+Here's such implementation of a batch gradient descent optimizer^[Sometimes "mini-batch gradient descent" is used to describe SGD with batch size > 1. Here we ignore the redundant wording and just call it batch gradient descent.]:
 
 ```{python linear_reg_gd_batch}
-def gd_batch_optimize(X, y, grad_func, lr=.01, n_step=100, batch_size=64):
+def gd_batch_optimize(X, y, grad_func, lr=.01, n_epoch=10, batch_size=64):
   b = np.random.normal(size=X.shape[1])
   l = [loss(X, y, b)]
-  for step in range(n_step):
-    sid = np.random.randint(X.shape[0], size=batch_size)
-    Xb = X[sid,:]
-    yb = y[sid]
-    b -= lr*grad_func(Xb, yb, b)
-    l.append(loss(Xb, yb, b))
+  for epoch in range(n_epoch):
+    # Shuffle the dataset before each epoch.
+    sid = np.random.permutation(X.shape[0])
+    Xs = X[sid,:]
+    ys = y[sid]
+    i = 0
+    n_step = int(np.ceil(X.shape[0] / batch_size))
+    for step in range(n_step):
+      Xb = Xs[i:i+batch_size,:]
+      yb = ys[i:i+batch_size]
+      b -= lr*grad_func(Xb, yb, b)
+      l.append(loss(Xb, yb, b))
+      i += batch_size
   return b, l
 
-batch_beta, batch_loss = gd_batch_optimize(X, y, grad_func, n_step=3000, batch_size=64)
+batch_beta, batch_loss = gd_batch_optimize(X, y, grad_func, n_epoch=100, batch_size=64)
 print(batch_beta)
 ```
 
-```{python}
+For this simple problem batch size doesn't have any important impact given enough number of training epochs:
+
+```{python linear_reg_gd_diff_batch_size}
 for bsize in [8, 16, 32, 64, 128, 256]:
-  print(gd_batch_optimize(X, y, grad_func, n_step=5000, batch_size=bsize)[0])
+  print("Batch Size: {:4} | Estimate: {}".format(
+    bsize,
+    gd_batch_optimize(X, y, grad_func, n_epoch=100, batch_size=bsize)[0]))
 ```
-
-```{python}
-for i in range(10):
-  print(gd_batch_optimize(X, y, grad_func, n_step=5000, batch_size=8)[0])
-```
-
-```{python}
-for i in range(10):
-  print(gd_batch_optimize(X, y, grad_func, n_step=5000, batch_size=64)[0])
-```
-
 
 Batch optimizer is currently the best practice of training neural networks in large scale application.
-The batch size depends on the actual application but usually ranges from 8 to 1024.
-
+The batch size depends on the actual application but usually ranges from 8 (mini) to 1024 (large).
 
 ## Logistic Regression
 
@@ -643,18 +653,25 @@ def logloss(X, y, b):
 def logit_grad_func(X, y, b):
   return - (y - sigmoid(X.dot(b))).dot(X) / X.shape[0]
 
-def cross_entropy_gd_optimize(X, y, lr=.01, n_step=100, batch_size=64):
+def cross_entropy_gd_optimize(X, y, lr=.01, n_epoch=10, batch_size=64):
   b = np.random.normal(size=X.shape[1])
   l = [logloss(X, y, b)]
-  for step in range(n_step):
-    sid = np.random.randint(X.shape[0], size=batch_size)
-    Xb = X[sid,:]
-    yb = y[sid]
-    b -= lr*logit_grad_func(Xb, yb, b)
-    l.append(logloss(Xb, yb, b))
+  for epoch in range(n_epoch):
+    # Shuffle the dataset before each epoch.
+    sid = np.random.permutation(X.shape[0])
+    Xs = X[sid,:]
+    ys = y[sid]
+    i = 0
+    n_step = int(np.ceil(X.shape[0] / batch_size))
+    for step in range(n_step):
+      Xb = Xs[i:i+batch_size,:]
+      yb = ys[i:i+batch_size]
+      b -= lr*logit_grad_func(Xb, yb, b)
+      l.append(loss(Xb, yb, b))
+      i += batch_size
   return b, l
 
-log_beta, log_loss = cross_entropy_gd_optimize(X, y2, lr=.01, n_step=3000)
+log_beta, log_loss = cross_entropy_gd_optimize(X, y2, lr=.01, n_epoch=100)
 print(log_beta)
 ```
 
@@ -684,10 +701,10 @@ let's use R's built-in `glm` function which use Newton's method (a 2nd-order opt
 coef(glm(y ~ x, data=data.frame(y=py$y2, x=py$X[,2]), family=binomial))
 ```
 
-Now increase both the learning rate and training step of our naive gradient descent optimizer:
+Now increase both the learning rate and training epochs of our naive gradient descent optimizer:
 
 ```{python logit_gd_more}
-print(cross_entropy_gd_optimize(X, y2, lr=.5, n_step=5000)[0])
+print(cross_entropy_gd_optimize(X, y2, lr=1, n_epoch=200)[0])
 ```
 
 Seems better.
@@ -699,7 +716,7 @@ import statsmodels.api as sm
 sm.Logit(y2, X).fit().summary()
 ```
 
-Or we can use the popular machine learning library `sklearn` to do the same check:
+Or the `sklearn` result:
 
 ```{python logit_sklearn}
 from sklearn.linear_model import LogisticRegression
@@ -1200,26 +1217,34 @@ def mse_grad_l2(X, y, beta):
   a = 1  # Hardcode the regularization coefficient for simplicity.
   return -2 * ((y - X.dot(beta)).dot(X)) / X.shape[0] + 2 * a * beta / X.shape[0]
 
-# Batch size affect the result!
-# something wrong here...
-batch_beta, batch_loss = gd_batch_optimize(X, y, mse_grad_l2, n_step=3000, batch_size=32)
+batch_beta, batch_loss = gd_batch_optimize(X, y, mse_grad_l2, n_epoch=100, batch_size=64)
 print(batch_beta)
 ```
 
-```{python}
-gd_optimize(X, y, mse_grad_l2)[0]
+The resulting estimates are smaller than the vanilla gradient descent.
+
+One thing worth noting is that when batch gradient descent is used along with regularization,
+a side effect exists due to the scaling of the batch size on the regularization term.
+
+Experiments with different batch sizes with l2 regularization:
+
+```{python ridge_reg_differ_batch_size}
+for bsize in [8, 16, 32, 64, 128, 256, 512, 1000]:
+  print("Batch Size: {:4} | Estimate: {}".format(
+    bsize,
+    gd_batch_optimize(X, y, mse_grad_l2, n_epoch=500, batch_size=bsize)[0]))
 ```
 
-
-The resulting estimates are smaller than the vanilla gradient descent.
-Let's check the result using `sklearn` (which should also give smaller estimates):
+Let's check the result using `sklearn`'s `Ridge` regressor (which doesn't use gradient descent as its solver):
 
 ```{python ridge_reg_sklearn}
 # We set fit_intercept=False since our design matrix already contains intercept.
-# And according to the doc the constant 2 is not included so we set alpha = 2.
+# According to the doc the constant 2 in the derivative is not included so we set alpha = 2.
 from sklearn.linear_model import Ridge
 print(Ridge(alpha=2, fit_intercept=False).fit(X, y).coef_)
 ```
+
+The result is closed to gradient descent with nearly a full-batch update (i.e., use the entire training data for one update).
 
 Exactly the same logic can apply to logistic regression and is not discussed here to avoid redundancy.
 
@@ -1248,18 +1273,7 @@ $$
 $$
 
 A linear regression model with l1 regularization is referred to as the lasso regression.
-
-```{python lasso_reg}
-def mse_grad_l1(X, y, beta):
-  a = 1  # Hardcode the regularization coefficient for simplicity.
-  return -2 * ((y - X.dot(beta)).dot(X)) / X.shape[0] + a * np.sign(beta)# / X.shape[0]
-
-batch_beta, batch_loss = gd_batch_optimize(X, y, mse_grad_l1, n_step=30, batch_size=1000)
-print(batch_beta)
-```
-
-Again the resulting estimates are smaller than the vanilla gradient descent.
-Let's check the result using `sklearn`:
+Let's first check the result using `sklearn`'s `Lasso` regressor (which uses a coordinate descent solver):
 
 ```{python lasso_reg_sklearn}
 # We set fit_intercept=False since our design matrix already contains intercept.
@@ -1267,7 +1281,29 @@ from sklearn.linear_model import Lasso
 print(Lasso(alpha=1, fit_intercept=False).fit(X, y).coef_)
 ```
 
-Let's purposely add one random feature as a noise into the design matrix and see how the regularization helps to shrink the weight of the noise.
+To derive roughly the same result,
+we need to calibrate the coefficient on regularization in our gradient descent solver:
+
+```{python lasso_reg}
+def mse_grad_l1(X, y, beta):
+  # a is set to 2 since in sklearn convention the entire loss is scaled by a factor of 1/2
+  # to cancel out the derivative constant on the squared error term.
+  a = 2
+  return -2 * ((y - X.dot(beta)).dot(X)) / X.shape[0] + a * np.sign(beta)
+
+# We use a full-batch gradient descent here.
+batch_beta, batch_loss = gd_batch_optimize(X, y, mse_grad_l1, n_epoch=1000, batch_size=1000)
+print(batch_beta)
+```
+
+We can also check the consistency by calling `sklearn`'s `SGDRegressor`:
+
+```{python}
+from sklearn.linear_model import SGDRegressor
+print(SGDRegressor(penalty="l1", alpha=1, fit_intercept=False).fit(X, y).coef_)
+```
+
+Now let's purposely add one random feature as a noise into the design matrix and see how the regularization helps to shrink the weight of the noise.
 
 ```{python shrinkage_experiment}
 # Introduce a totally irrelevant feature into our linear model.
@@ -1283,22 +1319,32 @@ As one can see,
 `Lasso` regressor is able to completely wipe out the weight on the redundant noise,
 while `Ridge` can only shrink it toward zero.
 
+To arrive roughly at the same result of `Ridge` using our simple gradient descent solver:
 
-```{python}
-# Why our implementation can not zero out the weight?
-batch_beta, batch_loss = gd_batch_optimize(Xnoise, y, mse_grad_l1, n_step=3000, batch_size=64)
-print(batch_beta)
-
-batch_beta, batch_loss = gd_batch_optimize(Xnoise, y, mse_grad_l2, n_step=3000, batch_size=64)
-print(batch_beta)
+```{python ridge_sgd_shrinkage}
+print(gd_batch_optimize(Xnoise, y, mse_grad_l2, lr=.03, n_epoch=1000, batch_size=1000)[0])
 ```
 
-Again,
+And for the `Lasso` case:
+
+```{python lasso_sgd_shrinkage}
+print(gd_batch_optimize(Xnoise, y, mse_grad_l1, lr=.03, n_epoch=1000, batch_size=1000)[0])
+```
+
+One thing to note:
+Tt is in general difficult to arrive at sparse solution (0 weight) for a naive gradient descent implementation such as ours.
+Some further mathematical tricks like the [proximal gradient metohd](https://en.wikipedia.org/wiki/Proximal_gradient_method) must be applied in order to produce sparse result under finite iterations.
+
+Finally,
+again,
 exactly the same logic can apply to logistic regression and is not discussed further to avoid redundancy.
 
 ## Geometric Interptretation of L1/L2 Regularization
 
 ## Probabilistic Interptretation of L1/L2 Regularization
+
+Mathematically speaking,
+MLE (maximum likelihood estimator) with a l2 regularization is indeed a MAP (maximum a posteriori) with a Gaussian prior on the model weights.
 
 ## Dropout
 
