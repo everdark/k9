@@ -1178,8 +1178,8 @@ So the problem indeed becomes
 
 $$
 \operatorname*{argmin}_\beta \mbox{Loss} =
-\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 + 
-\lambda\bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg).
+\frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 + 
+\frac{\lambda}{N}\bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg).
 $$
 
 There is also a so-called [elasticnet regularization](https://en.wikipedia.org/wiki/Elastic_net_regularization) which combines both L1 and L2 norms together to give potentially better result.
