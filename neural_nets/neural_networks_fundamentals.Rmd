@@ -592,6 +592,10 @@ $$
 By taking the average as well,
 the negative log-likelihood is exactly the cross entropy.
 
+Though we didn't discuss this linkage in linear regression,
+if we assume the error term in the model is independently distributed Normally,
+the OLS solution to the model weights (equation $\eqref{eq:ols}$) is indeed also the MLE solution.
+
 ### Gradient Descent with Log Loss
 
 Now let's also implement a batch gradient descent optimizer for a logistic regression model.
@@ -1297,14 +1301,14 @@ print(batch_beta)
 
 We can also check the consistency by calling `sklearn`'s `SGDRegressor`:
 
-```{python}
+```{python lasso_reg_sklearn_sgd}
 from sklearn.linear_model import SGDRegressor
 print(SGDRegressor(penalty="l1", alpha=1, fit_intercept=False).fit(X, y).coef_)
 ```
 
 Now let's purposely add one random feature as a noise into the design matrix and see how the regularization helps to shrink the weight of the noise.
 
-```{python shrinkage_experiment}
+```{python shrinkage_exp}
 # Introduce a totally irrelevant feature into our linear model.
 noise = np.random.uniform(size=N).reshape(N, 1)
 Xnoise = np.concatenate([X, noise], axis=1)
@@ -1320,13 +1324,13 @@ while `Ridge` can only shrink it toward zero.
 
 To arrive roughly at the same result of `Ridge` using our simple gradient descent solver:
 
-```{python ridge_sgd_shrinkage}
+```{python shrinkage_exp_rigde_sgd}
 print(gd_batch_optimize(Xnoise, y, mse_grad_l2, lr=.03, n_epoch=1000, batch_size=1000)[0])
 ```
 
 And for the `Lasso` case:
 
-```{python lasso_sgd_shrinkage}
+```{python shrinkage_exp_lasso_sgd}
 print(gd_batch_optimize(Xnoise, y, mse_grad_l1, lr=.03, n_epoch=1000, batch_size=1000)[0])
 ```
 
@@ -1342,8 +1346,34 @@ exactly the same logic can apply to logistic regression and is not discussed fur
 
 ## Probabilistic Interpretation of L1/L2 Regularization
 
-Mathematically speaking,
-MLE (maximum likelihood estimator) with a l2 regularization is indeed a MAP (maximum a posteriori) with a Gaussian prior on the model weights.
+If we took a Bayesian approach on the weight estimation,
+then a Normal prior on the weight will result in a maximum a posteriori estimator to have a target function with the l2 regularization term,
+and a [Laplacean](https://en.wikipedia.org/wiki/Laplace_distribution) prior will result in the l1 term.
+
+```{python bayesian_prior_plot}
+from scipy.stats import laplace, norm
+
+xticks = np.linspace(-5, 5, num=1000)
+
+ofile = "plots/reg_prior.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[go.Scatter(x=xticks, y=laplace.pdf(xticks), name="Laplacean Prior (L1)"),
+        go.Scatter(x=xticks, y=norm.pdf(xticks), name="Normal Prior (L2)")],
+  layout=go.Layout(
+    title="Bayesian Prior on Model Weight",
+    xaxis=dict(title="Model Weight"),
+    yaxis=dict(title="Density")))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+Compared to a Normal prior,
+a Laplacean put much more density at the center.
+When both distribution is standardized (with location at 0 and scale at 1) as just plotted above,
+this can be interpreted as that a Laplacean prior has a stronger preference for a sparse solution (weight = 0).
 
 ## Dropout
 
