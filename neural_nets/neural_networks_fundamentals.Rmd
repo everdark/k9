@@ -15,8 +15,15 @@ output:
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
   since we don't include the plotly.js in each individual plot.
---> 
+-->
 <script src="js/plotly-latest.min.js"></script>
+
+<!-- Link to mathjax javascript library.
+  This is for latex notation in plotly output.
+-->
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
 
 <!--For equation reference.--> 
 <script type="text/x-mathjax-config">
@@ -109,7 +116,8 @@ import plotly.graph_objs as go
 
 def plot_offline(data, layout, ofile):
   p = plot({"data": data, "layout": layout},
-           filename=ofile, auto_open=False, include_plotlyjs=False)
+           filename=ofile, auto_open=False,
+           include_plotlyjs=False)
   return p
 
 ofile = "plots/toy_reg.html"
@@ -1343,6 +1351,40 @@ again,
 exactly the same logic can apply to logistic regression and is not discussed further to avoid redundancy.
 
 ## Geometric Interpretation of L1/L2 Regularization
+
+```{python geom_l2}
+t = 2  # Constraint on the norm.
+
+ofile = "plots/reg_geom.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[
+    go.Scatter(
+      x=[t+1], y=[t], mode="text", name="L2 Regularization",
+      text=[r"$\sqrt{w_1^1 + w_2^2} <= " + "{}$".format(t)],
+      textfont=dict(color="darkgreen")),
+    go.Scatter(
+      x=[t+1], y=[-t], mode="text", name="L1 Regularization",
+      text=[r"$\vert w_1 \vert + \vert w_2 \vert <= " + "{}$".format(t)],
+      textfont=dict(color="blue"))
+  ],
+  layout=go.Layout(
+    title="Parameter Space",
+    showlegend=True,
+    xaxis=dict(title=r"$w_{1}$", range=[-t*1.5, t*1.5]),
+    yaxis=dict(title=r"$w_{2}$", range=[-t*1.5, t*1.5], scaleanchor="x", scaleratio=1),
+    shapes=[
+      dict(type="circle", x0=-t, y0=-t, x1=t, y1=t, line=dict(color="darkgreen")),
+      dict(type="path", path="M 0,-{t} L-{t},0 L0,{t} L{t},0 Z".format(t=t),
+           line=dict(color="blue"))
+    ]))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(py$ofile)
+```
+
+
 
 ## Probabilistic Interpretation of L1/L2 Regularization
 
