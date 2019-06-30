@@ -1338,9 +1338,9 @@ Finally,
 again,
 exactly the same logic can apply to logistic regression and is not discussed further to avoid redundancy.
 
-## Geometric Interptretation of L1/L2 Regularization
+## Geometric Interpretation of L1/L2 Regularization
 
-## Probabilistic Interptretation of L1/L2 Regularization
+## Probabilistic Interpretation of L1/L2 Regularization
 
 Mathematically speaking,
 MLE (maximum likelihood estimator) with a l2 regularization is indeed a MAP (maximum a posteriori) with a Gaussian prior on the model weights.
