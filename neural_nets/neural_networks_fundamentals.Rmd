@@ -1347,8 +1347,55 @@ exactly the same logic can apply to logistic regression and is not discussed fur
 ## Probabilistic Interpretation of L1/L2 Regularization
 
 If we took a Bayesian approach on the weight estimation,
-then a Normal prior on the weight will result in a maximum a posteriori estimator to have a target function with the l2 regularization term,
-and a [Laplacean](https://en.wikipedia.org/wiki/Laplace_distribution) prior will result in the l1 term.
+the task is to solve for the posterior distribution of weight:
+
+$$
+P(W|y) = \frac{P(y|W) \cdot P(W)}{P(y)}
+\propto 
+P(y|W) \cdot P(W).
+$$
+
+then a Normal prior on the weight $W \sim \mbox{Normal}$ will result in a maximum a posteriori estimator to have a target function with the L2 regularization term,
+and a [Laplacean](https://en.wikipedia.org/wiki/Laplace_distribution) prior $W \sim \mbox{Laplace}$ will result in the L1 term.
+
+This is quite straightforward if we take a look at the probability density function of these two distributions:
+
+$$
+\begin{aligned}
+\mbox{Normal}(\mu, \sigma)_\text{pdf} &= f(w) =
+\frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{(w - \mu)^2}{2\sigma^2}}, \\
+\mbox{Laplace}(\mu, b)_\text{pdf} &= g(w) =
+\frac{1}{2b}e^{-\frac{\vert w - \mu\vert}{b}}.
+\end{aligned}
+$$
+
+Now if we want to maximize the log of $P(W|y)$ (maximum a posteriori),
+the gradient to the log of a Normal prior will give us:
+
+$$
+\begin{aligned}
+\frac{\partial \ln f(w)}{\partial w} 
+&= \frac{\partial \bigg[-\frac{1}{2}\ln(2\pi\sigma^2) - \frac{(w - \mu)^2}{2\sigma^2}\bigg]}{\partial w} \\
+&= - \frac{1}{\sigma^2}(w - \mu),
+\end{aligned}
+$$
+
+and for a Laplacean prior:
+
+$$
+\begin{aligned}
+\frac{\partial \ln g(w)}{\partial w} 
+&= \frac{\partial \bigg[-\frac{1}{2b} - \frac{\vert w - \mu \vert}{b}\bigg]}{\partial w} \\
+&= - \frac{1}{b}\frac{w}{\vert w \vert}.
+\end{aligned}
+$$
+
+The regularization coefficient we previously discussed (hyper-parameter $\lambda$) can be mapped to the constant on the (reciprocal of) scale parameter of the Bayesian prior.
+A larger $\lambda$ corresponds to a smaller variance on the prior,
+hence the size of weight is being constrained more in the posterior estimation,
+resulting in smaller weight.
+
+We can plot the standardized Normal and Laplace distribution to clearly see their difference:
 
 ```{python bayesian_prior_plot}
 from scipy.stats import laplace, norm
@@ -1379,7 +1426,3 @@ this can be interpreted as that a Laplacean prior has a stronger preference for 
 
 Another maybe easier way of regularization is the dropout mechanism.
 It is first introduced in a neural network model but can apply to some other machine learning algorithms as well (such as gradient boosting trees).
-
-
-
-
