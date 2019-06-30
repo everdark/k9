@@ -1332,7 +1332,7 @@ print(gd_batch_optimize(Xnoise, y, mse_grad_l1, lr=.03, n_epoch=1000, batch_size
 ```
 
 One thing to note:
-Tt is in general difficult to arrive at sparse solution (0 weight) for a naive gradient descent implementation such as ours.
+It is in general difficult to arrive at sparse solution (0 weight) for a naive gradient descent implementation such as ours.
 Some further mathematical tricks like the [proximal gradient metohd](https://en.wikipedia.org/wiki/Proximal_gradient_method) must be applied in order to produce sparse result under finite iterations.
 
 Finally,
