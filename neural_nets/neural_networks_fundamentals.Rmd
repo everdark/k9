@@ -26,7 +26,6 @@ MathJax.Hub.Config({
 </script>
 
 ```{r setup, include=FALSE}
-Sys.setenv(PYTHON_PATH="/usr/local/bin/python3")
 library(reticulate)
 use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
 ```
@@ -667,7 +666,7 @@ def cross_entropy_gd_optimize(X, y, lr=.01, n_epoch=10, batch_size=64):
       Xb = Xs[i:i+batch_size,:]
       yb = ys[i:i+batch_size]
       b -= lr*logit_grad_func(Xb, yb, b)
-      l.append(loss(Xb, yb, b))
+      l.append(logloss(Xb, yb, b))
       i += batch_size
   return b, l
 
