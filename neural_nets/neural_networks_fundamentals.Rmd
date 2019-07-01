@@ -34,7 +34,8 @@ MathJax.Hub.Config({
 
 ```{r setup, include=FALSE}
 library(reticulate)
-use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
+#use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
+use_condaenv("D:/Users/fcdyuc/anaconda3/python")
 ```
 
 # Prerequisites
@@ -1128,14 +1129,14 @@ Now let's see if our simple neural network model can learn the XOR pattern.
 
 ```{python nn_gd_mse_loss}
 nn_mse = NerualNetworkWithMSELoss(Xnn, ynn)
-nn_mse.train(lr=1, n_step=3000)  # The predicted XOR outcome.
+print(nn_mse.train(lr=1, n_step=3000))  # The predicted XOR outcome.
 print(nn_mse.w1)  # Estimated 1st-layer model weights
 print(nn_mse.w2)  # Estimated 2nd-layer model weights
 ```
 
 ```{python nn_gd_log_loss}
 nn_logloss = NerualNetworkWithLogLoss(Xnn, ynn)
-nn_logloss.train(lr=1, n_step=3000)
+print(nn_logloss.train(lr=1, n_step=3000))
 ```
 
 For this simple example,
