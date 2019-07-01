@@ -14,7 +14,7 @@ output:
 ---
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
-  since we don't include the plotly.js in each individual plot.
+  since we don't include the plotly.js in each individual plot (to reduce file size).
 -->
 <script src="js/plotly-latest.min.js"></script>
 
@@ -25,7 +25,7 @@ output:
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
 </script>
 
-<!--For equation reference.--> 
+<!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
 MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
@@ -34,8 +34,11 @@ MathJax.Hub.Config({
 
 ```{r setup, include=FALSE}
 library(reticulate)
-#use_python(Sys.getenv("PYTHON_PATH"), required=TRUE)
-use_condaenv("D:/Users/fcdyuc/anaconda3/python")
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
 ```
 
 # Prerequisites
