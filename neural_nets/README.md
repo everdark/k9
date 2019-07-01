@@ -25,12 +25,14 @@ To render the notebook html output, run
 Rscript render.R
 ```
 
-One needs to setup the environment variable `PYTHON_PATH` to locate the python executable for `reticulate`.
+One may need to setup the environment variable `PYTHON_PATH` to locate the python executable for `reticulate`.
 For example:
 
 ```sh
 PYTHON_PATH=/usr/bin/python3 Rscript render.R
 ```
+
+The path can also be a `virtualenv` or a `condaenv` path.
 
 ## Plotly Output
 
