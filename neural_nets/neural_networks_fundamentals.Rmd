@@ -74,7 +74,7 @@ $$
 $$
 
 where $y_i$ and $x_i$ is the $i$-th observation.
-The first-order condition (requiring that the first-order derivative w.r.t. weights are zero) gives us the OLS solution for model weights $\beta$ analytically (in matrix notation):
+The first-order condition (requiring that the first-order derivative w.r.t. weights are all zero) gives us the OLS solution for model weights $\beta$ analytically (in matrix notation):
 
 $$
 \begin{equation} \label{eq:ols}
@@ -97,7 +97,7 @@ y_i = 6 + 4x_i + \epsilon_i.
 $$
 
 In this model the outcome $y$ is determined by a bias term plus a single variable $x$,
-with an independently distributed noise term $\epsilon \sim \mbox{Normal}(0, 1)$.
+with an *independently distributed* noise term $\epsilon \sim \mbox{Normal}(0, 1)$.
 
 Create some random data generated from this model:
 
@@ -160,7 +160,8 @@ print(LinearRegression(fit_intercept=False).fit(X, y).coef_)
 ```
 
 By the [Law of Large Number](https://en.wikipedia.org/wiki/Law_of_large_numbers) and [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem),
-the OLS estimator will converge in probability to the true model weights and distributed asymptotically Normal in large sample.^[One can try change the sample size arbitrarily to see the behavior of the estimator.]
+under a relatively loose assumption of $E(\epsilon | X) = 0$,
+the OLS estimator will converge in probability to the true model weights and distributed asymptotically Normal in large sample.^[One can try change the sample size arbitrarily to see the behavior of the estimator in our toy example.]
 
 The issue of the above approach is that equation $\eqref{eq:ols}$ is not numerically stable when it comes to large-scale application where we may have lots of observations and lots of features.
 One very useful solution to solve the estimator numerically in large-scale application is the *gradient descent* approach.
@@ -520,10 +521,14 @@ Put it differently,
 we'd like to calculate the distance between our predicted probability and the real event label distribution (called the *empirical distribution*).
 In information theory the cross entropy is used to measure the distance between two probability distribution.
 
+#### Shannon's Entropy as a Measure of Information {-}
+
 The [entropy](https://en.wikipedia.org/wiki/Entropy_(information_theory)) of a discrete probability distribution is defined as:
 
 $$
+\begin{equation} \label{eq:entropy}
 H(p) = - \sum_i p_i \log_2p_i,
+\end{equation}
 $$
 
 where $p_i$ is the probability for event $i$.
@@ -555,12 +560,85 @@ htmltools::includeHTML(py$ofile)
 It is obvious that the entropy of this event is maximized when the probability of flipping a head is exactly 0.5.
 At this level the event has a highest level of uncertainty in a sense that it is the most difficult case to predict the outcome of a flip.
 
+What is the intuition behind entropy?
+
+##### Surprisal in Terms of Rarity {-}
+
+In equation $\eqref{eq:entropy}$ we first need to interpret the seemingly mysterious term $-\log_2p_i$.
+It is the log of the reciprocal of a probability.
+Generally speaking,
+the reciproal of a probability $\frac{1}{p(x)}$ is a *1-in-n* scale of probability statement saying that in order for the outcome $x$ to occur at least once from a stochastic event,
+it is expected to require having repeated $n = \frac{1}{p(x)}$ times the event.
+The rare the outcome,
+the higher the reciprocal of its probability.
+When a rare event occurs,
+it contains much more information than a frequent (or more probable) one.
+Information in this way can be considered as the level of *surprisal*.
+
+##### Information Encoding {-}
+
+But why taking log?
+Especially why log of base *two* in Shannon's entropy?
+This relates to the use of *bits* to encode messages/information/random states/facts.
+A bit (0 or 1) can be used to encode *two* facts.
+For example,
+0 for a tail and 1 for a head in a coin flip exercise.
+Apparently if we have $N$ bits we can encode up to $2^N$ different outcomes in a stochastic event.
+
+The discussion doesn't limit to binary.
+If we have 100 possible outcomes from a random event,
+with 10 distinct symbols (0 to 9),
+we only need $\log_{10}100 = 2$ digits to encode them (decimal 0 to 99).
+
+Now put them together,
+the rare the outcome,
+the higher the reciprocal of its probability,
+and the more bits required to encode this information (so as to distinguish from other possible outcomes).
+
+The formula $\log_2\frac{1}{P(x)}$ calculates how many bits are necessary to encode a stochastic outcome $x$ that may occur once out of $\frac{1}{P(x)}$ times.
+Let's call this amount as the information contained by outcome $x$.
+Then the entropy in $\eqref{eq:entropy}$ essentially is calculating the expected number of bits required to encode any outcome possible from the given stochastic event.
+Or it is the expected information contained by a given stochastic event.
+
+One last thing to note is that the number of bits here is a mathematical artifect that could not always be represented by our discrete real world.
+Certainly we don't have non-integer bit in real world computing but the value of entropy is a positive real number not limited to integer.
+
+#### Distributional Difference {-}
+
 Now move on to cross entropy.
 Cross entropy between two discrete probability distribution $p$ and $q$ over the same support is defined as:
 
 $$
+\begin{equation} \label{eq:crossentropy}
 H(p, q) = - \sum_i p_i \log_2q_i.
+\end{equation}
 $$
+
+Intuitively,
+it means that if we encode a stochastic event with a probability distribution NOT linked to the event,
+for example a predicted distribution $q$ based on a model,
+while the true distribution is $p$,
+what will be the expected number of bits required to encode all possibilities from that event.
+
+To understand cross entropy one useful concept is the [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) from $q$ to $p$:
+
+$$
+\begin{aligned}
+KL(p \vert\vert q)
+&= H(p, q) - H(p) \\
+&= \sum_ip_i\log_2\frac{p_i}{q_i}.
+\end{aligned}
+$$
+
+Mathematically it is just the sum of difference of log-probability from two distribution $p$ and $q$,
+weighted by $p$.
+Distribution $p$ is the reference distribution and $q$ the approximation distribution.
+It is a measure of how closely the distribution $q$ is approximating $p$.
+If $q$ is perfectly mimicking $p$,
+the KL divergence is 0 and the cross entropy between $p$ and $q$ is the same as the entropy of $p$:
+$H(p, q) = H(p)$.
+
+Based on the above formula we can also interpret KL divergence as the extra bits required due to encoding a stochastic event with a wrong probability distribution.
 
 For our logistic regression model,
 distribution $p$ is the empirical distribution (label distribution) and distribution $q$ is our model predicted distribution.
@@ -573,6 +651,7 @@ $$
 
 where $y_i \in \{0,1\}$ is the $i$-th binary training label and $P(y_i = 1)$ the model prediction for the $i$-th example out of $N$ total training examples.
 This is the mean value of cross entropy for each training example.
+It measures how well our model is predicting the label based on the distributional difference between the labels and the model outputs.
 
 Since $q_i = P(y_i = 1)$ is expressed by our model equation $\eqref{eq:logit}$,
 now we can apply gradient descent to the loss function to find out the optimum model weights that minimize the cross-entropy loss.
