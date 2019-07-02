@@ -562,7 +562,7 @@ At this level the event has a highest level of uncertainty in a sense that it is
 
 What is the intuition behind entropy?
 
-##### Surprisal in Terms of Rarity {-}
+##### **Surprisal in Terms of Rarity** {-}
 
 In equation $\eqref{eq:entropy}$ we first need to interpret the seemingly mysterious term $-\log_2p_i$.
 It is the log of the reciprocal of a probability.
@@ -575,7 +575,7 @@ When a rare event occurs,
 it contains much more information than a frequent (or more probable) one.
 Information in this way can be considered as the level of *surprisal*.
 
-##### Information Encoding {-}
+##### **Information Encoding** {-}
 
 But why taking log?
 Especially why log of base *two* in Shannon's entropy?
