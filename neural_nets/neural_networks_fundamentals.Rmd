@@ -1256,9 +1256,11 @@ The parameter $\lambda$ is a new hyper-parameter introduced by the regularizatio
 Or put it in a scalar form:
 
 $$
+\begin{equation} \label{eq:loss_min_reg}
 \operatorname*{argmin}_\beta \mbox{Loss} =
 \frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 + 
 \frac{\lambda}{N}\bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg)^{1/p}.
+\end{equation}
 $$
 
 Popular choices of $p$ is $p = 1$ (L1-Norm) and $p = 2$ (L2-Norm).
@@ -1435,8 +1437,36 @@ exactly the same logic can apply to logistic regression and is not discussed fur
 
 ## Geometric Interpretation of L1/L2 Regularization
 
+Consider a two-parameter modeling case,
+where we plot the two possible weights $w_1$ and $w_2$ as a Euclidean coordinate system.
+The MSE loss minimization problem stated in equation $\eqref{eq:ols}$ can be rewritten as an *optimization with linear constraint*:
+
+$$
+\begin{aligned}
+& \operatorname*{argmin}_\beta
+& & \frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 \\
+& \text{subject to}
+& & \bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg)^{1/p} \le t.
+\end{aligned}
+$$
+
+Solving the above problem (using for example the method of Lagrange multipliers) will result in exactly the same target function as in equation $\eqref{eq:ols}$.
+
+Now if we plot the linear constraint on the Euclidean space (for the case of $k = 2$ and an arbitrary value of constant $t$),
+the possible parameter combination will fall into a cirle for $p = 2$ (L2 regularization) or a squared diamond for $p = 1$ (L1 regularization),
+both centered at the origin.
+
 ```{python geom_l2}
-t = 2  # Constraint on the norm.
+t = 2  # Ad-hoc constant constraint on the norm.
+
+# Code some reusable objects.
+shapes = [
+  dict(type="circle", x0=-t, y0=-t, x1=t, y1=t,
+       fillcolor="darkgreen", opacity=0.25, line=dict(color="darkgreen")),
+  dict(type="path", path="M 0,-{t} L-{t},0 L0,{t} L{t},0 Z".format(t=t),
+       fillcolor="blue", opacity=0.25, line=dict(color="blue"))]
+w1_axis = dict(title=r"$w_{1}$", range=[-t*1.5, t*1.5])
+w2_axis = dict(title=r"$w_{2}$", range=[-t*1.5, t*1.5], scaleanchor="x", scaleratio=1)
 
 ofile = "plots/reg_geom.html"
 p = plot_offline(
@@ -1451,23 +1481,95 @@ p = plot_offline(
       text=[r"$\vert w_1 \vert + \vert w_2 \vert <= " + "{}$".format(t)],
       textfont=dict(color="blue"))
   ],
-  layout=go.Layout(
-    title="Parameter Space",
-    showlegend=True,
-    xaxis=dict(title=r"$w_{1}$", range=[-t*1.5, t*1.5]),
-    yaxis=dict(title=r"$w_{2}$", range=[-t*1.5, t*1.5], scaleanchor="x", scaleratio=1),
-    shapes=[
-      dict(type="circle", x0=-t, y0=-t, x1=t, y1=t, line=dict(color="darkgreen")),
-      dict(type="path", path="M 0,-{t} L-{t},0 L0,{t} L{t},0 Z".format(t=t),
-           line=dict(color="blue"))
-    ]))
+  layout=go.Layout(title="Parameter Space", showlegend=True,
+                   xaxis=w1_axis, yaxis=w2_axis, shapes=shapes))
 ```
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(py$ofile)
 ```
 
+Simply plot the constraint area is not that informative.
+We need to also visualize the possible values of loss function.
 
+Let's use the toy model in our previous linear regression section to do the visualization.
+We will iterate over the coordinate space within $0 <= w1 <= 10$ and $0 <= w2 <= 10$ to collect all possible resulting loss values.
+The loss will be a 3rd axis added onto the existing plain.
+
+```{python 3d_loss_weights}
+z_loss = []
+_x = np.arange(-10, 10)
+_y = np.arange(-10, 10)
+for _w1 in _x:
+  for _w2 in _y:
+    z_loss.append(loss(X, y, [_w1, _w2]))
+z_loss = np.asarray(z_loss).reshape(20, 20, order="F")
+```
+
+```{python 3d_loss_plot}
+w1, w2 = ols(X, y)  # Unregularized OLS solution.
+
+ofile = "plots/3d_loss.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[
+    go.Surface(
+      x=_x, y=_y, z=z_loss,
+      contours=go.surface.Contours(
+        z=go.surface.contours.Z(
+          show=True,
+          usecolormap=True,
+          highlightcolor="#42f462",
+          project=dict(z=True)))),
+    go.Scatter3d(
+      x=[w1], y=[w2], z=[0], mode="markers",
+      marker=dict(symbol="cross", color="blue"))
+  ],
+  layout=go.Layout(
+    title="MSE Loss on Parameter Space",
+    scene=dict(
+      # Latex notation doesn't work in 3d render. Known issue of plotly.js.
+      xaxis=dict(title="w1"),
+      yaxis=dict(title="w2"),
+      zaxis=dict(title="Loss"))))
+```
+
+```{r, echo=FALSE, fig.width=10, fig.height=10}
+htmltools::includeHTML(py$ofile)
+```
+
+Note that we also plot the contour on the original 2-d plain.
+The contour depicts all the weight combinations that lead to the same amount of loss.
+And we mark the minimum with a cross to clearly point out the optimum loss which can be achieved by the unregularized OLS estimator in equation $\eqref{eq:ols}$.
+
+Now if we combine the two plots together,
+especially the contour on the parameter plain,
+the tangent point between the regularization area and the contour is exactly our regularized solution for the weights.^[Since plotly.js currently doesn't support uneven interval for contour plot, in the contour-regularization plot we take natrual log of MSE just to scale the value so that the contour line will have non-linear interval. This help us show more lines when loss becomes smaller.]
+
+```{python loss_contour_reg_plot}
+ofile = "plots/loss_contour_reg.html"
+p = plot_offline(
+  ofile=ofile,
+  data=[
+    go.Contour(
+      x=_x, y=_y, z=np.log(z_loss),
+      contours=dict(coloring="lines"),
+      colorbar=dict(title="Ln(MSE Loss)"),
+      line=dict(width=2))
+  ],
+  layout=go.Layout(title="MSE Loss on Parameter Space",
+                   xaxis=w1_axis, yaxis=w2_axis, shapes=shapes))
+```
+
+```{r, echo=FALSE, fig.width=10, fig.height=10}
+htmltools::includeHTML(py$ofile)
+```
+
+The constraint constant control the size of regularization,
+for a larger constant (looser constraint) our tagent point will move closer to the unregularized optimum.
+For this geometric point of view,
+one should also realize that since the L1 regularization area is a sharp diamond square,
+it is more likely to tangent the contour on the edge which exactly represent a sparse solution to the weight (on each edge point there is one weight zeroed out).
 
 ## Probabilistic Interpretation of L1/L2 Regularization
 
