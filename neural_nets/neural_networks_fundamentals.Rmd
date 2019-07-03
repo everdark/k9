@@ -11,6 +11,9 @@ output:
     theme: flatly
     toc: yes
     highlight: pygments
+bibliography: neural_networks_fundamentals.bib
+abstract: |
+  This is a practical tutorial on Bayesian inference for readers who are already knowledged with basic statistics. The tutorial is practical in a sense that it focuses more on implementation and reasoning than on mathematical artifacts. We will use R and also Stan, a probabilistic programming language, to introduce how Bayesian modeling works.
 ---
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
@@ -151,7 +154,7 @@ This means that what we actually estimate will be the expected value of model we
 print(ols(X, y))
 ```
 
-We can check the result from [`sklearn`](https://scikit-learn.org/):
+We can check the result from [`scikit-learn`](https://scikit-learn.org/) (@scikit-learn):
 
 ```{python linear_reg_sklearn}
 from sklearn.linear_model import LinearRegression
@@ -803,7 +806,9 @@ print(cross_entropy_gd_optimize(X, y2, lr=1, n_epoch=200)[0])
 
 Seems better.
 
-Or we can use the Python package `statsmodels` (which also uses a 2nd-order optimizer by default) to check our result: 
+Or we can use the Python package `statsmodels` (@seabold2010statsmodels),
+which also uses a 2nd-order optimizer by default,
+to check our result: 
 
 ```{python logit_statsmodels}
 import statsmodels.api as sm
@@ -827,7 +832,7 @@ This could be troublesome if our model becomes more and more complicated,
 as in the case of a deep neural net.
 
 Automatci differentiation is a programming technique to calculate the gradient of any given function.
-One of the most popular library for this purpose is [TensorFlow](https://github.com/tensorflow/tensorflow).
+One of the most popular library for this purpose is [TensorFlow](https://github.com/tensorflow/tensorflow) (@tensorflow2015-whitepaper).
 
 Let's use `tensorflow` to implement our simple gradient descent optimizer again.
 But this time we will NOT explicitly derive the gradient function.
@@ -1653,3 +1658,5 @@ this can be interpreted as that a Laplacean prior has a stronger preference for 
 
 Another maybe easier way of regularization is the dropout mechanism.
 It is first introduced in a neural network model but can apply to some other machine learning algorithms as well (such as gradient boosting trees).
+
+# References
