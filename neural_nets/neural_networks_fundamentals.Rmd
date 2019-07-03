@@ -10,6 +10,7 @@ output:
     number_sections: yes
     theme: flatly
     toc: yes
+    toc_float: true
     highlight: pygments
 bibliography: neural_networks_fundamentals.bib
 abstract: |
@@ -28,6 +29,7 @@ abstract: |
 
 <!-- Link to mathjax javascript library.
   This is for latex notation in plotly output.
+  The built-in one from RStudio cdn somehow didn't work.
 -->
 <script type="text/javascript" async
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
