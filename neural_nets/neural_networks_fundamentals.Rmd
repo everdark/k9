@@ -15,6 +15,9 @@ bibliography: neural_networks_fundamentals.bib
 abstract: |
   This is a practical tutorial on Bayesian inference for readers who are already knowledged with basic statistics. The tutorial is practical in a sense that it focuses more on implementation and reasoning than on mathematical artifacts. We will use R and also Stan, a probabilistic programming language, to introduce how Bayesian modeling works.
 ---
+<!--For controling code folding by chunk.-->
+<script src="js/hide_output.js"></script>
+
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
   since we don't include the plotly.js in each individual plot (to reduce file size).
@@ -34,6 +37,29 @@ MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
+
+```{css fold_code_by_chunk, echo=FALSE}
+.showopt {
+  background-color: #004c93;
+  color: #FFFFFF;
+  width: 100px;
+  height: 20px;
+  text-align: center;
+  vertical-align: middle !important;
+  float: right;
+  font-family: sans-serif;
+  border-radius: 8px;
+}
+
+.showopt:hover {
+    background-color: #dfe4f2;
+    color: #004c93;
+}
+
+pre.plot {
+  background-color: white !important;
+}
+```
 
 ```{r setup, include=FALSE}
 library(reticulate)
@@ -905,7 +931,8 @@ In logistic regression $\Phi(\cdot)$ is the standard sigmoid function.
 Now consider there is a way to ensemble multiple such additive models together to generate a potentially better and more sophisticated model.
 We use the following diagram for illustration.
 
-```{r nn_diagram, echo=FALSE}
+<div class="fold s">
+```{r nn_diagram}
 # Draw a simple neural nets.
 DiagrammeR::grViz("
 digraph subscript {
@@ -948,6 +975,7 @@ digraph subscript {
 
 }")
 ```
+</div>
 
 In the above diagram,
 $Y_{11}$ is a single additive model
@@ -1026,7 +1054,8 @@ we use a technique called backpropagation which is essentially an iterative proc
 To simplify notation we assume each neuron is simply a univariate model.
 Consider the following minimum architecture:
 
-```{r simplified_nn_diagram, echo=FALSE}
+<div class="fold s">
+```{r simplified_nn_diagram}
 DiagrammeR::grViz("
 digraph subscript {
 
@@ -1049,6 +1078,7 @@ digraph subscript {
 
 }")
 ```
+</div>
 
 Mathematically:
 
@@ -1677,6 +1707,7 @@ Take our previous simple neural network model as example,
 there are two neuron in the hidden layer,
 if we dropout the first unit then the model temporarily becomes:
 
+<div class="fold s">
 ```{r nn_dropout_diagram, echo=FALSE}
 # Draw a simple neural nets.
 DiagrammeR::grViz("
@@ -1714,6 +1745,7 @@ digraph subscript {
 
 }")
 ```
+</div>
 
 Notice that we purposely remove the arrorw to indicate that this is not a feed-forward mode of the graph.
 Dropout is only meaningful when applied at the backpropagation stage,
