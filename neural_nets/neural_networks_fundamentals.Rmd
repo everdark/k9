@@ -976,6 +976,19 @@ A neuron is simply an additive model with a so-called activation function $\Phi(
 One now can easily realize that a logistic regression model could be viewed as a degenerated neural network model with single neuron and using sigmoid as the activation function.
 And a linear regression model is a degenerated neural network model with single neuron and without an activation function.
 
+## Shallow v.s. Deep
+
+The above simple neural network is indeed a shallow one,
+with only one hidden layer.
+Conventionally people refer to a deep neural network as a network with at least 2 hidden layers.
+The buzz word *deep learning* is used to describe complicated neural network architecture that can solve problems that traditional machine learning algorithms have difficulty dealing with,
+especially in the field of image (and video) and natural language (and voice) processing and understanding.
+
+Deep model is indeed much more than just adding more hidden layers.
+The way neuron is connected and how they are structured can be highly creative (for outstanding examples being [convolutional](https://en.wikipedia.org/wiki/Convolutional_neural_network) and [recurrent](https://en.wikipedia.org/wiki/Recurrent_neural_network) neural network) and way beyond the scope of this notebook.
+Though a deep model is definitely more complicated than a shallow one,
+the foundation is all the same.
+
 ## Activation Function
 
 Why do we need the activation function?
@@ -1656,7 +1669,67 @@ this can be interpreted as that a Laplacean prior has a stronger preference for 
 
 ## Dropout
 
-Another maybe easier way of regularization is the dropout mechanism.
-It is first introduced in a neural network model but can apply to some other machine learning algorithms as well (such as gradient boosting trees).
+Another practical and maybe also easier way of regularization is the dropout mechanism (@srivastava2014dropout).
+It is first introduced in a neural network model but the concept has been successfully applied as well to some other machine learning algorithms (such as gradient boosting trees).
+
+Dropout of a neuron means that it is ignored in the backprop training process.
+Take our previous simple neural network model as example,
+there are two neuron in the hidden layer,
+if we dropout the first unit then the model temporarily becomes:
+
+```{r nn_dropout_diagram, echo=FALSE}
+# Draw a simple neural nets.
+DiagrammeR::grViz("
+digraph subscript {
+
+  graph [layout = dot rankdir = LR ordering = in ranksep=2 splines=true]
+
+  node [shape = circle]
+
+  subgraph cluster_input_layer {
+    label = 'Input Layer'
+    x1 [label = 'x@_{1}']
+    x2 [label = 'x@_{2}']
+    x3 [label = 'x@_{3}']
+  }
+
+  subgraph cluster_hidden_layer {
+    label = 'Hidden Layer'
+    n11 [label = 'y@_{11}' color = grey fontcolor = grey]
+    n12 [label = 'y@_{12}' color = darkgreen fontcolor = darkgreen]
+  }
+
+  subgraph cluster_output_layer {
+    label = 'Output Layer'
+    n21 [label = 'y@_{2}']
+  }
+
+  edge [arrowsize = .25]
+
+  x1 -> n12 [label = 'w@_{112}' color = darkgreen fontcolor = darkgreen arrowhead=none]
+  x2 -> n12 [label = 'w@_{212}' color = darkgreen fontcolor = darkgreen arrowhead=none]
+  x3 -> n12 [label = 'w@_{312}' color = darkgreen fontcolor = darkgreen arrowhead=none]
+
+  n12 -> n21 [label = 'w@_{1221}' arrowhead=none]
+
+}")
+```
+
+Notice that we purposely remove the arrorw to indicate that this is not a feed-forward mode of the graph.
+Dropout is only meaningful when applied at the backpropagation stage,
+i.e.,
+when the weights are updated by the gradient descent or other similar optimizer.
+
+When a neuron is dropped out,
+its subsequent connection to the network are all removed.
+This means the backpropagation will not update the corresponding weights all the way from the output layer to the dropped out unit.
+
+Usually dropout is applied to a model by setting up a *dropout rate* to one or more layers.
+For example we can set the dropout rate to 50% at the first hidden layer.
+This means that for each batch gradient update every neuron in the layer will have a 50% chance of being ignored before the backpropagation starts.
+After dropout is applied,
+a neural network model becomes thinner in a sense that it has fewer number of weights to response to the error in gradient update.
+
+The rationale is that we'd like to prevent all the neurons from co-adapting too much in the training process to avoid overfitting to the training data.
 
 # References
