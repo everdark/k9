@@ -10,6 +10,7 @@ output:
     number_sections: yes
     theme: flatly
     toc: yes
+    toc_float: true
     toc_depth: 3
 bibliography: bayesian_modeling_explained.bib
 nocite: | 
