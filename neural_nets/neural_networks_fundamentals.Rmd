@@ -1708,7 +1708,7 @@ there are two neuron in the hidden layer,
 if we dropout the first unit then the model temporarily becomes:
 
 <div class="fold s">
-```{r nn_dropout_diagram, echo=FALSE}
+```{r nn_dropout_diagram}
 # Draw a simple neural nets.
 DiagrammeR::grViz("
 digraph subscript {
