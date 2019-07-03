@@ -446,6 +446,7 @@ for bsize in [8, 16, 32, 64, 128, 256]:
 
 Batch optimizer is currently the best practice of training neural networks in large scale application.
 The batch size depends on the actual application but usually ranges from 8 (mini) to 1024 (large).
+The mini-batch stochastic gradient descent is so previal that in general when people talk about SGD for a neural network they are actually referring to the batch gradient descent.
 
 ## Logistic Regression
 
@@ -1741,31 +1742,34 @@ digraph subscript {
 
   edge [arrowsize = .25]
 
-  x1 -> n12 [label = 'w@_{112}' color = darkgreen fontcolor = darkgreen arrowhead=none]
-  x2 -> n12 [label = 'w@_{212}' color = darkgreen fontcolor = darkgreen arrowhead=none]
-  x3 -> n12 [label = 'w@_{312}' color = darkgreen fontcolor = darkgreen arrowhead=none]
+  x1 -> n12 [label = 'w@_{112}' color = darkgreen fontcolor = darkgreen]
+  x2 -> n12 [label = 'w@_{212}' color = darkgreen fontcolor = darkgreen]
+  x3 -> n12 [label = 'w@_{312}' color = darkgreen fontcolor = darkgreen]
 
-  n12 -> n21 [label = 'w@_{1221}' arrowhead=none]
+  n12 -> n21 [label = 'w@_{1221}']
 
 }")
 ```
 </div>
 
-Notice that we purposely remove the arrorw to indicate that this is not a feed-forward mode of the graph.
-Dropout is only meaningful when applied at the backpropagation stage,
-i.e.,
-when the weights are updated by the gradient descent or other similar optimizer.
-
 When a neuron is dropped out,
 its subsequent connection to the network are all removed.
-This means the backpropagation will not update the corresponding weights all the way from the output layer to the dropped out unit.
+This means that both feed-forward and backpropagation will ignore the discarded connection.
 
 Usually dropout is applied to a model by setting up a *dropout rate* to one or more layers.
 For example we can set the dropout rate to 50% at the first hidden layer.
 This means that for each batch gradient update every neuron in the layer will have a 50% chance of being ignored before the backpropagation starts.
+Dropout doesn't limit to hidden layer only.
+One can also apply dropout at the input layer,
+but usually at a relatively lower drop rate than idden layer.
+Certainly dropout will never be applied at a output layer because output layer is the required component to well define a model.
 After dropout is applied,
-a neural network model becomes thinner in a sense that it has fewer number of weights to response to the error in gradient update.
+a neural network model becomes thinner in a sense that it has fewer number of weights to response to both input feed forward and error backprop.
 
 The rationale is that we'd like to prevent all the neurons from co-adapting too much in the training process to avoid overfitting to the training data.
+
+### Weight Scaling
+
+
 
 # References
