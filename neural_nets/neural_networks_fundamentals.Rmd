@@ -1493,7 +1493,7 @@ Simply plot the constraint area is not that informative.
 We need to also visualize the possible values of loss function.
 
 Let's use the toy model in our previous linear regression section to do the visualization.
-We will iterate over the coordinate space within $0 <= w1 <= 10$ and $0 <= w2 <= 10$ to collect all possible resulting loss values.
+We will iterate over the coordinate space within $-10 \le w_1 \le 10$ and $-10 \le w_2 \le 10$ to collect all possible resulting loss values.
 The loss will be a 3rd axis added onto the existing plain.
 
 ```{python 3d_loss_weights}
