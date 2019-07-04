@@ -12,6 +12,7 @@ output:
     toc: yes
     toc_float: true
     highlight: pygments
+  code_download: true
 bibliography: neural_networks_fundamentals.bib
 abstract: |
   The notebook walks through the fundamental knowledge and intuition required to understand the inner working of a minimally configured neural network model using coding examples built from scratch. By avoiding the use of any high-level machine learning API we can get rid of the abstraction and gain more in-depth hands-on experiences during the journey.
@@ -540,6 +541,8 @@ p = plot_offline(
     xaxis=dict(title="Raw Value"),
     yaxis=dict(title="Probability")))
 ```
+
+<a name="sigmoid_plot"></a>
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(py$ofile)
@@ -1843,6 +1846,196 @@ the general strategy of regularization is NOT to regularize the bias term,
 if any.
 
 # Batch Normalization
+
+## Normalization on Linear Models
+
+Before we talk about batch normalization,
+let's examine the impact of feature normalization on a simple linear regression model.^[The term normalization is indeed not well defined. Here what we mean is actually standardization: by transforming a variable to have zero mean and unit standard deviation. Other common normalization include simple de-meaned (substraction from mean), compression to the range of $[0, 1]$ or $[-1, 1]$, ..., etc.]
+
+Given a simple univariate regression model:
+
+$$
+y = a + bx + \epsilon.
+$$
+
+What is the impact if we standardize $x$?
+It means that we estimate the following model instead:
+
+$$
+y = c + d\bigg(\frac{x - \mu_x}{\sigma_x}\bigg) + \eta.
+$$
+
+Now simply a re-arrangement of the model formula gives:
+
+$$
+\begin{aligned}
+y
+&= c + d\bigg(\frac{x - \mu_x}{\sigma_x}\bigg) + \eta \\
+&= \underbrace{c - \frac{d\mu_x}{\sigma_x}}_{a} + \underbrace{\frac{d}{\sigma_x}}_{b}\cdot x + \underbrace{\eta}_{\epsilon}.
+\end{aligned}
+$$
+
+Apparently by using standardized feature the weights are simply linearly scaled.
+It won't have any analytical impact.
+
+However for large scale application we are not solving the model analytically,
+but rather numerically.
+Here comes the impact of feature normalization,
+especially for first-order optimizer like gradient descent.
+If there is any feature with outlying scale compared to the others,
+the performance of gradient descent is hugely damaged.
+
+Let's examine this using a working example:
+
+```{python scale_example}
+np.random.seed(777)
+N = 1000
+X = np.stack([
+  np.ones(N),
+  np.random.normal(size=N),
+  np.random.normal(size=N, loc=50, scale=10)], axis=1)
+beta = np.array([6, 4, 3], dtype=np.float32)  # True model weights.
+e = np.random.normal(size=N)
+y = X.dot(beta) + e
+
+print(X[:10,:])
+```
+
+Here we create a bivariate linear model where the 2nd feature has a much larger scale than the 1st one.
+The analytical OLS estimator has no problem solving this model:
+
+```{python scale_ols}
+print(ols(X, y))
+```
+
+Our batch gradient descent solver,
+however,
+suffer a lot:
+
+```{python scale_gd_failed}
+print(gd_batch_optimize(X, y, grad_func, lr=0.1, n_epoch=10, batch_size=64)[0])
+```
+
+Here due to the imbalanced scale of the features,
+our solver becomes numerically unstable given a moderate learning rate.
+This is because the size of gradient update is improperly dominated by high-scaled feature.
+
+We can still manage to solve the model,
+but with a much lower learning rate to down-scale the high-scaled feature,
+accompanied with a larger number of epochs since other low-scaled features now are updated by too small a step:
+
+```{python scale_gd}
+for epoch in [100, 1000, 5000, 10000]:
+  b, _ = gd_batch_optimize(X, y, grad_func, lr=0.0003, n_epoch=epoch, batch_size=64)
+  print("Training Epochs {:5} | Estimate: {}".format(epoch, b))
+```
+
+Even for such a simple linear model we now need much more training steps to ensure convergence,
+not to mention a more complicated neural network model.
+
+A second-order optimizer can mitigate the problem.
+But for training large scale neural networks we must stick to first-order optimizer for the sack of performance.
+Feature normalization comes to the rescue.
+
+Let's experiment with a new design matrix where all the features (excluding the bias) are normalized to have zero meanand unit standard deviation.
+
+```{python scale_x_normalized}
+Xs = np.column_stack([np.ones(N), (X[:,1:] - X[:,1:].mean(axis=0)) / X[:,1:].std(axis=0)])
+print(Xs[:10,:])
+```
+
+Since our feature scale changes,
+the analytical solution for the weights changes as well.
+Let's check the OLS estimation (the correct solution for our reference) after normalization:
+
+```{python scale_x_normalized_ols}
+print(ols(Xs, y))
+```
+
+Now examine our gradient descent solver:
+
+```{python scale_x_normalized_gd}
+for epoch in [1, 10, 50, 100]:
+  b, _ = gd_batch_optimize(Xs, y, grad_func, lr=0.1, n_epoch=epoch, batch_size=64)
+  print("Training Epochs {:5} | Estimate: {}".format(epoch, b))
+```
+
+Bingo!
+
+Now it takes no extra effort (less than 10 epochs) for our numerical solver to arrive at a good approximation.
+The only additional step is to remember to transform all the features also before model prediction since the feature space is not in the original dimension anymore.
+
+## Normalization on Logistic Models
+
+When it comes to a logistic regression,
+normalization can be even more critical since the sigmoid function can suffer from saturating when the input is either too small or too big.
+
+Remember that a sigmoid function looks like [this shape](#sigmoid_plot).
+The gradient becomes nearly zero at both extreme sides of the input space.
+Or mathematically:
+
+$$
+\begin{aligned}
+z &= \frac{1}{1 + e^{-t}}, \\
+\frac{dz}{dt} &= z(1 - z), \\
+t  \to \infty & \Rightarrow e^{-t} \to 0 \mbox{ and } z \to 1 \Rightarrow z(1-z) \to 0, \\
+t  \to - \infty & \Rightarrow e^{-t} \to \infty \mbox{ and } z \to 0 \Rightarrow z(1-z) \to 0
+\end{aligned}
+$$
+
+Hence as the fitted value $X\beta$ goes unbounded,
+the gradient becomes zero and the gradient descent optimization get stuck since all updates will be multiplied by zero.
+This is referred to as the problem of *vanishing gradients*.
+
+Feature normalization in this case also help avoid vanishing gradients since the size of the fitted values are well constrained.
+
+## Normalization on Neural Networks
+
+Exactly the same logic can apply to training a neural network,
+especially when sigmoid (or function with similar property such as the tanh) is used as the activation function in any layer of the network.
+The only problem is when the application is too huge to compute normalization.
+Since normalization requires the entire dataset to calculate the scale,
+it may be prohibitively costly to do so.^[Notice that we need to normalize not just the input layer but *every* hidden layers as well.]
+
+To overcome the computing cost the batch normalization approach is proposed (BN hereafter).
+It simply normalizes the input at batch level when doing batch gradient descent.
+This is done on a per-layer basis when training a neural network.
+
+### Theoretical Ground on Batch Norm
+
+Indeed BN exists for more than just to mitigate numerical issues.
+In the original work of @ioffe2015batch BN is proposed to mainly deal with a problem called *internal covariate shift*.
+Such a point of view,
+however,
+has been heavily challenged by subsequent research such as in @santurkar2018does.
+
+The success of BN is proven by its empirical results but not its theoretical stand,
+which is yet to be clear.
+The debate is still ongoing so as of now we should consider it as a good practice that always worths experimenting.
+
+### Batch Norm After Activation
+
+Should we BN the input before or after applying the activator at each layer?
+Though the original paper applies BN before the activator,
+the common practice now seems to be applying it after activator since the empirical results are better.
+
+BN after activator seems also more interpretable since it is the output but not the input of the activator becomes the input to the next layer.
+By applying BN after activator,
+we are controlling each input to be normalized just before the multiplication of the weight matrix in the next layer.
+
+But if the sigmoid is used as activator,
+would BN after activation defeat another purpose which is to mitigate vanishing gradients?
+If the input layer is also normalized,
+this should be less of a problem.
+Of course if the chosen activator has no saturating point (such as ReLU) this is also not a problem.
+
+### Batch Norm at Inference Time
+
+How do we run inference based on a model trained with BN?
+If the input data is also by batch we can directly apply the same network architecture.
+But more of the time the inference is done by a streaming manner (online predicting).
+In order to BN the data we need to keep track of the feature means and variances when we are doing model training on the fly.
+A common practice is to use a moving average of feature means and variances as additional parameters used in model inference mode.
 
 # Gradient Clipping
 
