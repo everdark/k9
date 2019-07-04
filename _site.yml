@@ -1,16 +1,22 @@
 name: "k9-gh-page"
 output_dir: "."
 navbar:
+  type: default
   title: "k9"
   left:
-    - text: "Home"
-      href: index.html
     - text: "About Me"
       href: about.html
     - text: "Bayesian"
       href: bayesian/bayesian_modeling_explained.nb.html
+    - text: "Neural Networks"
+      menu:
+        - text: "Neural Networks Fundamentals"
+          href: neural_nets/neural_networks_fundamentals.nb.html
     - text: "Learning to Rank"
       href: learning_to_rank/learning_to_rank.html
+  right:
+    - icon: fa-github
+      href: https://github.com/everdark/k9
 output:
   html_document:
     theme: flatly
