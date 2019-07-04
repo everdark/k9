@@ -1917,7 +1917,7 @@ print(gd_batch_optimize(X, y, grad_func, lr=0.1, n_epoch=10, batch_size=64)[0])
 ```
 
 Here due to the imbalanced scale of the features,
-our solver becomes numerically unstable given a moderate learning rate.
+our solver becomes numerically unstable given a moderate learning rate (resulting in the *exploding gradients*).
 This is because the size of gradient update is improperly dominated by high-scaled feature.
 
 We can still manage to solve the model,
@@ -2038,5 +2038,40 @@ In order to BN the data we need to keep track of the feature means and variances
 A common practice is to use a moving average of feature means and variances as additional parameters used in model inference mode.
 
 # Gradient Clipping
+
+Gradient clipping is a technique to handle exploding gradients.
+Such problem can result from improper learning rates,
+imbalanced feature scales,
+or a mis-configured loss function.
+The general idea is to constraint the calculated gradients before applying backpropagation update.
+
+The simplest way of doing this is to just set a lower and upper bound so that all gradients are bounded by the lower and capped at upper bound.
+
+Another way of doing that is to constrain by a given L2 norm value:
+
+```{python clip}
+def clip(g, norm):
+  gnorm = np.linalg.norm(g)
+  if gnorm > norm:
+    gnorm = g * norm / gnorm
+  return gnorm
+```
+
+Let's add the clipping to our batch gradient descent optimizer in our previous example in BN section where the gradient got exploded with imbalanced scaled features:
+
+```{python clip_unscaled_x}
+print(X[:5,:])
+```
+
+```{python clip_sgd}
+for epoch in [1000, 5000, 10000, 20000, 30000]:
+  b, _ = gd_clip_batch_optimize(X, y, grad_func, lr=0.1, n_epoch=epoch, batch_size=64)
+  print("Training Epochs {:5} | Estimate: {}".format(epoch, b))
+```
+
+We have successfully avoided exploding gradients this time with gradient clipping and without normalization of the input feature.
+But the noise in the estimation for high-scaled feature seems to be bigger as well.
+Also gradient clipping won't help us improve the speed of convergence.
+It is merely a technique to tacke down numerical stability problem.^[In `tensorflow` the function `clip_by_value` implements the bounded method and `clip_by_norm` implements exactly the L2 norm method we've implemented here.]
 
 # References
