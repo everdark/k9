@@ -2055,6 +2055,24 @@ def clip(g, norm):
   if gnorm > norm:
     gnorm = g * norm / gnorm
   return gnorm
+
+def gd_clip_batch_optimize(X, y, grad_func, clip_norm=5, lr=.01, n_epoch=10, batch_size=64):
+  b = np.random.normal(size=X.shape[1])
+  l = [loss(X, y, b)]
+  for epoch in range(n_epoch):
+    # Shuffle the dataset before each epoch.
+    sid = np.random.permutation(X.shape[0])
+    Xs = X[sid,:]
+    ys = y[sid]
+    i = 0
+    n_step = int(np.ceil(X.shape[0] / batch_size))
+    for step in range(n_step):
+      Xb = Xs[i:i+batch_size,:]
+      yb = ys[i:i+batch_size]
+      b -= lr*clip(grad_func(Xb, yb, b), clip_norm)
+      l.append(loss(Xb, yb, b))
+      i += batch_size
+  return b, l
 ```
 
 Let's add the clipping to our batch gradient descent optimizer in our previous example in BN section where the gradient got exploded with imbalanced scaled features:
