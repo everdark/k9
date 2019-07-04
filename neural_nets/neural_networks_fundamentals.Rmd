@@ -4,7 +4,7 @@ subtitle: "with Examples using Python"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %B %Y')`"
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook: 
     number_sections: yes
@@ -1979,7 +1979,7 @@ $$
 z &= \frac{1}{1 + e^{-t}}, \\
 \frac{dz}{dt} &= z(1 - z), \\
 t  \to \infty & \Rightarrow e^{-t} \to 0 \mbox{ and } z \to 1 \Rightarrow z(1-z) \to 0, \\
-t  \to - \infty & \Rightarrow e^{-t} \to \infty \mbox{ and } z \to 0 \Rightarrow z(1-z) \to 0
+t  \to - \infty & \Rightarrow e^{-t} \to \infty \mbox{ and } z \to 0 \Rightarrow z(1-z) \to 0.
 \end{aligned}
 $$
 
