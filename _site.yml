@@ -7,7 +7,9 @@ navbar:
     - text: "About Me"
       href: about.html
     - text: "Bayesian"
-      href: bayesian/bayesian_modeling_explained.nb.html
+      menu:
+        - text: "Bayesian Modeling Explained"
+          href: bayesian/bayesian_modeling_explained.nb.html
     - text: "Neural Networks"
       menu:
         - text: "Neural Networks Fundamentals"
