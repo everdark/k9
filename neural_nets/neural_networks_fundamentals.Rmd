@@ -843,7 +843,7 @@ to check our result:
 
 ```{python logit_statsmodels}
 import statsmodels.api as sm
-sm.Logit(y2, X).fit().summary()
+print(sm.Logit(y2, X).fit().params)
 ```
 
 Or the `sklearn` result:
@@ -1758,18 +1758,92 @@ This means that both feed-forward and backpropagation will ignore the discarded 
 
 Usually dropout is applied to a model by setting up a *dropout rate* to one or more layers.
 For example we can set the dropout rate to 50% at the first hidden layer.
-This means that for each batch gradient update every neuron in the layer will have a 50% chance of being ignored before the backpropagation starts.
+This means that for each batch gradient update every neuron in the layer will have a 50% chance of being ignored before a training step.
+
 Dropout doesn't limit to hidden layer only.
 One can also apply dropout at the input layer,
-but usually at a relatively lower drop rate than idden layer.
+but usually at a relatively lower drop rate (commonly 20%) than hidden layer.
 Certainly dropout will never be applied at a output layer because output layer is the required component to well define a model.
+
 After dropout is applied,
 a neural network model becomes thinner in a sense that it has fewer number of weights to response to both input feed forward and error backprop.
-
 The rationale is that we'd like to prevent all the neurons from co-adapting too much in the training process to avoid overfitting to the training data.
 
-### Weight Scaling
+### Sampling Ensemble with Shared Weights
 
+Consider a neural network with $n$ neurons.
+If each neuron can be either masked or not masked,
+there will be theoretically in total $2^n$ subnets.
+In this view training a neural network with dropout can be thought of as ensembling different subnets by random sampling a subnet at each step.
+The difference between the usual [bagging](https://en.wikipedia.org/wiki/Bootstrap_aggregating) technique and dropout is that the latter has all the models share their weights.
 
+Model ensemble in general outperforms any single model.
+Since dropout is a form of approximated ensemble from a huge amount ($2^n$) of subnet models,
+it may well outperforms the single neural network with $n$ neurons.
+
+### Weight Scaling on Inference
+
+There is one side-effect when using dropout to train a neural network.
+When a trained model is put to an inference task,
+output from the single neural network (with all neurons unmasked) no longer represents the distribution in the training unless we use exactly the same set of subnets to do the prediction and average them together.
+But this is not practical.
+
+To solve this problem,
+we still use only the original neural networks (with all neurons unmasked) to feed forward for prediction,
+but every model weight is scaled down by the dropout rate of the corresponding neuron.
+It is proven by many empirical works that this weight scaling technique can give very good modeling result.
+Probabilistically,
+the model output here is the *expected* output from all the subnets given the dropout scheme.
+
+## On the Bias Term
+
+In a general additive model a bias term is just a feature with a constant value.
+In a neural network model when a bias term is used in a hidden layer,
+it has no connection between the previous layer but simply act as one extra unit linked to the next layer.
+(See our built-from-scratch toy example in the [previous section](#backpropagation).)
+
+It is easier to understand why we may want a bias term in a linear regression model.
+Since without a bias term we are essentially restricting the fitted model to pass through the origin,
+which can be unrealistic in most use cases.
+On the other hand,
+adding a bias term doesn't prevent from that special scenario to occur.
+If the true model does pass through the origin,
+given enough data the OLS estimator should be able to estimate the weight on bias to be insignificantly different from zero.
+
+Here is a simple example to showcase estimation on a true model without bias:
+
+```{python linear_reg_zero_bias}
+np.random.seed(777)
+N = 1000
+X = np.stack([np.ones(N), np.random.normal(size=N)], axis=1)
+beta = np.array([0, 4], dtype=np.float32)  # True model weights where bias is zero.
+e = np.random.normal(size=N)
+y = X.dot(beta) + e
+
+# We use `statsmodels` here because it comes with a hypothesis testing on the coefficient.
+print(sm.OLS(y, X).fit().summary2())
+```
+
+As one can see the estimated weight on bias is statistically insignificant.
+
+Should regularization applies to bias term?
+In our previous working example we apply norm regularization on both bias and weight.
+Practically speaking there may not be any benefit on regularizing the bias term.
+The rationale is that bias comes from a constant feature.
+Such feature is in theory not possible to overfit the data since it is not varying with the data at all.
+
+Indeed,
+regularization on bias term may even have negative impact.
+This is because by regularizing a term that is not exposed to any risk of overfitting,
+the model is constrained without any benefit.
+We only end up with a less flexible parameter space which could be potentially suboptimal.
+
+To sum up,
+the general strategy of regularization is NOT to regularize the bias term,
+if any.
+
+# Batch Normalization
+
+# Gradient Clipping
 
 # References
