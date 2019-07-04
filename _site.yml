@@ -16,6 +16,9 @@ navbar:
           href: neural_nets/neural_networks_fundamentals.nb.html
     - text: "Learning to Rank"
       href: learning_to_rank/learning_to_rank.html
+  right:
+    - icon: fa-github
+      href: https://github.com/everdark/k9
 output:
   html_document:
     theme: flatly
