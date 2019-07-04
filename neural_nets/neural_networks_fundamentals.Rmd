@@ -17,7 +17,7 @@ bibliography: neural_networks_fundamentals.bib
 abstract: |
   The notebook walks through the fundamental knowledge and intuition required to understand the inner working of a minimally configured neural network model using coding examples built from scratch. By avoiding the use of any high-level machine learning API we can get rid of the abstraction and gain more in-depth hands-on experiences during the journey.
 
-  The topics include 1.) an important section revisiting what is linear and logistic regression and how we can train these models using first-order numerical optimizer. Followed by 2.) a quick demonstration of automatic differnetiation which is considered as the computing workhorse for training modern neural networks. And 3.) a simple neural network solver is built and examined. Finally 4.) the regularization techinque to overcome overfitting problem.
+  The topics include 1.) an important section revisiting what is linear and logistic regression and how we can train these models using first-order numerical optimizer. Followed by 2.) a quick demonstration of automatic differnetiation which is considered as the computing workhorse for training modern neural networks. And 3.) a simple neural network solver is built and examined. Finally 4.) the regularization techinque to overcome overfitting problem followed by discussion on batch normalization and gradient clipping.
 ---
 <!--For controling code folding by chunk.-->
 <script src="js/hide_output.js"></script>
