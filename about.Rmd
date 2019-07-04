@@ -2,4 +2,15 @@
 title: "Yet Another Data Scientist"
 ---
 
+<style type="text/css">
+h1.title {
+  text-align: center;
+}
+</style>
+
+<center>
 ![](assets/avatar.jpg)
+
+[LinkedIn](https://www.linkedin.com/in/kylechung/) | [Medium](https://medium.com/@knine)
+</center>
+
