@@ -4,7 +4,7 @@ subtitle: "with Examples Using R and Stan"
 author:
 - name: Kyle Chung
   affiliation: 
-date: "`r format(Sys.time(), '%d %B %Y')`"
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output: 
   html_notebook:
     number_sections: yes
@@ -12,6 +12,7 @@ output:
     toc: yes
     toc_float: true
     toc_depth: 3
+  code_download: true
 bibliography: bayesian_modeling_explained.bib
 nocite: | 
   @van2018simple
