@@ -17,13 +17,13 @@ bibliography: matrix_factorization.bib
 abstract: |
   TBC.
 ---
+
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
 MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
-
 
 ```{r setup, include=FALSE}
 library(reticulate)
@@ -35,6 +35,20 @@ if ( is(r, "try-error") ) {
 ```
 
 # The Task
+
+Matrix factorization is a rather general term.
+In this notebook we are particularly interested in matrix factorization as a solution to a recommender system where only *implicit* feedbacks are available.
+This means that we have a $m$ user by $n$ item matrix $R$ which records only the observed interaction between users and items.
+Such matrix is usually very *sparse*.
+
+The problem is to decompose a real (or binary) sparse matrix $R_{m \times n}$ into a dot product of two matrices:
+
+$$
+R_{m \times n} = P_{k \times m}^T \cdot Q_{k \times n}.
+$$
+
+
+
 
 # Bayesian Personalized Ranking
 @rendle2009bpr
