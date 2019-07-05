@@ -8,7 +8,8 @@
 
 ## TODO
 
++ Matrix Factorization
++ TensorFlow 2.0 Hands-On
 + Reinforcement Learning
 + Advanced Neural Network Modeling
-+ TensorFlow Hands-On
 
