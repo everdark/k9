@@ -14,6 +14,10 @@ navbar:
       menu:
         - text: "Neural Networks Fundamentals"
           href: neural_nets/neural_networks_fundamentals.nb.html
+    - text: "Recommender Systems"
+      menu:
+        - text: "Matrix Factorization"
+          href: matrix_factorization/matrix_factorization.nb.html
     - text: "Learning to Rank"
       href: learning_to_rank/learning_to_rank.html
   right:
