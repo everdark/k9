@@ -130,7 +130,7 @@ But we can initialize the embeddings with random weights and apply numerical met
 One important trick in training the model is that,
 the gradients are only calculated with respect to non-missing values in the interaction matrix.
 
-# The Learning Objective
+# Learning Objectives
 
 Before we actually solve the problem defined above,
 we need to explicitly specify the loss function.
@@ -246,10 +246,68 @@ Our simple educational implementation won't scale as the dimension of interactio
 Fortunately the algorithm is [*embarrassingly parallel*](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
 meaning that we can improve the performance considerably by parallel computing.
 
-To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model:
+#### Automatic Differentiation {-}
+
+To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
+`tensorflow` is a powerful framework designed for [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) that helps compute gradients at scale.
+Though our implementation will still be naive without much engineering optimization,
+by using automatic differentiation we can skip the manual derivation and hardcoding of our gradient function.
+
+```{python import_tensorflow}
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+
+import tensorflow as tf
+print(tf.__version__)
+```
 
 ```{python rvmf_tf}
-import tensorflow as tf
+class MatrixFactorization:
+  def __init__(self, R, k, lr=.0003, l2=.04, seed=777):
+    self.R = tf.convert_to_tensor(R, dtype=tf.float32)
+    self.mask = tf.greater(self.R, 0)
+    self.m, self.n = R.shape
+    self.k = k
+    self.lr = lr
+    self.l2 = l2
+    self.tol = .001
+    # Initialize trainable weights.
+    self.weight_init = tf.random_normal_initializer(seed=seed)
+    self.P = tf.Variable(weight_init((self.m, self.k)))
+    self.Q = tf.Variable(weight_init((self.n, self.k)))
+
+  def loss(self):
+    raise NotImplementedError
+
+  def grad_update(self):
+    with tf.GradientTape() as t:
+      t.watch([self.P, self.Q])
+      self.current_loss = self.loss()
+    gP, gQ = t.gradient(self.current_loss, [self.P, self.Q])
+    self.P.assign_sub(self.lr * gP)
+    self.Q.assign_sub(self.lr * gQ)
+
+  def train(self, n_step=5000):
+    for step in range(n_step):
+      self.grad_update()
+      if self.current_loss < self.tol:
+        break
+
+
+class RealValueMF(MatrixFactorization):
+  def loss(self):
+    E = (self.R - tf.matmul(self.P, self.Q, transpose_b=True))**2
+    l2_norm = tf.reduce_sum(P**2) + tf.reduce_sum(Q**2)
+    out = tf.reduce_sum(tf.boolean_mask(E, self.mask)) + self.l2 * l2_norm
+    return out
+```
+
+```{python rvmf_tf_prediction}
+rvmf_model = RealValueMF(ratings, k=3)
+rvmf_model.train()
+
+predictions = tf.matmul(rvmf_model.P, rvmf_model.Q, transpose_b=True).numpy()
+print(np.round(predictions * mask, 2))
 ```
 
 ### Binary Matrix Factorization {-}
