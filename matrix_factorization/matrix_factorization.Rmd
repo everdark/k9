@@ -60,44 +60,48 @@ each user and item is represented by a real vector of length $k$,
 called the embedding,
 and a dot product of a user embedding and an item embedding represents the interaction result of the given user-item pair.
 
-In the rest of the notebook we will use the following notations for user embedding matrix $P$ and item embedding matrix $Q$:
+In the rest of the notebook we will use the following notations for user embedding matrix
 
 $$
-\begin{aligned}
-P &=
+P =
 \begin{pmatrix} 
 p_{11} & p_{12} & \dots \\
 \vdots & \ddots & \vdots\\
 p_{m1} & \dots  & p_{mk} 
-\end{pmatrix}_{m \times k}, \\
+\end{pmatrix}_{m \times k},
+$$
 
-Q &=
+and item embedding matrix:
+
+$$
+Q =
 \begin{pmatrix}
 q_{11} & q_{12} & \dots \\
 \vdots & \ddots & \vdots \\
 q_{n1} & \dots  & q_{nk} 
 \end{pmatrix}_{n \times k}.
-\end{aligned}
 $$
 
-And for embedding vector $p_u$ and $q_i$ representing individual user $u$ and item $i$:
+For embedding vector $p_u$ representing individual user $u$
 
 $$
-\begin{aligned}
-p_u &=
+p_u =
 \begin{pmatrix} 
 p_{u1} \\
 \vdots \\
 p_{uk} 
-\end{pmatrix}, \\
+\end{pmatrix},
+$$
 
-q_i &=
+and $q_i$ representing individual item $i$
+
+$$
+q_i =
 \begin{pmatrix}
 q_{i1} \\
 \vdots \\
 q_{ik}
 \end{pmatrix}.
-\end{aligned}
 $$
 
 The task is hence to learn the embeddings of all users and items such that their dot products can closely represent their corresponding observed interaction.^[By interaction, we mean a rating, a click, a like, or virtually anything that could happen for a pair of user and item.]
@@ -122,7 +126,7 @@ Function $L(\cdot)$ is a generic loss function depends on the embeddings and the
 Constant $\lambda_*$ and $\gamma_*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
 
 There is obviously no closed-form solution for the above problem.
-But we can initialize the embeddings with random weights and apply numerical method such as *stochastic gradient descent* to approximate the solution.
+But we can initialize the embeddings with random weights and apply numerical method such as [*gradient descent*](https://en.wikipedia.org/wiki/Gradient_descent) to approximate the solution.
 One important trick in training the model is that,
 the gradients are only calculated with respect to non-missing values in the interaction matrix.
 
@@ -161,11 +165,10 @@ $$
 \frac{\partial L(\cdot)}{\partial p_{uk}}
 &= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial p_{uk}} \\
 &= 2(r_{ui} - p_u^Tq_i)q_{ik}, \\
-
 \frac{\partial L(\cdot)}{\partial q_{ik}}
 &= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial q_{ik}} \\
-&= 2(r_{ui} - p_u^Tq_i)p_{uk}
-\end{aligned}.
+&= 2(r_{ui} - p_u^Tq_i)p_{uk}.
+\end{aligned}
 $$
 
 The following Python code is a toy implementation of such factorization model with L2 regularization:
