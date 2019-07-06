@@ -1,6 +1,6 @@
 ---
 title: "Matrix Factorization"
-subtitle: "For Recommender systems"
+subtitle: "for Recommender systems"
 author:
 - name: Kyle Chung
   affiliation:
@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook: 
     number_sections: yes
-    theme: flatly
+    theme: paper
     toc: yes
     toc_float: true
     highlight: pygments
@@ -36,22 +36,239 @@ if ( is(r, "try-error") ) {
 
 # The Task
 
-Matrix factorization is a rather general term.
-In this notebook we are particularly interested in matrix factorization as a solution to a recommender system where only *implicit* feedbacks are available.
-This means that we have a $m$ user by $n$ item matrix $R$ which records only the observed interaction between users and items.
-Such matrix is usually very *sparse*.
+Matrix factorization is a rather general term to describe a whole family of techniques aiming to solve a variety of problems.
+In this notebook we are particularly interested in matrix factorization as a solution to a [recommender system](https://en.wikipedia.org/wiki/Recommender_system).
+This means that we have a $m$ user by $n$ item matrix $R$ which records only the *observed* interaction between users and items.
 
-The problem is to decompose a real (or binary) sparse matrix $R_{m \times n}$ into a dot product of two matrices:
+Mathematically,
+the problem is to approximately decompose a real (or binary) matrix $R_{m \times n}$ into a dot product of two matrices:
 
 $$
-R_{m \times n} = P_{k \times m}^T \cdot Q_{k \times n}.
+\begin{equation}
+{\underbrace{R_{m \times n} \vphantom{P_{k \times m}^T}}_\text{Interaction Matrix}}
+\approx
+{\underbrace{P_{k \times m}^T}_\text{User Matrix}}
+\cdot
+{\underbrace{Q_{k \times n} \vphantom{P_{k \times m}^T}}_\text{Item Matrix}}.
+\end{equation}
 $$
 
+Matrix $R$ is usually very *sparse* due to the presence of a large amount of both users and items.
+The dimension $k$ is a hyperparameter of the factorization model representing the length used to embed both users and items into real vectors.
+That is,
+each user and item is represented by a real vector of length $k$,
+called the embedding,
+and a dot product of a user embedding and an item embedding represents the interaction result of the given user-item pair.
+
+In the rest of the notebook we will use the following notations for user embedding matrix $P$ and item embedding matrix $Q$:
+
+$$
+\begin{aligned}
+P &=
+\begin{pmatrix} 
+p_{11} & p_{12} & \dots \\
+\vdots & \ddots & \vdots\\
+p_{m1} & \dots  & p_{mk} 
+\end{pmatrix}_{m \times k}, \\
+
+Q &=
+\begin{pmatrix}
+q_{11} & q_{12} & \dots \\
+\vdots & \ddots & \vdots \\
+q_{n1} & \dots  & q_{nk} 
+\end{pmatrix}_{n \times k}.
+\end{aligned}
+$$
+
+And for embedding vector $p_u$ and $q_i$ representing individual user $u$ and item $i$:
+
+$$
+\begin{aligned}
+p_u &=
+\begin{pmatrix} 
+p_{u1} \\
+\vdots \\
+p_{uk} 
+\end{pmatrix}, \\
+
+q_i &=
+\begin{pmatrix}
+q_{i1} \\
+\vdots \\
+q_{ik}
+\end{pmatrix}.
+\end{aligned}
+$$
+
+The task is hence to learn the embeddings of all users and items such that their dot products can closely represent their corresponding observed interaction.^[By interaction, we mean a rating, a click, a like, or virtually anything that could happen for a pair of user and item.]
+
+Our model weights to be learned are scalar values filled up all the embedding vectors for every user and item.
+To learn the all these weights,
+we can formulate a general optimization problem:
+
+$$
+\begin{equation} \label{eq:mf_min}
+\min_{P,Q} \sum_{u,i \in R} \bigg[
+L(p_u, q_i, r_{ui}) + 
+\underbrace{\lambda_p\vert\vert p_u \vert\vert^1 + \lambda_q\vert\vert q_i \vert\vert^1}_\text{L1 Regularization} +
+\underbrace{\gamma_p\vert\vert p_u \vert\vert^2 + \gamma_q\vert\vert q_i \vert\vert^2}_\text{L2 Regularization}
+\bigg],
+\end{equation}
+$$
+
+where $u$ and $i$ are index of the $u$-th user and the $i$-th item in the matrix $R$,
+$p_u$ is the user embedding vector for user $u$ and $q_i$ the item embedding vector for item $i$.
+Function $L(\cdot)$ is a generic loss function depends on the embeddings and the actual interaction $r_{ui}$.
+Constant $\lambda_*$ and $\gamma_*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
+
+There is obviously no closed-form solution for the above problem.
+But we can initialize the embeddings with random weights and apply numerical method such as *stochastic gradient descent* to approximate the solution.
+One important trick in training the model is that,
+the gradients are only calculated with respect to non-missing values in the interaction matrix.
+
+# The Learning Objective
+
+Before we actually solve the problem defined above,
+we need to explicitly specify the loss function.
+How should we pick up the loss function for the task in equation $\eqref{eq:mf_min}$?
+It turns out that it really depends on what type of data we have and what kind of problem by nature we'd like to solve.
+Generally speaking,
+there are 3 types of interaction matrix we may encounter in a real-world problem:
+
+1. Real-valued matrix: The interaction is well quantified, such as ratings, number of visits... 
+2. Binary matrix: The interaction is a binary preference, such as like/dislike.
+3. One-class matrix: The case of *implicit* feedback--only positive reactions are recorded.
+
+### Real Value Matrix Factorization {-}
+
+When the interaction matrix records real-valued feedback such as a rating matrix,
+it is natural to use the *squared error* as our loss:
+
+$$
+L(p_u, q_i, r_{ui}) = \sum_{u, i \in R} \big( r_{ui} - p_u^Tq_i \big)^2,
+$$
+
+where the model score for a user-item pair $(u, i)$ is
+
+$$
+p_u^Tq_i = \sum_{j=1}^kp_{uj} \cdot q_{ij}.
+$$
+
+The gradient w.r.t. model weights $p_{uk}$ and $q_{ik}$ for a user-item pair $(u, i)$ are quite straightforward:
+
+$$
+\begin{aligned}
+\frac{\partial L(\cdot)}{\partial p_{uk}}
+&= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial p_{uk}} \\
+&= 2(r_{ui} - p_u^Tq_i)q_{ik}, \\
+
+\frac{\partial L(\cdot)}{\partial q_{ik}}
+&= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial q_{ik}} \\
+&= 2(r_{ui} - p_u^Tq_i)p_{uk}
+\end{aligned}.
+$$
+
+The following Python code is a toy implementation of such factorization model with L2 regularization:
+
+```{python rvmf}
+import numpy as np
+
+def mf(R, k, n_step=5000, lr=.0003, l2=.04):
+  tol = .001  # Tolerant loss.
+  m, n = R.shape
+  # Initialize the embedding weights.
+  P = np.random.rand(m, k)
+  Q = np.random.rand(n, k)
+  for step in range(n_step):
+    # Update weights by gradients.
+    for u, i in zip(*R.nonzero()):
+      err_ui = R[u,i] - P[u,:].dot(Q[i,:])
+      for j in range(k):
+        P[u][j] += lr * (2 * err_ui * Q[i][j] - l2/2 * P[u][j])
+        Q[i][j] += lr * (2 * err_ui * P[u][j] - l2/2 * Q[i][j])
+    # compute the loss.
+    E = (R - P.dot(Q.T))**2
+    obj = E[R.nonzero()].sum() + lr*((P**2).sum() +(Q**2).sum())
+    if obj < tol:
+        break
+  return P, Q
+```
+
+Let's make an old Netflix-styled 5-star ratings and test our solver:^[Starting 2017 Netflix no longer uses 5-star rating any more but adopts a binary like/dislike interaction. The reason seems to be a higher user response rate which boost available interaction data.]
+
+```{python rvmf_toy_data}
+np.random.seed(777)
+
+# Make missing more prevail.
+stars = np.arange(6)
+p = np.array([10, 1, 1, 1, 1, 1])
+m = 5
+n = 10
+
+# A 5-star rating matrix.
+ratings = np.random.choice(stars, size=m*n, p=p / p.sum()).reshape((m, n))
+print(ratings)
+```
+
+```{python rvmf_toy_solution}
+P, Q = mf(ratings, k=3)
+
+print(P)  # User embeddings.
+
+print(Q)  # Item embeddings.
+```
+
+The dot product of our estimated user and item embeddings should approximately resemble the original ratings whenever available:
+
+```{python rvmf_toy_prediction_masked}
+predictions = P.dot(Q.T)
+mask = np.zeros_like(ratings)
+mask[ratings.nonzero()] = 1
+
+# Mask out unknown ratings as 0 for ease of comparison.
+print(np.round(predictions * mask, 2))
+```
+
+And the dot products for missing entries serve as our model prediction to the unknown user-item interaction:
+
+```{python rvmf_toy_prediction}
+# Mask out known ratings as 0 for ease of comparison.
+print(np.round(predictions * (1 - mask), 2))
+```
+
+Since now every user and item is represented by a real vector,
+given a user and a list of items we can generate the recommended items orderd by predicted model score.
+
+Our simple educational implementation won't scale as the dimension of interaction matrix grows.
+Fortunately the algorithm is [*embarrassingly parallel*](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
+meaning that we can improve the performance considerably by parallel computing.
+
+To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model:
+
+```{python rvmf_tf}
+import tensorflow as tf
+```
+
+### Binary Matrix Factorization {-}
 
 
 
-# Bayesian Personalized Ranking
-@rendle2009bpr
+### One-Class Matrix Factorization {-}
+
+For the case of an implicit feedback matrix,
+@rendle2009bpr proposed the idea of "Bayesian personalized ranking" which is widely used in many recommender system framework.
+
+# Linkage to Neural Netorks
+
+
+
+# Efficient Implementations
+
+Package [`libmf`](https://github.com/cjlin1/libmf) (@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing parallel computing in cpu.
+It also supports on-disk data parsing for large scale application where the training data cannot fit in local memory.
+
+
+
 
 # References
 
