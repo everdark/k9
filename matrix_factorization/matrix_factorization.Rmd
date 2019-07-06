@@ -273,8 +273,8 @@ class MatrixFactorization:
     self.tol = .001
     # Initialize trainable weights.
     self.weight_init = tf.random_normal_initializer(seed=seed)
-    self.P = tf.Variable(weight_init((self.m, self.k)))
-    self.Q = tf.Variable(weight_init((self.n, self.k)))
+    self.P = tf.Variable(self.weight_init((self.m, self.k)))
+    self.Q = tf.Variable(self.weight_init((self.n, self.k)))
 
   def loss(self):
     raise NotImplementedError
@@ -297,7 +297,7 @@ class MatrixFactorization:
 class RealValueMF(MatrixFactorization):
   def loss(self):
     E = (self.R - tf.matmul(self.P, self.Q, transpose_b=True))**2
-    l2_norm = tf.reduce_sum(P**2) + tf.reduce_sum(Q**2)
+    l2_norm = tf.reduce_sum(self.P**2) + tf.reduce_sum(self.Q**2)
     out = tf.reduce_sum(tf.boolean_mask(E, self.mask)) + self.l2 * l2_norm
     return out
 ```
