@@ -143,6 +143,14 @@ there are 3 types of interaction matrix we may encounter in a real-world problem
 2. Binary matrix: The interaction is a binary preference, such as like/dislike.
 3. One-class matrix: The case of *implicit* feedback--only positive reactions are recorded.
 
+The first two cases are sometimes referred to as explicit feedback.
+The difference lies in how we interpret the missing values in the interaction matrix.
+In implicit feedback,
+a missing entry can be due to a user not like the item or doesn't know the item.
+In general implicit feedback seems more plausible in real world and has become the mainstream approach for recommender systems.
+
+For comepleteness we will still illustrate all 3 cases in the following sub-sections.
+
 ### Real Value Matrix Factorization {-}
 
 When the interaction matrix records real-valued feedback such as a rating matrix,
@@ -265,7 +273,7 @@ print(tf.__version__)
 class MatrixFactorization:
   def __init__(self, R, k, lr=.0003, l2=.04, seed=777):
     self.R = tf.convert_to_tensor(R, dtype=tf.float32)
-    self.mask = tf.greater(self.R, 0)
+    self.mask = tf.not_equal(self.R, 0)
     self.m, self.n = R.shape
     self.k = k
     self.lr = lr
@@ -295,7 +303,11 @@ class MatrixFactorization:
 
 
 class RealValueMF(MatrixFactorization):
+  # The implementation is far from optimized since we don't need the product of entire P'Q.
+  # We only need scores for non-missing entries.
+  # The code is hence for educational purpose only.
   def loss(self):
+    """Squared error loss."""
     E = (self.R - tf.matmul(self.P, self.Q, transpose_b=True))**2
     l2_norm = tf.reduce_sum(self.P**2) + tf.reduce_sum(self.Q**2)
     out = tf.reduce_sum(tf.boolean_mask(E, self.mask)) + self.l2 * l2_norm
@@ -312,14 +324,81 @@ print(np.round(predictions * mask, 2))
 
 ### Binary Matrix Factorization {-}
 
+When the user-item interaction is a binary outcome ($r_{ui} \in \{0, 1\}$),
+it is natural to use [cross entropy](https://en.wikipedia.org/wiki/Cross_entropy) as our loss function for the optimization problem in $\eqref{eq:mf_min}$.
+That is,
+
+$$
+L(p_u, q_i, r_{ui}) = \sum_{u, i \in R} \bigg[
+r_{ui}\log (p_u^Tq_i) + (1 - r_{ui}) \log (1 - p_u^Tq_i)
+\bigg].
+$$
+
+```{python bmf_toy_data}
+# Make missing more prevail.
+responses = [-1, 0, 1]
+p = np.array([1, 5, 1])
+m = 5
+n = 10
+
+# A binary response matrix.
+b_ratings = np.random.choice(responses, size=m*n, p=p / p.sum()).reshape((m, n))
+print(b_ratings)
+```
+
+```{python bmf_tf}
+class BinaryMF(MatrixFactorization):
+  def train(self, n_step=5000):
+    # Cast 1/-1 as binary encoding of 0/1.
+    self.labels = tf.cast(tf.not_equal(tf.boolean_mask(self.R, self.mask), -1), dtype=tf.float32)
+    for step in range(n_step):
+      self.grad_update()
+
+  # The implementation is far from optimized since we don't need the product of entire P'Q.
+  # We only need scores for non-missing entries.
+  # The code is hence for educational purpose only.
+  def loss(self):
+    """Cross entropy loss."""
+    logits = tf.boolean_mask(tf.matmul(self.P, self.Q, transpose_b=True), self.mask)
+    logloss = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.labels, logits=logits)
+    mlogloss = tf.reduce_mean(logloss)
+    l2_norm = tf.reduce_sum(self.P**2) + tf.reduce_sum(self.Q**2)
+    return mlogloss + self.l2 * l2_norm
+```
+
+
+```{python bmf_tf_prediction_masked}
+# We increase the learning a bit since logloss has a very different scale than squared error.
+# For the same reason we decrease the L2 coefficient.
+bmf_model = BinaryMF(b_ratings, k=3, lr=.03, l2=.0001)
+bmf_model.train()
+
+b_predictions = tf.sigmoid(tf.matmul(bmf_model.P, bmf_model.Q, transpose_b=True)).numpy()
+
+b_mask = np.zeros_like(b_ratings)
+b_mask[b_ratings.nonzero()] = 1
+
+# Check prediction on training entries.
+print(np.round(b_predictions * b_mask, 2))
+```
+
+#### Linkage to Neural Netorks {-}
 
 
 ### One-Class Matrix Factorization {-}
 
+#### Bayesian Personalized Ranking {-}
+
 For the case of an implicit feedback matrix,
 @rendle2009bpr proposed the idea of "Bayesian personalized ranking" which is widely used in many recommender system framework.
 
-# Linkage to Neural Netorks
+#### Logistic Matrix Factorization {-}
+
+@hu2008collaborative
+
+@johnson2014logistic propose the idea of logisitic matrix factorization.
+
+
 
 
 
