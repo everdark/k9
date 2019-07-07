@@ -14,11 +14,11 @@ A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](
 
 ## TODO
 
++ Factorization Machines
 + Gradient Boosting Machines
 + TensorFlow 2.0 Hands-On
 + Basics about Reinforcement Learning
 + Advanced Neural Network Modeling
-    + Sequence Model
+    + Sequence-to-Sequence Model
     + GAN
 + Chatbot
-
