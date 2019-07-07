@@ -455,6 +455,8 @@ factorization model using deep neural nets are also increasingly popular in both
 Such models are using additional contextual features to enrich the model's knowledge about user-item interaction.
 The scope is beyond this notebook where we focus on the decomposition of merely the interaction matrix.
 
+# Model Evaluation
+
 # Efficient Implementations
 
 In this section we will discuss several high-quality open-sourced libraries designed for factorization model.
