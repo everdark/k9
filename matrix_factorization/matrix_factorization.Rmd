@@ -403,7 +403,7 @@ matrix factorization model should look very similar to them.
 Indeed a matrix factorization model *is* a shallow neural network model.^[More a overall discussion about neural networks one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html).]
 
 <div class="fold s">
-```{r mf_as_nn_diagram, fig.width=6, fig.height=3}
+```{r mf_as_nn_diagram, fig.width=8, fig.height=4}
 DiagrammeR::grViz("
 digraph subscript {
   labelloc='t'
