@@ -14,6 +14,20 @@ The major programming language used for most of the notebooks is either [Python]
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html)
     + Matrix Factorization (W.I.P.)
 
+## [Optional] Setup Python Environment
+
+To ensure reproducibility it is recommended to use [`pyenv`](https://github.com/pyenv/pyenv) along with [`pyenv-virtualenv`](https://github.com/pyenv/pyenv-virtualenv) to control both Python and package version.
+
+To use `virtualenv` with `reticulate` in Rmd,
+the involved Python must be installed with shared library:
+
+```sh
+PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.7.0
+```
+
+`pyenv` support only Linux and macOS.
+For Windows user it is recommended to use [`conda`](https://github.com/conda/conda) instead.
+
 ## TODO
 
 ### Topics
