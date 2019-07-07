@@ -107,7 +107,7 @@ $$
 The task is hence to learn the embeddings of all users and items such that their dot products can closely represent their corresponding observed interaction.^[By interaction, we mean a rating, a click, a like, or virtually anything that could happen for a pair of user and item.]
 
 Our model weights to be learned are scalar values filled up all the embedding vectors for every user and item.
-To learn the all these weights,
+To learn all these weights,
 we can formulate a general optimization problem:
 
 $$
@@ -243,14 +243,14 @@ Since now every user and item is represented by a real vector,
 given a user and a list of items we can generate the recommended items orderd by predicted model score.
 
 Our simple educational implementation won't scale as the dimension of interaction matrix grows.
-Fortunately the algorithm is [*embarrassingly parallel*](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
-meaning that we can improve the performance considerably by parallel computing.
+Fortunately the algorithm can speed up considerably by parallel computing.
+@chin2015fast gives a very good review on different strategies of parallellization on gradient descent for matrix factorization problem.
 
 #### Automatic Differentiation {-}
 
 To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
 `tensorflow` is a powerful framework designed for [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) that helps compute gradients at scale.
-Though our implementation will still be naive without much engineering optimization,
+Though our implementation will still be trivial without much engineering optimization,
 by using automatic differentiation we can skip the manual derivation and hardcoding of our gradient function.
 
 ```{python import_tensorflow}
