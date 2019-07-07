@@ -17,6 +17,8 @@ bibliography: matrix_factorization.bib
 abstract: |
   TBC.
 ---
+<!--For controling code folding by chunk.-->
+<script src="../site_libs/utils/hide_output.js"></script>
 
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -366,7 +368,6 @@ class BinaryMF(MatrixFactorization):
     return mlogloss + self.l2 * l2_norm
 ```
 
-
 ```{python bmf_tf_prediction_masked}
 # We increase the learning a bit since logloss has a very different scale than squared error.
 # For the same reason we decrease the L2 coefficient.
@@ -382,9 +383,6 @@ b_mask[b_ratings.nonzero()] = 1
 print(np.round(b_predictions * b_mask, 2))
 ```
 
-#### Linkage to Neural Netorks {-}
-
-
 ### One-Class Matrix Factorization {-}
 
 #### Bayesian Personalized Ranking {-}
@@ -398,17 +396,76 @@ For the case of an implicit feedback matrix,
 
 @johnson2014logistic propose the idea of logisitic matrix factorization.
 
+# Neural Netork Representation
 
+For people who are familiar with neural network models,
+matrix factorization model should look very similar to them.
+Indeed a matrix factorization model *is* a shallow neural network model.^[More a overall discussion about neural networks one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html).]
 
+<div class="fold s">
+```{r mf_as_nn_diagram, fig.width=6, fig.height=3}
+DiagrammeR::grViz("
+digraph subscript {
+  labelloc='t'
+  label='Factorization Model as a Neural Network'
 
+  graph [layout = dot rankdir = LR ordering = in style=dotted]
+
+  node [shape = circle]
+
+  subgraph cluster_indicator_layer {
+    label = 'Indicator Feature Columns'
+    u [label = 'User']
+    i [label = 'Item']
+  }
+
+  subgraph cluster_embedding_layer {
+    label = 'Embeddings'
+    P [label = 'P']
+    Q [label = 'Q']
+  }
+
+  subgraph cluster_output_layer_rv {
+    label = 'Real Value Output'
+    y [label = 'y']
+  }
+
+  subgraph cluster_output_layer_b {
+    label = 'Binary Output'
+    s [label = 's']
+  }
+
+  edge [arrowsize = .25]
+
+  u -> P [label = 'embedding lookup']
+  i -> Q [label = 'embedding lookup']
+  P -> y
+  Q -> y
+  y -> s [label = 'Sigmoid']
+
+}")
+```
+</div>
+
+The indicator feature column layer is just a collection of user-item indices where the entries are not missing in the interaction matrix.
+It can be viewed as a sparse representation of the interaction matrix which acts as our training input.
+
+Based on this view,
+factorization model using deep neural nets are also increasingly popular in both the literature and practical space.
+Such models are using additional contextual features to enrich the model's knowledge about user-item interaction.
+The scope is beyond this notebook where we focus on the decomposition of merely the interaction matrix.
 
 # Efficient Implementations
 
-Package [`libmf`](https://github.com/cjlin1/libmf) (@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing parallel computing in cpu.
+In this section we will discuss several high-quality open-sourced libraries designed for factorization model.
+
+## LIBMF
+
+Package [`libmf`](https://github.com/cjlin1/libmf)(@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing parallel computing in cpu.
 It also supports on-disk data parsing for large scale application where the training data cannot fit in local memory.
 
+## LightFM
 
-
+[`lightfm`](https://github.com/lyst/lightfm)(@DBLP:conf/recsys/Kula15)
 
 # References
-
