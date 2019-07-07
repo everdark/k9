@@ -18,6 +18,30 @@ pip install -r requirements.txt
 to install all the dependencies.
 The code is only tested with Python 3.
 
+### Install `lightfm` on macOS with `openmp` Support
+
+By default `lightfm` will be single-threaded under macOS.
+To install it with `openmp` support, we need a homebrew `gcc` as the compiler and install from source.
+
+```
+# Install brew version gcc compiler if you don't have it already.
+brew install gcc
+
+# Clone the repo.
+git clone git@github.com:lyst/lightfm.git
+```
+
+Then edit `setup.py` to have:
+
+```py
+use_openmp = True
+```
+
+Now install the package from local:
+
+```sh
+env CC=/usr/local/bin/g++-9 pip install -e .
+```
 
 ## Render the Notebook
 
