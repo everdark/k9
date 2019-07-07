@@ -20,13 +20,13 @@ abstract: |
   The topics include 1.) an important section revisiting what is linear and logistic regression and how we can train these models using first-order numerical optimizer. Followed by 2.) a quick demonstration of automatic differnetiation which is considered as the computing workhorse for training modern neural networks. And 3.) a simple neural network solver is built and examined. Finally 4.) the regularization techinque to overcome overfitting problem followed by discussion on batch normalization and gradient clipping.
 ---
 <!--For controling code folding by chunk.-->
-<script src="js/hide_output.js"></script>
+<script src="../site_libs/utils/hide_output.js"></script>
 
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
   since we don't include the plotly.js in each individual plot (to reduce file size).
 -->
-<script src="js/plotly-latest.min.js"></script>
+<script src="../site_libs/utils/plotly-latest.min.js"></script>
 
 <!-- Link to mathjax javascript library.
   This is for latex notation in plotly output.
@@ -873,10 +873,17 @@ But this time we will NOT explicitly derive the gradient function.
 Instead,
 we will only specify the target function which is just the loss function of our model.
 
-```{python tf_ad}
-import tensorflow as tf
-tf.enable_eager_execution()
+```{python import_tensorflow}
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
 
+import tensorflow as tf
+print(tf.__version__)
+
+tf.enable_eager_execution()
+```
+
+```{python tf_ad}
 # Use tensor to represent our data.
 # Note that we need to be very specific about dtype/shape of our tensors.
 X_tf = tf.convert_to_tensor(X, dtype=tf.float32)
