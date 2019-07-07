@@ -3,6 +3,8 @@
 The repository is a collection of self-taught notebooks for data science practices.
 A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
 
+The major programming language used for most of the notebooks is either [Python](https://www.python.org/) or [R](https://www.r-project.org/).
+
 ## Notebooks
 
 + Statistics
@@ -14,6 +16,7 @@ A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](
 
 ## TODO
 
+### Topics
 + Factorization Machines
 + Gradient Boosting Machines
 + TensorFlow 2.0 Hands-On
@@ -22,3 +25,6 @@ A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](
     + Sequence-to-Sequence Model
     + GAN
 + Chatbot
+
+### Site
++ Dockerize each notebook (for complete reproducibility)?
