@@ -7,11 +7,12 @@ author:
 date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook: 
+    highlight: pygments
     number_sections: yes
     theme: paper
     toc: yes
-    toc_float: true
-    highlight: pygments
+    toc_depth: 4
+    toc_float: yes
   code_download: true
 bibliography: matrix_factorization.bib
 abstract: |
@@ -40,7 +41,8 @@ if ( is(r, "try-error") ) {
 
 Matrix factorization is a rather general term to describe a whole family of techniques aiming to solve a variety of problems.
 In this notebook we are particularly interested in matrix factorization as a solution to a [recommender system](https://en.wikipedia.org/wiki/Recommender_system).
-This means that we have a $m$ user by $n$ item matrix $R$ which records only the *observed* interaction between users and items.
+It belongs to a more general (and hence also broader) concept called [collaborative filtering](https://en.wikipedia.org/wiki/Collaborative_filtering).
+In the problem we have a $m$ user by $n$ item matrix $R$ which records only the *observed* interaction between users and items.
 
 Mathematically,
 the problem is to approximately decompose a real (or binary) matrix $R_{m \times n}$ into a dot product of two matrices:
@@ -153,7 +155,7 @@ In general implicit feedback seems more plausible in real world and has become t
 
 For comepleteness we will still illustrate all 3 cases in the following sub-sections.
 
-### Real Value Matrix Factorization {-}
+### Real Value Matrix Factorization
 
 When the interaction matrix records real-valued feedback such as a rating matrix,
 it is natural to use the *squared error* as our loss:
@@ -186,13 +188,13 @@ The following Python code is a toy implementation of such factorization model wi
 ```{python rvmf}
 import numpy as np
 
-def mf(R, k, n_step=5000, lr=.0003, l2=.04):
+def mf(R, k, n_epoch=5000, lr=.0003, l2=.04):
   tol = .001  # Tolerant loss.
   m, n = R.shape
   # Initialize the embedding weights.
   P = np.random.rand(m, k)
   Q = np.random.rand(n, k)
-  for step in range(n_step):
+  for epoch in range(n_epoch):
     # Update weights by gradients.
     for u, i in zip(*R.nonzero()):
       err_ui = R[u,i] - P[u,:].dot(Q[i,:])
@@ -297,8 +299,8 @@ class MatrixFactorization:
     self.P.assign_sub(self.lr * gP)
     self.Q.assign_sub(self.lr * gQ)
 
-  def train(self, n_step=5000):
-    for step in range(n_step):
+  def train(self, n_epoch=5000):
+    for epoch in range(n_epoch):
       self.grad_update()
       if self.current_loss < self.tol:
         break
@@ -324,7 +326,7 @@ predictions = tf.matmul(rvmf_model.P, rvmf_model.Q, transpose_b=True).numpy()
 print(np.round(predictions * mask, 2))
 ```
 
-### Binary Matrix Factorization {-}
+### Binary Matrix Factorization
 
 When the user-item interaction is a binary outcome ($r_{ui} \in \{0, 1\}$),
 it is natural to use [cross entropy](https://en.wikipedia.org/wiki/Cross_entropy) as our loss function for the optimization problem in $\eqref{eq:mf_min}$.
@@ -350,10 +352,10 @@ print(b_ratings)
 
 ```{python bmf_tf}
 class BinaryMF(MatrixFactorization):
-  def train(self, n_step=5000):
+  def train(self, n_epoch=5000):
     # Cast 1/-1 as binary encoding of 0/1.
     self.labels = tf.cast(tf.not_equal(tf.boolean_mask(self.R, self.mask), -1), dtype=tf.float32)
-    for step in range(n_step):
+    for epoch in range(n_epoch):
       self.grad_update()
 
   # The implementation is far from optimized since we don't need the product of entire P'Q.
@@ -383,7 +385,7 @@ b_mask[b_ratings.nonzero()] = 1
 print(np.round(b_predictions * b_mask, 2))
 ```
 
-### One-Class Matrix Factorization {-}
+### One-Class Matrix Factorization
 
 In previous two examples,
 we assume users always express their explicit feedbacks (positive or negative and optionally with the level of magnitude) for items they ever interacted with.
@@ -407,19 +409,74 @@ This is where the problem of implicit feedback comes into the picture.
 
 1. There is no negative feedback.
 2. Feedbacks are noisy. The observed data is usually behavioral-based and the acutal motives are hidden behind.
-3. Value of a feedback should be viewed as *confidence* rather than *preference*.
-4. Evaluation must be handled properly. (More on this latter.)
+3. Value of a feedback should be viewed as *confidence* of preference rather than preference per se.
+4. Missing entries are considered as "no observation" compared to "having observation".
+5. Evaluation must be handled properly. (More on this latter.)
 
-#### Bayesian Personalized Ranking {-}
+The name *one-class* results directly from the 4th point above.
+Now missing entries have no special treatment but act as valid records of zero behavior.
+Remember that in explicit feedback problem we train the model using only non-missing entries.
+This is no longer the case in implicit feedback problem since technically speaking there is no missing data at all.
 
-For the case of an implicit feedback matrix,
-@rendle2009bpr proposed the idea of "Bayesian personalized ranking" which is widely used in many recommender system framework.
+#### ALS Matrix Factorization {-}
+
+In their original works two more variables are introduced for implicit feedback.
+The preference indicator
+
+$$
+\delta_{ui} =
+\begin{cases}
+1 \mbox{ if } r_{ui} > 0 \\
+0 \mbox{ if } r_{ui} = 0
+\end{cases}
+$$
+
+binarizes the interaction matrix.
+(There is no missing data by this definition.)
+And the confidence level
+
+$$
+c_{ui} = 1 + \alpha \cdot r_{ui}
+$$
+
+models the confidence about $p_{ui} = 1$.
+Increasing in observed behavior $r_{ui}$ causes increasing in the confidence.
+Note that $c_{ui} \ne 0$ even for $r_{ui} = 0$ to take into account minimum confidence where there is no observed behavior of user $u$ on item $i$.
+$\alpha$ is a hyperparameter for confidence set to $\alpha = 40$ at the original experiment.
+
+Based on the above setup the optimization problem in $\eqref{eq:mf_min}$ will have a loss function of the following form:
+
+$$
+\begin{aligned}
+L(p_u, q_i, r_{ui})
+&= \sum_{u, i \in R} c_{ui} \cdot \big( \delta_{ui} - p_u^Tq_i \big)^2 \\
+&= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \delta_{ui} - p_u^Tq_i \big)^2.
+\end{aligned}
+$$
+
+Intuitively speaking,
+the loss function suggests that higher confidence $c_{ui}$ leads to heavier weight on the gradient,
+meaning that making a mistake on high-confidence interaction will have a greater penalty.
+The loss is indeed just a weighted root mean squared error where the weights are determined by number of interactions.^[In the notation of this notebook we ignore the "root mean" part of the RMSE loss, more just to save some typings. In theory it makes no difference since the objective function is monotone in a root-mean operation. In practice it can make a difference due to the scaling issue of the gradient update, which can be indeed countered by adjusting learning rate. Since all our implementations are toy-level for educational purpose, we choose to keep the notation as simple as possible.]
+
+A maybe much more influential difference compared to the real value factorization for explicit feedback we just discussed previously is that,
+the interaction matrix is now a *dense* representation of user behavior counts on items.
+As a consequence,
+the model can no longer be solved by gradient descent since the involved computational complexity is a prohibitive $\mathcal{O}(m \times n \times k)$ for just one epoch of training.
+
+To efficiently learn the user and item embeddings,
+we can use instead a technique called *alternating least squares (ALS)*.
 
 #### Logistic Matrix Factorization {-}
 
+We can also replace the MSE loss with a cross entropy,
+the optimization problem then becomes a probablistic model.
+This is proposed by @johnson2014logistic and termed as logistic matrix factorization.
 
+#### Bayesian Personalized Rank {-}
 
-@johnson2014logistic propose the idea of logisitic matrix factorization.
+Contrary to the point-wise loss framework in the above,
+@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system framework.
 
 # Neural Netork Representation
 
@@ -484,7 +541,7 @@ The scope is beyond this notebook where we focus on the decomposition of merely 
 
 # Efficient Implementations
 
-In this section we will discuss several high-quality open-sourced libraries designed for factorization model.
+In this section we discuss several high-quality open-sourced libraries designed for factorization model.
 
 ## LIBMF
 
@@ -499,8 +556,9 @@ To align with the scope we will only use it for a matrix factorization problem w
 
 ## Spark MLlib
 
-In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) as a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the matrix factorization on both explicit and implicit feedback assumption using *alternating least squares* as the solver.
+In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) as a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
 
-Since Spark is designed for distributed computing it can handle large scale application quite well in practice.
+Since Spark itself is designed for distributed computing,
+its ALS implementation is also highly scalable.
 
 # References
