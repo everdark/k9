@@ -118,8 +118,8 @@ $$
 \begin{equation} \label{eq:mf_min}
 \min_{P,Q} \sum_{u,i \in R} \bigg[
 L(p_u, q_i, r_{ui}) + 
-\underbrace{\lambda_p\vert\vert p_u \vert\vert^1 + \lambda_q\vert\vert q_i \vert\vert^1}_\text{L1 Regularization} +
-\underbrace{\gamma_p\vert\vert p_u \vert\vert^2 + \gamma_q\vert\vert q_i \vert\vert^2}_\text{L2 Regularization}
+\underbrace{\gamma_p\vert\vert p_u \vert\vert^1 + \gamma_q\vert\vert q_i \vert\vert^1}_\text{L1 Regularization} +
+\underbrace{\lambda_p\vert\vert p_u \vert\vert^2 + \lambda_q\vert\vert q_i \vert\vert^2}_\text{L2 Regularization}
 \bigg],
 \end{equation}
 $$
@@ -127,7 +127,7 @@ $$
 where $u$ and $i$ are index of the $u$-th user and the $i$-th item in the matrix $R$,
 $p_u$ is the user embedding vector for user $u$ and $q_i$ the item embedding vector for item $i$.
 Function $L(\cdot)$ is a generic loss function depends on the embeddings and the actual interaction $r_{ui}$.
-Constant $\lambda_*$ and $\gamma_*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
+Constant $\gamma_*$ and $\lambda*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
 
 There is obviously no closed-form solution for the above problem.
 But we can initialize the embeddings with random weights and apply numerical method such as [*gradient descent*](https://en.wikipedia.org/wiki/Gradient_descent) to approximate the solution.
@@ -424,7 +424,7 @@ In their original works two more variables are introduced for implicit feedback.
 The preference indicator
 
 $$
-\delta_{ui} =
+\phi_{ui} =
 \begin{cases}
 1 \mbox{ if } r_{ui} > 0 \\
 0 \mbox{ if } r_{ui} = 0
@@ -447,11 +447,13 @@ $\alpha$ is a hyperparameter for confidence set to $\alpha = 40$ at the original
 Based on the above setup the optimization problem in $\eqref{eq:mf_min}$ will have a loss function of the following form:
 
 $$
+\begin{equation} \label{eq:als_loss}
 \begin{aligned}
 L(p_u, q_i, r_{ui})
-&= \sum_{u, i \in R} c_{ui} \cdot \big( \delta_{ui} - p_u^Tq_i \big)^2 \\
-&= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \delta_{ui} - p_u^Tq_i \big)^2.
+&= \sum_{u, i \in R} c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2 \\
+&= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \phi_{ui} - p_u^Tq_i \big)^2.
 \end{aligned}
+\end{equation}
 $$
 
 Intuitively speaking,
@@ -464,8 +466,146 @@ the interaction matrix is now a *dense* representation of user behavior counts o
 As a consequence,
 the model can no longer be solved by gradient descent since the involved computational complexity is a prohibitive $\mathcal{O}(m \times n \times k)$ for just one epoch of training.
 
-To efficiently learn the user and item embeddings,
-we can use instead a technique called *alternating least squares (ALS)*.
+#### Alternating Least Squares {-}
+
+To efficiently learn the user and item embeddings in the above problem,
+we can use instead a technique called alternating least squares (ALS).
+The idea is to solve for model weights in user embeddings first,
+holding item embeddings fixed.
+Then solve for model weights in item embeddings,
+holding user embeddings fixed.
+And so on and so forth.
+The training process is iterating in this alternating manner until convergence.
+The technique can also be used to train an explicit feedback model,
+but is more valuable in training an implicit one due to its capability to overcome scalability issue in the dense loss function.
+
+Let's dive into the mathematical artifacts a little bit to get the full picture of what's going on.
+Given the objective function in equation $\eqref{eq:als_loss}$,
+when we fix item embeddings $q_i$ as constant,
+the problem of finding the optimal user embedding $p_u$ for user $u$ actually reduces to *a linear regression problem given the user for all items*!
+Think of $p_u$ as the regression coefficients ($\beta$),
+$\phi_u$ as the response ($y$),
+and $Q$ as the design matrix collecting values of regressors ($X$),
+the problem is equivalent to solve a linear system
+
+$$
+\phi_u = Qp_u
+$$
+
+with the [OLS estimator](https://en.wikipedia.org/wiki/Ordinary_least_squares)
+
+$$
+\hat{p_u} = (Q'Q)^{-1}Q'\phi_u.
+$$
+
+Just that our model also contains a weight vector (the confidence level) on each regressor,
+the solution hence becomes:
+
+$$
+\hat{p_u} = (Q'C_uQ)^{-1}Q'C_u\phi_u,
+$$
+
+where $C_u$ is a diagonal matrix
+
+$$
+C =
+\begin{pmatrix}
+c_{u1} & 0     & \dots  & 0\\
+0      & c_{u2} \\
+\vdots &       & \ddots & \\
+0     &        &        & c_{um}
+\end{pmatrix}.
+$$
+
+If we further take into account L2 regularization,
+the solution becomes:
+
+$$
+\begin{equation} \label{eq:als}
+\hat{p_u} = (Q'C_uQ + \lambda I)^{-1}Q'C_u\phi_u.
+\end{equation}
+$$
+
+That is,
+in each step of the alternating least squares fixing item embeddings,
+our solution to each user's embedding vector has a closed form.
+The same is true when user embeddings are fixed and we are in turn solving for item embeddings.
+
+Without using the analogy to OLS,
+let's do the tedious calculus works to manually derive the gradient vectors of user embeddings $p_u$ for a user $u$,
+holding all item embeddings as constant.
+To be specific,
+the optimization problem is:
+
+(We assume the same regularization parameter for user and item embeddings for notational simplicity.)
+
+$$
+\begin{equation}
+\min_{P,Q} \sum_{u,i \in R} \bigg[
+c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2
+\bigg] + \lambda\bigg(\sum_up_u^2 + \sum_iq_i^2\bigg).
+\end{equation}
+$$
+
+Gradient vector for embeddings of user $u$ given all item embeddings fixed:
+
+$$
+\begin{bmatrix}
+\frac{\partial L(p_u, r_{ui} \vert q_i)}{\partial p_{u1}} \\
+\frac{\partial L(p_u, r_{u2} \vert q_i)}{\partial p_{u2}} \\
+\vdots \\
+\frac{\partial L(p_u, r_{uk} \vert q_i)}{\partial p_{uk}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+-2 \sum_{i=1}^m c_{u1}(\phi_{u1} - p_{u1}q_{i1})q_{i1} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+-2 \sum_{i=1}^m c_{u2}(\phi_{u2} - p_{u2}q_{i2})q_{i2} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+\vdots \\
+-2 \sum_{i=1}^m c_{uk}(\phi_{uk} - p_{uk}q_{ik})q_{ik} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+\end{bmatrix}.
+$$
+
+Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{uk}}$ as:
+
+$$
+\begin{bmatrix}
+\sum_{i=1}^mc_{u1}(\phi_{u1} - \hat{p_{u1}}q_{i1})q_{i1} \\
+\sum_{i=1}^mc_{u2}(\phi_{u2} - \hat{p_{u2}}q_{i2})q_{i2} \\
+\vdots \\
+\sum_{i=1}^mc_{uk}(\phi_{uk} - \hat{p_{uk}}q_{ik})q_{ik}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\lambda \vphantom{\sum_{i=1}^m} \\
+\lambda \vphantom{\sum_{i=1}^m} \\
+\vdots \\
+\lambda \vphantom{\sum_{i=1}^m} \\
+\end{bmatrix}.
+$$
+
+By re-arranging:
+
+$$
+\begin{bmatrix}
+\hat{p_{u1}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
+\hat{p_{u2}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
+\vdots \\
+\hat{p_{uk}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
+\end{bmatrix}
+=
+\begin{bmatrix}
+\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2} \\
+\frac{c_{u2}\phi_{u2}\sum_iq_{i2} - \lambda}{c_{u2}\sum_iq_{i2}^2} \\
+\vdots \\
+\frac{c_{uk}\phi_{uk}\sum_iq_{ik} - \lambda}{c_{uk}\sum_iq_{ik}^2}
+\end{bmatrix}.
+$$
+
+Now if we express the vector in matrix notation,
+we will arrive at exactly equation $\eqref{eq:als}$.
 
 ### Logistic Matrix Factorization {-}
 
