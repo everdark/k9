@@ -11,7 +11,7 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 4
+    toc_depth: 3
     toc_float: yes
   code_download: true
 bibliography: matrix_factorization.bib
@@ -155,7 +155,7 @@ In general implicit feedback seems more plausible in real world and has become t
 
 For comepleteness we will still illustrate all 3 cases in the following sub-sections.
 
-### Real Value Matrix Factorization
+## Real Value Matrix Factorization
 
 When the interaction matrix records real-valued feedback such as a rating matrix,
 it is natural to use the *squared error* as our loss:
@@ -258,7 +258,7 @@ Our simple educational implementation won't scale as the dimension of interactio
 Fortunately the algorithm can speed up considerably by parallel computing.
 @chin2015fast gives a very good review on different strategies of parallellization on gradient descent for matrix factorization problem.
 
-#### Automatic Differentiation {-}
+### Automatic Differentiation {-}
 
 To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
 `tensorflow` is a powerful framework designed for [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) that helps compute gradients at scale.
@@ -326,7 +326,7 @@ predictions = tf.matmul(rvmf_model.P, rvmf_model.Q, transpose_b=True).numpy()
 print(np.round(predictions * mask, 2))
 ```
 
-### Binary Matrix Factorization
+## Binary Matrix Factorization
 
 When the user-item interaction is a binary outcome ($r_{ui} \in \{0, 1\}$),
 it is natural to use [cross entropy](https://en.wikipedia.org/wiki/Cross_entropy) as our loss function for the optimization problem in $\eqref{eq:mf_min}$.
@@ -385,7 +385,7 @@ b_mask[b_ratings.nonzero()] = 1
 print(np.round(b_predictions * b_mask, 2))
 ```
 
-### One-Class Matrix Factorization
+## One-Class Matrix Factorization
 
 In previous two examples,
 we assume users always express their explicit feedbacks (positive or negative and optionally with the level of magnitude) for items they ever interacted with.
@@ -418,7 +418,7 @@ Now missing entries have no special treatment but act as valid records of zero b
 Remember that in explicit feedback problem we train the model using only non-missing entries.
 This is no longer the case in implicit feedback problem since technically speaking there is no missing data at all.
 
-#### ALS Matrix Factorization {-}
+### ALS Matrix Factorization {-}
 
 In their original works two more variables are introduced for implicit feedback.
 The preference indicator
@@ -467,13 +467,13 @@ the model can no longer be solved by gradient descent since the involved computa
 To efficiently learn the user and item embeddings,
 we can use instead a technique called *alternating least squares (ALS)*.
 
-#### Logistic Matrix Factorization {-}
+### Logistic Matrix Factorization {-}
 
 We can also replace the MSE loss with a cross entropy,
 the optimization problem then becomes a probablistic model.
 This is proposed by @johnson2014logistic and termed as logistic matrix factorization.
 
-#### Bayesian Personalized Rank {-}
+### Bayesian Personalized Rank {-}
 
 Contrary to the point-wise loss framework in the above,
 @rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system framework.
