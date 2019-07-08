@@ -407,7 +407,7 @@ This is where the problem of implicit feedback comes into the picture.
 
 1. There is no negative feedback.
 2. Feedbacks are noisy. The observed data is usually behavioral-based and the acutal motives are hidden behind.
-3. Value of a feedback can be viewed as *confidence* rather than *preference*.
+3. Value of a feedback should be viewed as *confidence* rather than *preference*.
 4. Evaluation must be handled properly. (More on this latter.)
 
 #### Bayesian Personalized Ranking {-}
