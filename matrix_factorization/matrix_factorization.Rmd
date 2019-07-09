@@ -650,10 +650,13 @@ $$
 Now if we express the vector in matrix notation,
 we will arrive exactly at equation $\eqref{eq:als}$.
 
+ALS is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
+since each user (and each item) embedding vector can be solved by a linear regression model separately.
+
 ### Logistic Matrix Factorization {-}
 
-We can also replace the MSE loss with a cross entropy,
-the optimization problem then becomes a probablistic model.
+We can also replace the MSE loss above with a cross entropy,
+resulting in a probablistic model.
 This is proposed by @johnson2014logistic and termed as logistic matrix factorization.
 
 ### Bayesian Personalized Rank {-}
