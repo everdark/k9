@@ -447,12 +447,10 @@ $\alpha$ is a hyperparameter for confidence set to $\alpha = 40$ at the original
 Based on the above setup the optimization problem in $\eqref{eq:mf_min}$ will have a loss function of the following form:
 
 $$
-\begin{equation} \label{eq:als_loss}
-\begin{aligned}
+\begin{equation}  \label{eq:als_loss}
 L(p_u, q_i, r_{ui})
-&= \sum_{u, i \in R} c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2 \\
-&= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \phi_{ui} - p_u^Tq_i \big)^2.
-\end{aligned}
+= \sum_{u, i \in R} c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2
+= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \phi_{ui} - p_u^Tq_i \big)^2.
 \end{equation}
 $$
 
@@ -609,12 +607,12 @@ $$
 \end{bmatrix}.
 $$
 
-Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{uk}}$ as:
+Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{u}}$ as:
 
 $$
 \begin{bmatrix}
 \sum_{i=1}^n c_{u1}\big(\phi_{u1} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{i1} \\
-\sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}}\big)q_{i2} \\
+\sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{i2} \\
 \vdots \\
 \sum_{i=1}^n c_{uk}\big(\phi_{uk} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{ik}
 \end{bmatrix}
@@ -623,7 +621,7 @@ $$
 \lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
 \lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
 \vdots \\
-\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)}
 \end{bmatrix}.
 $$
 
@@ -646,7 +644,7 @@ c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
 \vdots \\
 \lambda + c_{uk}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{ik}  \\
 \end{bmatrix}
-}_{\hat{p_u}(Q'C_uQ + \lambda I)}.
+}_{(Q'C_uQ\hat{p_u} + \lambda I)}.
 $$
 
 Now if we express the vector in matrix notation,
