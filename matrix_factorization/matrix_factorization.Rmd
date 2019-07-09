@@ -534,14 +534,14 @@ $$
 with the [OLS estimator](https://en.wikipedia.org/wiki/Ordinary_least_squares)
 
 $$
-\hat{p_u} = (Q'Q)^{-1}Q'\phi_u.
+\hat{p_u} = (Q^TQ)^{-1}Q^T\phi_u.
 $$
 
 Just that our model also contains a weight vector (the confidence level) on each regressor,
 the solution hence becomes:
 
 $$
-\hat{p_u} = (Q'C_uQ)^{-1}Q'C_u\phi_u,
+\hat{p_u} = (Q^TC_uQ)^{-1}Q^TC_u\phi_u,
 $$
 
 where $C_u$ is a diagonal matrix collecting all confidence levels of user $u$ on all $n$ items:
@@ -560,8 +560,8 @@ If we further take into account L2 regularization,
 the solution simply becomes:
 
 $$
-\begin{equation} \label{eq:als}
-\hat{p_u} = (Q'C_uQ + \lambda_p I)^{-1}Q'C_u\phi_u.
+\begin{equation} \label{eq:als_ols}
+\hat{p_u} = (Q^TC_uQ + \lambda_p I)^{-1}Q^TC_u\phi_u.
 \end{equation}
 $$
 
@@ -648,16 +648,16 @@ c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
 $$
 
 Now if we express the vector in matrix notation and solve the system for $\hat{p_u}$,
-we will arrive exactly at equation $\eqref{eq:als}$.
+we will arrive exactly at equation $\eqref{eq:als_ols}$.
 
 Notice that during the training iteration a speedup can be achieved by the fact that
 
 $$
-Q'C_uQ, = Q'Q + Q'(C_u - I)Q.
+Q^TC_uQ = Q^TQ + Q^T(C_u - I)Q.
 $$
 
-This is because $C_u$ varies by user but $Q'Q$ is the same for all users.
-When iterate over users we only need to compute $Q'Q$ once and also $C_u - I$ is sparse so it can reduce computation further.
+This is because $C_u$ varies by user but $Q^TQ$ is the same for all users.
+When iterate over users we only need to compute $Q^TQ$ once and also $C_u - I$ is sparse so it can reduce computation further.
 The same logic applies to alternating round at updating item embeddings.
 
 As one may realize,
@@ -667,6 +667,28 @@ since each user (and each item) embedding vector can be solved by a linear regre
 #### Model Explanation {-}
 
 A by-product of ALS is a matrix decomposition readily available for explanation of the predicted recommendation.
+
+The predicted score of a given user-item pair is the dot-product of their embeddings $p_u^Tq_i$.
+Given equation $\eqref{eq:als_ols}$ hte dot-product can be re-written as:
+
+$$
+\begin{aligned}
+p_u^Tq_i = q_i^Tp_u
+&= q_i^T \underbrace{(Q^TC_uQ + \lambda_p I)^{-1}}_{\equiv W_u} Q^TC_u\phi_u \\
+&= q_i^TW_uQ^TC_u\phi_u \\
+&= q_i^T\sum_{i = 1; r_{ui} > 0}^nW_u q_j c_{uj}.
+\end{aligned}
+$$
+
+The term $q_i^TW_uq_j$ can be loosely interpreted as *similarity between item $i$ and $j$ given preference confidence from user $u$*.
+The term $q_i^T\sum_{i = 1; r_{ui} > 0}^nW_uq_j$ hence is the sum of all such item pair similarity between item $i$ and all items with nonzero counts.
+This is a linear decomposition of the predicted score of user-item pair $(u, i)$,
+with more similar item contributing more to the score,
+but also weighted by confidence of preference of the user on that item.
+
+Using the decomposition we can attribute the predicted score to those items the user interacted in the past.
+This is handy because simply looking into embeddings will give no clue about the prediction.
+They are just real-number abstraction of latent factors which cannot be directly reasoned.
 
 [Toy implementation goes here.]
 
