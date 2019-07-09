@@ -479,8 +479,8 @@ but is more valuable in training an implicit one due to its capability to overco
 
 Let's dive into the mathematical artifacts a little bit to get the full picture of what's going on.
 Given the objective function in equation $\eqref{eq:als_loss}$,
-when we fix item embeddings $q_i$ as constant,
-the problem of finding the optimal user embedding $p_u$ for a user $u$ actually reduces to *a linear regression problem given the user for all items*.
+when we fix all item embeddings $Q$ as constant,
+the problem of finding the optimal user embedding $p_u$ for a user $u$ actually reduces to *a linear regression* problem given the user for all items.
 
 This can be illustrated in the following notation:
 
@@ -580,9 +580,9 @@ the optimization problem is:
 
 $$
 \begin{equation}
-\min_{P,Q} \sum_{u,i \in R} \bigg[
+\min_{P} \sum_{i=1}^n \bigg[
 c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2
-\bigg] + \lambda\bigg(\sum_up_u^2 + \sum_iq_i^2\bigg).
+\bigg] + \lambda\sum_{j=1}^kp_{uj}^2.
 \end{equation}
 $$
 
@@ -607,7 +607,7 @@ $$
 \end{bmatrix}.
 $$
 
-Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{u}}$ as:
+Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{u}}$ as a linear system:
 
 $$
 \begin{bmatrix}
@@ -647,10 +647,10 @@ c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
 }_{Q'C_uQ\hat{p_u} + \lambda I}.
 $$
 
-Now if we express the vector in matrix notation,
+Now if we express the vector in matrix notation and solve the system for $\hat{p_u}$,
 we will arrive exactly at equation $\eqref{eq:als}$.
 
-Notice that a speedup can be achieved by the fact that
+Notice that during the training iteration a speedup can be achieved by the fact that
 
 $$
 Q'C_uQ, = Q'Q + Q'(C_u - I)Q.
@@ -660,8 +660,9 @@ This is because $C_u$ varies by user but $Q'Q$ is the same for all users.
 When iterate over users we only need to compute $Q'Q$ once and also $C_u - I$ is sparse so it can reduce computation further.
 The same logic applies to alternating round at updating item embeddings.
 
+As one may realize,
 ALS is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
-since each user (and each item) embedding vector can be solved by a linear regression model separately.
+since each user (and each item) embedding vector can be solved by a linear regression model separately while sharing the same design matrix.
 
 #### Model Explanation {-}
 
