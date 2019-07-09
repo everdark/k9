@@ -663,6 +663,10 @@ The same logic applies to alternating round at updating item embeddings.
 ALS is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
 since each user (and each item) embedding vector can be solved by a linear regression model separately.
 
+#### Model Explanation {-}
+
+A by-product of ALS is a matrix decomposition readily available for explanation of the predicted recommendation.
+
 [Toy implementation goes here.]
 
 ### Logistic Matrix Factorization {-}
