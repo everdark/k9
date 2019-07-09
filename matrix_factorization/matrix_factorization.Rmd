@@ -657,7 +657,8 @@ Q'C_uQ, = Q'Q + Q'(C_u - I)Q.
 $$
 
 This is because $C_u$ varies by user but $Q'Q$ is the same for all users.
-When iterate over use we only need to compute $Q'Q$ once and also $C_u - I$ is sparse so it can reduce computation further.
+When iterate over users we only need to compute $Q'Q$ once and also $C_u - I$ is sparse so it can reduce computation further.
+The same logic applies to alternating round at updating item embeddings.
 
 ALS is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
 since each user (and each item) embedding vector can be solved by a linear regression model separately.
