@@ -674,7 +674,7 @@ This is proposed by @johnson2014logistic and termed as logistic matrix factoriza
 ### Bayesian Personalized Rank {-}
 
 Contrary to the point-wise loss framework in the above,
-@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system framework.
+@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system frameworks.
 
 # Neural Netork Representation
 
