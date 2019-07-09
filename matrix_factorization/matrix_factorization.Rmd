@@ -644,7 +644,7 @@ c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
 \vdots \\
 \lambda + c_{uk}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{ik}  \\
 \end{bmatrix}
-}_{(Q'C_uQ\hat{p_u} + \lambda I)}.
+}_{Q'C_uQ\hat{p_u} + \lambda I}.
 $$
 
 Now if we express the vector in matrix notation,
