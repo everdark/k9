@@ -476,17 +476,58 @@ Then solve for model weights in item embeddings,
 holding user embeddings fixed.
 And so on and so forth.
 The training process is iterating in this alternating manner until convergence.
-The technique can also be used to train an explicit feedback model,
+Of course the technique can also be used to train an explicit feedback model,
 but is more valuable in training an implicit one due to its capability to overcome scalability issue in the dense loss function.
 
 Let's dive into the mathematical artifacts a little bit to get the full picture of what's going on.
 Given the objective function in equation $\eqref{eq:als_loss}$,
 when we fix item embeddings $q_i$ as constant,
-the problem of finding the optimal user embedding $p_u$ for user $u$ actually reduces to *a linear regression problem given the user for all items*!
-Think of $p_u$ as the regression coefficients ($\beta$),
+the problem of finding the optimal user embedding $p_u$ for a user $u$ actually reduces to *a linear regression problem given the user for all items*.
+
+This can be illustrated in the following notation:
+
+$$
+\begin{aligned}
+&\color{blue}{
+\overbrace{
+\begin{pmatrix}
+q_{11} & q_{21} & \dots & q_{n1} \\
+\vdots & \ddots &       & \vdots \\
+q_{1k} & \dots  & \dots & q_{nk}
+\end{pmatrix}_{k \times n}
+}^\text{Item Embeddings Q' (Fixed)}} \\
+\underbrace{
+\begin{pmatrix}
+\color{green}{p_{11}} & \color{green}{p_{12}} & \color{green}{\dots} & \color{green}{p_{1k}} \\
+\vdots & \ddots & & \vdots\\
+p_{m1} & \dots  & \dots & p_{mk}
+\end{pmatrix}_{m \times k}
+}_\text{User Embeddings P (To Learn)}
+&\underbrace{
+\begin{pmatrix}
+\color{red}{r_{11}} & \color{red}{r_{12}} & \color{red}{\dots} & \color{red}{r_{1n}} \\
+\vdots & \ddots & & \vdots \\
+r_{m1} & \dots & \dots & r_{mn}
+\end{pmatrix}_{m \times n}
+}_\text{Behavioral Matrix R}
+\end{aligned}
+$$
+
+$$
+\color{red}{r_1} = \color{blue}Q\color{green}{p_1}.
+$$
+
+When item embeddings are fixed,
+solving for user embeddings is equivalently to solve for $m$ linear regression models,
+each for one user.
+
+More general,
+think of $p_u$ as the regression coefficients ($\beta$),
 $\phi_u$ as the response ($y$),
 and $Q$ as the design matrix collecting values of regressors ($X$),
 the problem is equivalent to solve a linear system
+
+(We replace the behavior count $r$ with its binarized value $\phi$)
 
 $$
 \phi_u = Qp_u
@@ -505,7 +546,7 @@ $$
 \hat{p_u} = (Q'C_uQ)^{-1}Q'C_u\phi_u,
 $$
 
-where $C_u$ is a diagonal matrix
+where $C_u$ is a diagonal matrix collecting all confidence levels of user $u$ on all $n$ items:
 
 $$
 C =
@@ -513,22 +554,22 @@ C =
 c_{u1} & 0     & \dots  & 0\\
 0      & c_{u2} \\
 \vdots &       & \ddots & \\
-0     &        &        & c_{um}
+0     &        &        & c_{un}
 \end{pmatrix}.
 $$
 
 If we further take into account L2 regularization,
-the solution becomes:
+the solution simply becomes:
 
 $$
 \begin{equation} \label{eq:als}
-\hat{p_u} = (Q'C_uQ + \lambda I)^{-1}Q'C_u\phi_u.
+\hat{p_u} = (Q'C_uQ + \lambda_p I)^{-1}Q'C_u\phi_u.
 \end{equation}
 $$
 
 That is,
 in each step of the alternating least squares fixing item embeddings,
-our solution to each user's embedding vector has a closed form.
+our solution to each user's embedding vector has an OLS closed form.
 The same is true when user embeddings are fixed and we are in turn solving for item embeddings.
 
 Without using the analogy to OLS,
@@ -558,12 +599,12 @@ $$
 \end{bmatrix}
 =
 \begin{bmatrix}
--2 \sum_{i=1}^m c_{u1}(\phi_{u1} - p_{u1}q_{i1})q_{i1} + 2\lambda
+-2 \sum_{i=1}^n c_{u1}\big(\phi_{u1} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{i1} + 2\lambda
 \vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
--2 \sum_{i=1}^m c_{u2}(\phi_{u2} - p_{u2}q_{i2})q_{i2} + 2\lambda
+-2 \sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{i2} + 2\lambda
 \vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
 \vdots \\
--2 \sum_{i=1}^m c_{uk}(\phi_{uk} - p_{uk}q_{ik})q_{ik} + 2\lambda
+-2 \sum_{i=1}^n c_{uk}\big(\phi_{uk} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{ik} + 2\lambda
 \vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
 \end{bmatrix}.
 $$
@@ -572,40 +613,44 @@ Setting all the gradients to zero (a.k.a first-order condition) gives the optima
 
 $$
 \begin{bmatrix}
-\sum_{i=1}^mc_{u1}(\phi_{u1} - \hat{p_{u1}}q_{i1})q_{i1} \\
-\sum_{i=1}^mc_{u2}(\phi_{u2} - \hat{p_{u2}}q_{i2})q_{i2} \\
+\sum_{i=1}^n c_{u1}\big(\phi_{u1} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{i1} \\
+\sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}}\big)q_{i2} \\
 \vdots \\
-\sum_{i=1}^mc_{uk}(\phi_{uk} - \hat{p_{uk}}q_{ik})q_{ik}
+\sum_{i=1}^n c_{uk}\big(\phi_{uk} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{ik}
 \end{bmatrix}
 =
 \begin{bmatrix}
-\lambda \vphantom{\sum_{i=1}^m} \\
-\lambda \vphantom{\sum_{i=1}^m} \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
 \vdots \\
-\lambda \vphantom{\sum_{i=1}^m} \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
 \end{bmatrix}.
 $$
 
 By re-arranging:
 
 $$
+\underbrace{
 \begin{bmatrix}
-\hat{p_{u1}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
-\hat{p_{u2}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
+c_{u1}\phi_{u1}\sum_{i=1}^nq_{i1} \vphantom{\sum_{i=1}^n\sum_{j=1}^k} \\
+c_{u2}\phi_{u2}\sum_{i=1}^nq_{i2} \vphantom{\sum_{i=1}^n\sum_{j=1}^k} \\
 \vdots \\
-\hat{p_{uk}} \vphantom{\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2}} \\
+c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
 \end{bmatrix}
+}_{Q'C_u\phi_u.}
 =
+\underbrace{
 \begin{bmatrix}
-\frac{c_{u1}\phi_{u1}\sum_iq_{i1} - \lambda}{c_{u1}\sum_iq_{i1}^2} \\
-\frac{c_{u2}\phi_{u2}\sum_iq_{i2} - \lambda}{c_{u2}\sum_iq_{i2}^2} \\
+\lambda + c_{u1}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{i1} \\
+\lambda + c_{u2}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{i2}  \\
 \vdots \\
-\frac{c_{uk}\phi_{uk}\sum_iq_{ik} - \lambda}{c_{uk}\sum_iq_{ik}^2}
-\end{bmatrix}.
+\lambda + c_{uk}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{ik}  \\
+\end{bmatrix}
+}_{\hat{p_u}(Q'C_uQ + \lambda I)}.
 $$
 
 Now if we express the vector in matrix notation,
-we will arrive at exactly equation $\eqref{eq:als}$.
+we will arrive exactly at equation $\eqref{eq:als}$.
 
 ### Logistic Matrix Factorization {-}
 
