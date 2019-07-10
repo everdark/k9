@@ -49,11 +49,11 @@ the problem is to approximately decompose a real (or binary) matrix $R_{m \times
 
 $$
 \begin{equation}
-{\underbrace{R_{m \times n} \vphantom{P_{k \times m}^T}}_\text{Interaction Matrix}}
+{\underbrace{R_{m \times n} \vphantom{P_{Q \times m}^T}}_\text{Interaction Matrix}}
 \approx
-{\underbrace{P_{k \times m}^T}_\text{User Matrix}}
+{\underbrace{P_{m \times k} \vphantom{Q_{k \times m}^T}}_\text{User Matrix}}
 \cdot
-{\underbrace{Q_{k \times n} \vphantom{P_{k \times m}^T}}_\text{Item Matrix}}.
+{\underbrace{Q_{n \times k}^T}_\text{Item Matrix}}.
 \end{equation}
 $$
 
@@ -547,7 +547,7 @@ $$
 where $C_u$ is a diagonal matrix collecting all confidence levels of user $u$ on all $n$ items:
 
 $$
-C =
+C_u =
 \begin{pmatrix}
 c_{u1} & 0     & \dots  & 0\\
 0      & c_{u2} \\
@@ -690,7 +690,115 @@ Using the decomposition we can attribute the predicted score to those items the 
 This is handy because simply looking into embeddings will give no clue about the prediction.
 They are just real-number abstraction of latent factors which cannot be directly reasoned.
 
-[Toy implementation goes here.]
+As usual, let's implement the ALS matrix factorization from scratch using our previous toy example.
+Because we have a closed form solution for each of the alternating iteration,
+we will not use automatic differentiation but rather directly code the matrix operation by hands.
+
+Print again the interatction matrix:
+
+```{python als_toy}
+print(ratings)
+```
+
+And here goes our toy implementation:
+
+```{python als}
+class ALS:
+  def __init__(self, R, k=3, a=40, lambd=10):
+    self.R = R
+    self.k = k
+    self.a = a
+    self.lambd = lambd
+    self.m, self.n = R.shape
+    self.P = np.random.rand(m, k)
+    self.Q = np.random.rand(n, k)
+    self.Phi = np.where(R > 0, 1, 0)  # Binarized interaction matrix.
+    self.C = 1 + a*R  # Confidence of preference.
+    self.loss = []
+
+  def train(self, n_step=10):
+    l2_reg = self.lambd * np.identity(self.k)
+    for step in range(n_step):
+      # Each step contains two alternating iterations one for users another for items.
+      # Fix P and update Q:
+      PtP = self.P.T.dot(self.P)
+      for i in range(n):
+        Ci = np.diag(self.C[:,i])
+        Wi = PtP + self.P.T.dot(Ci - np.identity(self.m)).dot(self.P) + l2_reg
+        self.Q[i] = np.linalg.inv(Wi).dot(self.P.T.dot(Ci).dot(self.Phi[:,i]))
+      # Fix Q and update P:
+      QtQ = self.Q.T.dot(self.Q)
+      for u in range(m):
+        Cu = np.diag(self.C[u,:])
+        Wu = QtQ + self.Q.T.dot(Cu - np.identity(self.n)).dot(self.Q) + l2_reg
+        self.P[u] = np.linalg.inv(Wu).dot(self.Q.T.dot(Cu).dot(self.Phi[u,:]))
+      # Trace the loss per step.
+      self.loss.append((self.C*(self.Phi - self.P.dot(self.Q.T))**2).sum())
+  
+  def predict(self, u, i):
+    """Calculate score for a single user-item pair (u, i)."""
+    return self.P[u].dot(self.Q[i])
+
+  def explain(self, u, i):
+    # Note that if the alternating order is to learn first P then Q,
+    # the score produced by this decomposition will not be exactly the same
+    # as in the predict function (the dot-product) unless the model fully converges.
+    pu = self.P[u]
+    qi = self.Q[i]
+    Wu = self._Wu(u)
+    Cu = np.diag(self.C[u])
+    decomp = qi.T.dot(Wu).dot(self.Q.T)
+    s = decomp.dot(Cu).dot(self.Phi[u])
+    print("Predicted Score for User u on Item i: {}".format(s))
+    print("Item No. | User-Perceived Item simialrity | Confidence Weight | Phi")
+    for i, (sim, conf, phi) in enumerate(zip(decomp, Cu.diagonal(), self.Phi[u])):
+      print("{:8} | {:30} | {:17} | {:3}".format(i + 1, sim, conf, phi))
+
+  def _Wu(self, u):
+    Cu = np.diag(self.C[u,:])
+    Wu = (self.Q.T.dot(self.Q) + self.Q.T.dot(Cu - np.identity(self.n)).dot(self.Q)
+          + self.lambd * np.identity(self.k))
+    return np.linalg.inv(Wu)
+```
+
+```{python als_prediction}
+als_model = ALS(ratings)
+als_model.train(n_step=20)
+print(np.round(als_model.P.dot(als_model.Q.T), 2))
+```
+
+One interesting thing to note on the predicted scores above is that items that are never interacted by any user will get a zero score for all users.
+
+For the first user our top recommendation is the last item (after excluding items already interacted before),
+with a score of
+
+```{python als_reasoning_score_ui}
+# Investigate the user-item pair (u, i) for the predicted score.
+u = 0
+i = -1
+als_model.predict(u, i)
+```
+
+Let's decompose this particular score for reasoning of this recommendation.
+The score is the inner product of user-perceived item similarity and the associated confidence of preference:
+
+```{python als_reasoning_ui_decomp}
+als_model.explain(u, i)
+```
+
+The decomposition tells us all item similarity to the target item 10,
+conditioned on user $u$'s past interaction.
+Here we found out that item 6 contributed the most to the score of item 10 due to both its positive similarity and a considerable confidence weight.
+
+Finally,
+we can check our training loss to see if it stablized over time:
+
+(Indeed we should do this a bit earlier.)
+
+```{python als_loss}
+for i, loss in enumerate(als_model.loss):
+  print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```
 
 ### Logistic Matrix Factorization {-}
 
