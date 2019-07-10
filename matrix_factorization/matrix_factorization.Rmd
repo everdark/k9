@@ -856,10 +856,14 @@ In large scale application we do sampling on the zero entries (in the literature
 
 [Toy implementation goes here.]
 
-### Bayesian Personalized Rank
+### Bayesian Personalized Ranking
 
-Contrary to the point-wise loss framework in the above,
-@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system frameworks.
+Contrary to the point-wise loss framework discussed above,
+@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR model which is also widely adopted in many recommender system algorithms.
+
+[Discussion goes here.]
+
+[Toy implementation goes here.]
 
 # Neural Netork Representation
 
@@ -923,7 +927,7 @@ digraph subscript {
 The indicator feature column layer is just a collection of user-item indices where the entries are not missing in the interaction matrix.
 It can be viewed as a sparse representation of the interaction matrix which acts as our training input.
 
-Though not particularly discussed in our previous secions,
+Though not particularly discussed in any of our previous secions,
 we can also include bias term in the factorization which may help improve the model performance.
 That is,
 instead of using the dot-product of user and item embeddings alone to determine a predicted score,
@@ -934,8 +938,8 @@ s_{ui} = p_u^Tq_i + \beta_u + \beta_i,
 $$
 
 where $\beta_u$ is a bias for user $u$ and $\beta_i$ a bias for item $i$.
-The optimization problem can be solved in exactly the same manner,
-just add on two additional weight vectors to learn.
+The optimization problem can be solved by exactly the same prodecure for each type of model,
+just adding on two additional weight vectors to learn.
 
 Based on this general view,
 factorization model using *deep* neural nets are also increasingly popular in both the literature and practical space.
