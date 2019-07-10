@@ -31,6 +31,7 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
 ## TODO
 
 ### Topics
++ Linear and Logistic Models: Econometrics v.s. Machine Learning
 + Factorization Machines
 + Gradient Boosting Machines
 + TensorFlow 2.0 Hands-On
