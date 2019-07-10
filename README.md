@@ -35,6 +35,7 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
 + Gradient Boosting Machines
 + TensorFlow 2.0 Hands-On
 + Basics about Reinforcement Learning
++ Recurrent Neural Nets
 + Deep Neural Nets
     + Sequence-to-Sequence Model
         + Neural Machine Translation
