@@ -16,7 +16,7 @@ output:
   code_download: true
 bibliography: matrix_factorization.bib
 abstract: |
-  TBC.
+  Matrix factorization is a useful technique for building practical recommender systems at scale. In this notebook we review a family of different factorization models with built-from-scratch Python coding examples to thoroughly understand the inner working of each of the underlying optimization problem. We also include a survey and short hands-on on several open-sourced libraries that efficiently implement factorization models for large scale application.
 ---
 <!--For controling code folding by chunk.-->
 <script src="../site_libs/utils/hide_output.js"></script>
