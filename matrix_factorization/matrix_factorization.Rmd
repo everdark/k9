@@ -11,7 +11,7 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 3
+    toc_depth: 4
     toc_float: yes
   code_download: true
 bibliography: matrix_factorization.bib
@@ -134,7 +134,7 @@ But we can initialize the embeddings with random weights and apply numerical met
 One important trick in training the model is that,
 the gradients are only calculated with respect to non-missing values in the interaction matrix.
 
-# Learning Objectives
+# Model Learning Objectives
 
 Before we actually solve the problem defined above,
 we need to explicitly specify the loss function.
@@ -407,10 +407,10 @@ This is where the problem of implicit feedback comes into the picture.
 
 @hu2008collaborative documents well the propoerties of an implicit feedback dataset:
 
-1. There is no negative feedback.
+1. There is no negative feedback.^[The wording "negative" here is a bit sloppy. Some researchers refer to the zero entries as "negative observations" compared to the positive ones. What we really try to say here is that there is no EXPLICIT negative feedback.]
 2. Feedbacks are noisy. The observed data is usually behavioral-based and the acutal motives are hidden behind.
 3. Value of a feedback should be viewed as *confidence* of preference rather than preference per se.
-4. Missing entries are considered as "no observation" compared to "having observation".
+4. Missing entries are considered as "zero behavior" compared to positive counts of behavior.
 5. Evaluation must be handled properly. (More on this latter.)
 
 The name *one-class* results directly from the 4th point above.
@@ -418,7 +418,7 @@ Now missing entries have no special treatment but act as valid records of zero b
 Remember that in explicit feedback problem we train the model using only non-missing entries.
 This is no longer the case in implicit feedback problem since technically speaking there is no missing data at all.
 
-### ALS Matrix Factorization {-}
+### ALS Matrix Factorization
 
 In their original works two more variables are introduced for implicit feedback.
 The preference indicator
@@ -750,9 +750,9 @@ class ALS:
     decomp = qi.T.dot(Wu).dot(self.Q.T)
     s = decomp.dot(Cu).dot(self.Phi[u])
     print("Predicted Score for User u on Item i: {}".format(s))
-    print("Item No. | User-Perceived Item simialrity | Confidence Weight | Phi")
+    print("Item No. | User-Perceived Item Simialrity | Confidence Weight | Phi")
     for i, (sim, conf, phi) in enumerate(zip(decomp, Cu.diagonal(), self.Phi[u])):
-      print("{:8} | {:30} | {:17} | {:3}".format(i + 1, sim, conf, phi))
+      print("{:8} | {:30} | {:17} | {:3}".format(i + 1, np.round(sim, 5), conf, phi))
 
   def _Wu(self, u):
     Cu = np.diag(self.C[u,:])
@@ -790,6 +790,15 @@ The decomposition tells us all item similarity to the target item 10,
 conditioned on user $u$'s past interaction.
 Here we found out that item 6 contributed the most to the score of item 10 due to both its positive similarity and a considerable confidence weight.
 
+The decomposition helps us understand the role of confidence $c_{ui}$ in calculating recommendation.
+It not only directly re-weight the pseudo item similarity on a by-user basis,
+it also re-scales the contribution of each other items to the target scoring item given a user.
+
+One implication of this is that we can customize the default confidence level (in our toy example the default is 1 for all user-item paris) for users who we believe have a certain focus of interests.
+For example for users who mostly browse fashion products.
+By setting a higher default confidence level of these users on fashion products,
+the recommeder system will also shift towards recommeding more fashion products to these users.
+
 Finally,
 we can check our training loss to see if it stablized over time:
 
@@ -800,13 +809,54 @@ for i, loss in enumerate(als_model.loss):
   print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
 ```
 
-### Logistic Matrix Factorization {-}
+### Logistic Matrix Factorization
 
-We can also replace the MSE loss above with a cross entropy,
-resulting in a probablistic model.
+We can also replace the sum of squared error loss in the one-class implicit feedback data with a cross entropy loss,
+resulting in a probablistic model:
+
+$$
+Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}},
+$$
+
+where $\phi_{ui}$ is again a binary indicator of user $u$ ever interacted with item $i$.
 This is proposed by @johnson2014logistic and termed as logistic matrix factorization.
 
-### Bayesian Personalized Rank {-}
+The confidence level of a given user-item pair $(u,i)$ now is defined as
+
+$$
+c_{ui} = \alpha \cdot r_{ui}
+$$
+
+and interpreted purely as a *weighted number of observations*.^[In the RMSE-version of the model we need $c_{ui}$ to be nonzero for $r_{ui} = 0$ otherwise items not interacted won't be able to affect the score at all. This is not a problem when we model the interaction probabilistically because there can always be a non-zero probability of zero interaction.]
+
+To solve for the model weights in such setup we need a maximum likelihood estimator:
+
+$$
+\max_{P, Q} \prod_{u, i}Pr(\phi_{ui} = 1)^{\alpha r_{ui}}Pr(\phi_{ui} = 0),
+$$
+
+which is equivalent to minimize the log-likelihood:^[Here we follow the notation of @johnson2014logistic to denote $Pr(\phi_{ui} = 1) = \frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}$. It is also common to write $Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}}$ as what we did earlier in this section.]
+
+$$
+\begin{aligned}
+\min_{P, Q} L(p_u, q_i, r_{ui})
+&= \sum_{u, i \in R} \bigg[
+\alpha r_{ui}\log Pr(\phi_{ui} = 1) + \log Pr(\phi_{ui} = 0)
+\bigg] \\
+&=\sum_{u, i \in R} \bigg[
+\alpha r_{ui}p_u^Tq_i + (1 + \alpha r_{ui})\log(1 + e^{p_u^Tq_i})
+\bigg].
+\end{aligned}
+$$
+
+The model no longer has a closed-form solution even under an alternating optimization procedure like we do for ALS model.
+But we can use *alternating gradient descent* to solve it numerically.
+The loss function is still a dense function as we still need to treat zero entries as trainable data point.
+In large scale application we do sampling on the zero entries (in the literature sometimes also termed as *negative sampling* considering zero entries to be negative observations) to achieve scalability.
+
+[Toy implementation goes here.]
+
+### Bayesian Personalized Rank
 
 Contrary to the point-wise loss framework in the above,
 @rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR loss which is also widely adopted in many recommender system frameworks.
@@ -840,6 +890,12 @@ digraph subscript {
     Q [label = 'Q']
   }
 
+  subgraph cluster_bias_layer {
+    label = 'Biases'
+    Bp [label = 'B@_{P}']
+    Bq [label = 'B@_{Q}']
+  }
+
   subgraph cluster_output_layer_rv {
     label = 'Real Value Output'
     y [label = 'y']
@@ -856,6 +912,8 @@ digraph subscript {
   i -> Q [label = 'embedding lookup']
   P -> y
   Q -> y
+  Bp -> y
+  Bq -> y
   y -> s [label = 'Sigmoid']
 
 }")
@@ -865,8 +923,22 @@ digraph subscript {
 The indicator feature column layer is just a collection of user-item indices where the entries are not missing in the interaction matrix.
 It can be viewed as a sparse representation of the interaction matrix which acts as our training input.
 
-Based on this view,
-factorization model using deep neural nets are also increasingly popular in both the literature and practical space.
+Though not particularly discussed in our previous secions,
+we can also include bias term in the factorization which may help improve the model performance.
+That is,
+instead of using the dot-product of user and item embeddings alone to determine a predicted score,
+we have:
+
+$$
+s_{ui} = p_u^Tq_i + \beta_u + \beta_i,
+$$
+
+where $\beta_u$ is a bias for user $u$ and $\beta_i$ a bias for item $i$.
+The optimization problem can be solved in exactly the same manner,
+just add on two additional weight vectors to learn.
+
+Based on this general view,
+factorization model using *deep* neural nets are also increasingly popular in both the literature and practical space.
 Such models are using additional contextual features to enrich the model's knowledge about user-item interaction.
 The scope is beyond this notebook where we focus on the decomposition of merely the interaction matrix.
 
