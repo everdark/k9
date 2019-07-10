@@ -794,10 +794,10 @@ The decomposition helps us understand the role of confidence $c_{ui}$ in calcula
 It not only directly re-weight the pseudo item similarity on a by-user basis,
 it also re-scales the contribution of each other items to the target scoring item given a user.
 
-One implication of this is that we can customize the default confidence level (in our toy example the default is 1 for all user-item paris) for users who we believe have a certain focus of interests.
-For example for users who mostly browse fashion products.
-By setting a higher default confidence level of these users on fashion products,
-the recommeder system will also shift towards recommeding more fashion products to these users.
+Note that only items interacted in the past by the user will contribute to the final score.
+In the pair example $(u=0, i=10)$ the user has interacted with 4 items in the past.
+Two of them are negatively contribute to the score and the rest two positively.
+The overall effect is the final recommendation scoring for this pair.
 
 Finally,
 we can check our training loss to see if it stablized over time:
