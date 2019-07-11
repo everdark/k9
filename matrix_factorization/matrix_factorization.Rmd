@@ -841,10 +841,13 @@ $$
 \begin{aligned}
 \min_{P, Q} L(p_u, q_i, r_{ui})
 &= - \sum_{u, i \in R} \bigg[
-\alpha r_{ui}\log Pr(\phi_{ui} = 1) + \log Pr(\phi_{ui} = 0)
+\alpha r_{ui}\ln Pr(\phi_{ui} = 1) + \ln Pr(\phi_{ui} = 0)
 \bigg] \\
 &= - \sum_{u, i \in R} \bigg[
-\alpha r_{ui}p_u^Tq_i + (1 + \alpha r_{ui})\log(1 + e^{p_u^Tq_i})
+\alpha r_{ui} \ln\frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}} + \ln\frac{1}{1 + e^{p_u^Tq_i}}
+\bigg] \\
+&= - \sum_{u, i \in R} \bigg[
+\alpha r_{ui}p_u^Tq_i - (1 + \alpha r_{ui})\ln(1 + e^{p_u^Tq_i})
 \bigg].
 \end{aligned}
 $$
@@ -854,11 +857,20 @@ But we can use *alternating gradient descent* to solve it numerically.
 The loss function is still a dense function as we still need to treat zero entries as trainable data point.
 In large scale application we do sampling on the zero entries (in the literature sometimes also termed as *negative sampling* considering zero entries to be negative observations) to achieve scalability.
 
+In order to implement the solver we need to manually derive the gradient:^[Here we use the common derivatives: $\frac{d\ln f(x)}{dx} = \frac{f'(x)}{f(x)}$ and $\frac{de^{f(x)}}{dx} = f'(x)e^{f(x)}.$]
+
+$$
+\frac{\partial L(p_u, q_i, r_{ui})}{\partial p_{u1}} =
+- \sum_{i} \bigg[
+\alpha r_{ui}q_{i1} - \frac{(1 + \alpha r_{ui} q_{i1})e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}
+\bigg].
+$$
+
 [Toy implementation goes here.]
 
 ### Bayesian Personalized Ranking
 
-Contrary to the point-wise loss framework discussed above,
+Contrary to the point-wise (per user-item pair) loss framework discussed above,
 @rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR model which is also widely adopted in many recommender system algorithms.
 
 [Discussion goes here.]
