@@ -722,19 +722,21 @@ class ALS:
       # Each step contains two alternating iterations one for users another for items.
       # Fix P and update Q:
       PtP = self.P.T.dot(self.P)
-      for i in range(n):
+      for i in range(self.n):
         Ci = np.diag(self.C[:,i])
         Wi = PtP + self.P.T.dot(Ci - np.identity(self.m)).dot(self.P) + l2_reg
         self.Q[i] = np.linalg.inv(Wi).dot(self.P.T.dot(Ci).dot(self.Phi[:,i]))
       # Fix Q and update P:
       QtQ = self.Q.T.dot(self.Q)
-      for u in range(m):
+      for u in range(self.m):
         Cu = np.diag(self.C[u,:])
         Wu = QtQ + self.Q.T.dot(Cu - np.identity(self.n)).dot(self.Q) + l2_reg
         self.P[u] = np.linalg.inv(Wu).dot(self.Q.T.dot(Cu).dot(self.Phi[u,:]))
       # Trace the loss per step.
-      self.loss.append((self.C*(self.Phi - self.P.dot(self.Q.T))**2).sum())
-  
+      _loss = (self.C*(self.Phi - self.P.dot(self.Q.T))**2).sum()
+      _l2 = (pow(self.P, 2).sum() + pow(self.Q, 2).sum())
+      self.loss.append(_loss + self.lambd * _l2)
+
   def predict(self, u, i):
     """Calculate score for a single user-item pair (u, i)."""
     return self.P[u].dot(self.Q[i])
@@ -829,6 +831,15 @@ $$
 
 and interpreted purely as a *weighted number of observations*.^[In the RMSE-version of the model we need $c_{ui}$ to be nonzero for $r_{ui} = 0$ otherwise items not interacted won't be able to affect the score at all. This is not a problem when we model the interaction probabilistically because there can always be a non-zero probability of zero interaction.]
 
+In @johnson2014logistic it is suggested that a $alpha$ value that balances the number of zero and non-zero entries works the best out of several cross-validation experiments.
+That is,
+
+$$
+\alpha = \frac{\vert r_{ui} = 0 \vert}{\sum_{u, i}r_{ui}},
+$$
+
+the ratio of number of zero entris to the sum (not number) of non-zero entries.
+
 To solve for the model weights in such setup we need a maximum likelihood estimator:
 
 $$
@@ -856,6 +867,8 @@ The model no longer has a closed-form solution even under an alternating optimiz
 But we can use *alternating gradient descent* to solve it numerically.
 The loss function is still a dense function as we still need to treat zero entries as trainable data point.
 In large scale application we do sampling on the zero entries (in the literature sometimes also termed as *negative sampling* considering zero entries to be negative observations) to achieve scalability.
+In addition,
+parallel computing can be achieved by dividing interaction matrix into independent matrix blocks then apply the alternating gradient descent to each block.
 
 In order to implement the solver we need to manually derive the gradient.
 For example the gradient w.r.t. the $k$-th embedding weight of user $u$ is:^[Here we use the common derivatives: $\frac{d\ln f(x)}{dx} = \frac{f'(x)}{f(x)}$ and $\frac{de^{f(x)}}{dx} = f'(x)e^{f(x)}.$]
@@ -867,7 +880,84 @@ $$
 \bigg].
 $$
 
-[Toy implementation goes here.]
+Implementation-wise we can further vectorize the operation over the embedding dimension $k$,
+arriving at a gradient vector expression:
+
+$$
+\frac{\partial L(p_u, q_i, r_{ui})}{\partial p_{u}} =
+- \sum_{i} \bigg[
+\alpha r_{ui}q_{i} - \frac{(1 + \alpha r_{ui} q_{i})e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}
+\bigg].
+$$
+
+```{python logistic_mf}
+class LogisticMF:
+  def __init__(self, R, k=3, a=None, lambd=.0001):
+    self.R = R
+    self.k = k
+    self.lambd = lambd
+    self.m, self.n = R.shape
+    if a is None:
+      # Balance the counts of zero and non-zero interactions.
+      self.a = len(np.where(R == 0)[0]) / R.sum()
+    else:
+      self.a = a
+    self.P = np.random.rand(m, k)
+    self.Q = np.random.rand(n, k)
+    self.loss = []
+
+  def train(self, lr=.01, n_step=10):
+    # We don't do negative sampling here since our problem is a toy scale problem.
+    for step in range(n_step):
+      # Each step contains two alternating iterations one for users another for items.
+      # Fix P and update Q:
+      for i in range(self.n):
+        arp = self.a * self.R[:,i][:, np.newaxis] * self.P
+        epq = np.exp(self.P.dot(self.Q[i]).sum())
+        grads = (- arp + ((1 + arp) * epq) / (1 + epq)).sum(axis=0) + self.lambd * self.Q[i]
+        self.Q[i] -= lr * grads
+      # Fix Q and update P:
+      for u in range(self.m):
+        arq = self.a * self.R[u,:][:, np.newaxis] * self.Q
+        epq = np.exp(self.Q.dot(self.P[u]).sum())
+        grads = (- arq + ((1 + arq) * epq) / (1 + epq)).sum(axis=0) + self.lambd * self.P[u]
+        self.P[u] -= lr * grads
+      # Trace the loss per step.
+      logits = self._sigmoid(self.P.dot(self.Q.T))
+      loglik_p1 = (self.a * self.R[self.R.nonzero()] * logits[self.R.nonzero()]).sum()
+      loglik_p0 = logits[np.where(self.R == 0)].sum()
+      loglik = loglik_p1 + loglik_p0
+      _l2 = (pow(self.P, 2).sum() + pow(self.Q, 2).sum())
+      self.loss.append(-loglik + self.lambd * _l2)
+
+  def predict(self, u, i):
+    """Calculate score for a single user-item pair (u, i)."""
+    return self._sigmoid(self.P[u].dot(self.Q[i]))
+
+  def predict_all(self):
+    return self._sigmoid(self.P.dot(self.Q.T))
+
+  def _sigmoid(self, x):
+    """Numerically stable sigmoid."""
+    return np.exp(-np.logaddexp(0, -x))
+```
+
+```{python logistic_mf_prediction}
+lmf_model = LogisticMF(ratings)
+lmf_model.train(n_step=50)
+print(np.round(lmf_model.predict_all(), 2))
+```
+
+```{python logistic_mf_loss}
+for i, loss in enumerate(lmf_model.loss):
+  print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```
+
+```{python}
+lmf_model.P
+lmf_model.Q
+```
+
 
 ### Bayesian Personalized Ranking
 
@@ -968,6 +1058,13 @@ The scope is beyond this notebook where we focus on the decomposition of merely 
 # Efficient Implementations
 
 In this section we discuss several high-quality open-sourced libraries designed for factorization model.
+
+```{python toy_to_file}
+# Write a sparse representation of the toy example to file.
+with open("R.txt", "wt") as f:
+  for u, i, r in list(zip(*ratings.nonzero(), ratings[ratings.nonzero()])):
+    f.write("{}\t{}\t{}\n".format(u, i, r))
+```
 
 ## LIBMF
 
