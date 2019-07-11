@@ -835,15 +835,15 @@ $$
 \max_{P, Q} \prod_{u, i}Pr(\phi_{ui} = 1)^{\alpha r_{ui}}Pr(\phi_{ui} = 0),
 $$
 
-which is equivalent to minimize the log-likelihood:^[Here we follow the notation of @johnson2014logistic to denote $Pr(\phi_{ui} = 1) = \frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}$. It is also common to write $Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}}$ as what we did earlier in this section.]
+which is equivalent to minimize the negative log-likelihood:^[Here we follow the notation of @johnson2014logistic to denote $Pr(\phi_{ui} = 1) = \frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}$. It is also common to write $Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}}$ as what we did earlier in this section. Also note that the loss is not a vanilla cross entropy but a weighted cross entropy.]
 
 $$
 \begin{aligned}
 \min_{P, Q} L(p_u, q_i, r_{ui})
-&= \sum_{u, i \in R} \bigg[
+&= - \sum_{u, i \in R} \bigg[
 \alpha r_{ui}\log Pr(\phi_{ui} = 1) + \log Pr(\phi_{ui} = 0)
 \bigg] \\
-&=\sum_{u, i \in R} \bigg[
+&= - \sum_{u, i \in R} \bigg[
 \alpha r_{ui}p_u^Tq_i + (1 + \alpha r_{ui})\log(1 + e^{p_u^Tq_i})
 \bigg].
 \end{aligned}
