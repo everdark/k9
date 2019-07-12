@@ -233,6 +233,23 @@ print(P)  # User embeddings.
 print(Q)  # Item embeddings.
 ```
 
+We can use the embeddings to calculate user or item similarity:
+
+```{python rvmf_user_sim}
+# User similarity.
+l2 = np.sqrt(pow(P, 2).sum(axis=1))
+user_sim = P.dot(P.T) / np.outer(l2, l2)
+print(np.round(user_sim, 2))
+```
+
+One can verify the result using high-level api such as `sklearn`:
+
+```python
+# Not run.
+from sklearn.metrics.pairwise import cosine_similarity
+cosine_similarity(P)
+```
+
 The dot product of our estimated user and item embeddings should approximately resemble the original ratings whenever available:
 
 ```{python rvmf_toy_prediction_masked}
@@ -253,6 +270,10 @@ print(np.round(predictions * (1 - mask), 2))
 
 Since now every user and item is represented by a real vector,
 given a user and a list of items we can generate the recommended items orderd by predicted model score.
+
+One subtle thing to aware is that in our toy example above we have 3 items (1st, 2nd, and 4th) never interacted with any users.
+This means that the embeddings for these items are never learned (update) by the model.
+The resulting score is hence purely random based on the random initialization of the item embeddings and should not be used at all.
 
 Our simple educational implementation won't scale as the dimension of interaction matrix grows.
 Fortunately the algorithm can speed up considerably by parallel computing.
@@ -770,6 +791,13 @@ print(np.round(als_model.P.dot(als_model.Q.T), 2))
 ```
 
 One interesting thing to note on the predicted scores above is that items that are never interacted by any user will get a zero score for all users.
+This is because the analytical solution for embeddings of item that never interacted by any user is just zero.
+To check all the item embeddings:
+
+```{python als_item_embed}
+# Items never interacted will have analytically 0 weights.
+print(als_model.Q)
+```
 
 For the first user our top recommendation is the last item (after excluding items already interacted before),
 with a score of
@@ -958,6 +986,7 @@ lmf_model.P
 lmf_model.Q
 ```
 
+[Wrong results. Implementation needs debug.]
 
 ### Bayesian Personalized Ranking
 
@@ -1059,19 +1088,120 @@ The scope is beyond this notebook where we focus on the decomposition of merely 
 
 In this section we discuss several high-quality open-sourced libraries designed for factorization model.
 
-```{python toy_to_file, results="hide"}
-# Write a sparse representation of the toy example to file.
-with open("R.txt", "wt") as f:
-  for u, i, r in list(zip(*ratings.nonzero(), ratings[ratings.nonzero()])):
-    f.write("{}\t{}\t{}\n".format(u, i, r))
-```
-
 ## LIBMF
 
-Package [`libmf`](https://github.com/cjlin1/libmf)(@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing parallel computing in cpu.
+Package [`libmf`](https://github.com/cjlin1/libmf)(@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing block-wise matrix parallel computing in cpu.
 It also supports on-disk data parsing for large scale application where the training data cannot fit in local memory.
 
-[Sample code here.]
+To train a factorization model using `libmf`,
+the training data must be sparsely prepared as triplet text lines only recording non-zero entries.
+For our toy example it will be:
+
+```{python toy_to_file}
+# Write a sparse representation of the toy example to file.
+def to_file(R, outfile):
+  with open(outfile, "wt") as f:
+    for u, i, r in list(zip(*R.nonzero(), R[R.nonzero()])):
+      f.write("{}\t{}\t{}\n".format(u, i, r))
+
+to_file(ratings, "R.txt")
+to_file(b_ratings, "Rb.txt")
+```
+
+```{bash check_rvmf_toy_file}
+# bash
+head R.txt
+```
+
+### Real Value Matrix Factorization {-}
+
+To learn a real-valued matrix factorization model:
+
+```{bash libmf_rvmf}
+# bash
+# To compile the binary `mf-train` please refer to the libmf document.
+# We pipe the iteration log to a file.
+LOSS=models/rvmf_losses
+mf-train -f 0 -k 3 -l2 .0001 -t 100 R.txt models/libmf_rvmf.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
+
+The model file output by `libmf` is just a plain txt file storing the embedding weights.
+For our previous run it will output a model file looks like:
+
+```{bash libmf_rvmf_model_file}
+cat models/libmf_rvmf.model
+```
+
+Note that items that were never interacted with any user will have embeddings of exactly 0.
+This is indeed a special notation used by `libmf` to denote `NaN` (not-a-number).
+So essentially these items have *undefined* embeddings instead of zero embeddings.
+
+To obtain the learned embeddings and prediction:
+
+```{python libmf_rvmf_prediction}
+# Parse the model file and load the embeddings as numpy arrays.
+import os
+
+def load_PQ(model_file):
+  with os.popen("tail -n +6 {}".format(model_file)) as pse:
+    PQ = [l.strip("\n").split(" ")[2:-1] for l in pse]
+  P = np.array(PQ[:m]).astype(np.float32)
+  Q = np.array(PQ[m:]).astype(np.float32)
+  return P, Q
+
+user_embed, item_embed = load_PQ("models/libmf_rvmf.model")
+print(np.round(user_embed.dot(item_embed.T), 2))
+```
+
+### Binary Matrix Factorization {-}
+
+For binary matrix factorization,
+the label must be coded by `{1, -1}` in the training data file:
+
+```{bash check_bmf_toy_file}
+# bash
+head Rb.txt
+```
+
+For training we set `-f 5`:
+
+```{bash libmf_bmf}
+# bash
+LOSS=models/bmf_losses
+mf-train -f 5 -k 3 -l2 .0001 -t 100 Rb.txt models/libmf_bmf.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
+
+```{python libmf_bmf_prediction}
+def _sigmoid(x):
+  """Numerically stable sigmoid."""
+  return np.exp(-np.logaddexp(0, -x))
+
+user_embed, item_embed = load_PQ("models/libmf_bmf.model")
+print(np.round(_sigmoid(user_embed.dot(item_embed.T)), 2))
+```
+
+Since the dataset is tiny,
+the prediction for unknown entries will be highly volatile and depends on the random initialization of embeddings.
+But the prediction on the known entries should be very close to the true labels.
+
+### One-Class Matrix Factorization {-}
+
+[Run BPR here.]
+
+Finally,
+for all supported features of `libmf`:
+
+```{bash libmf-usage}
+mf-train
+```
 
 ## LightFM
 
@@ -1079,7 +1209,9 @@ It also supports on-disk data parsing for large scale application where the trai
 It is designed for a more general factorization model we called *factorization machines*.
 To align with the scope we will only use it for a matrix factorization problem which can be viewed as a reduced form of factorization machines.
 
-[Sample code here.]
+```{python}
+import lightfm
+```
 
 ## Spark MLlib
 
@@ -1093,5 +1225,43 @@ its ALS implementation is also highly scalable.
 
 [`Starspace`](https://github.com/facebookresearch/Starspace.git)(wu2017starspace) is a library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
 Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
+
+```{bash starspace_usage}
+starspace
+```
+
+
+## BigQuery ML
+
+Though not under the open source category,
+[BigQuery ML](https://cloud.google.com/bigquery-ml/docs/bigqueryml-intro) is a worth mentioning alternative cloud service provided by Google to enable some basic machine learning models based on tabular data stored right on BigQuery.
+As of the notebook is published,
+it built-in currently supports:
+
++ Linear Regression
++ Logistic Regression
++ Multilayer Percentron (Fully-Connected Deep Neural Nets)
++ Matrix Factorization
++ K-Means
+
+It also supports model inference (but not training) using a pre-trained `tensorflow` model directory.
+
+Suppose a [movielens](https://grouplens.org/datasets/movielens/) dataset is stored on BigQuery as the table `movielens.ratings`.
+To train a matrix factorization model one can do something like:
+
+```sql
+#standardsql
+CREATE OR REPLACE MODEL movielens.recommender
+options(model_type='matrix_factorization',
+        user_col='userId', item_col='movieId', rating_col='rating',
+        l2_reg=0.2, num_factors=16)
+AS
+
+SELECT
+userId, movieId, rating
+FROM movielens.ratings
+```
+
+For more details one can refer to the [official document](https://cloud.google.com/bigquery-ml/docs/reference/standard-sql/bigqueryml-syntax-create).
 
 # References
