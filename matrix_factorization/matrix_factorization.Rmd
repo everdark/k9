@@ -1196,13 +1196,6 @@ But the prediction on the known entries should be very close to the true labels.
 
 [Run BPR here.]
 
-Finally,
-for all supported features of `libmf`:
-
-```{bash libmf-usage}
-mf-train
-```
-
 ## LightFM
 
 [`lightfm`](https://github.com/lyst/lightfm)(@DBLP:conf/recsys/Kula15) is a library for more than just matrix factorization.
@@ -1227,7 +1220,7 @@ its ALS implementation is also highly scalable.
 Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
 
 ```{bash starspace_usage}
-starspace
+#starspace
 ```
 
 
