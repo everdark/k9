@@ -1217,11 +1217,35 @@ the predicted probability will be very close to 0.5.
 ## LightFM
 
 [`lightfm`](https://github.com/lyst/lightfm)(@DBLP:conf/recsys/Kula15) is a library for more than just matrix factorization.
-It is designed for a more general factorization model we called *factorization machines*.
-To align with the scope we will only use it for a matrix factorization problem which can be viewed as a reduced form of factorization machines.
+It is designed for a more general factorization model we called *factorization machines*,
+where both users and items can be represented by a set of their own discrete features.
+The model will learn embeddings for each feature and use the aggregation of the feature embeddings to form the corresponding user or item embeddings.
 
-```{python}
-import lightfm
+To align with the scope we will only use it for a vanilla matrix factorization where each user and each item is represented by a singleton feature (their unique identifier).
+
+```{python lightfm_bpr}
+from scipy.sparse import csr_matrix
+from lightfm import LightFM
+
+# lightfm support only sparse matrix.
+sR = csr_matrix(np.where(ratings > 0, 1, 0)).tocoo()
+
+bpr_model = LightFM(
+  loss="bpr", no_components=3,
+  item_alpha=.0001, user_alpha=.0001,
+  random_state=777)
+
+_ = bpr_model.fit(sR, epochs=10)
+```
+
+By default `lightfm` include a bias term for both user and item.
+
+```{python lightfm_user_embed}
+user_bias, user_embed = bpr_model.get_user_representations()
+
+print(user_bias)
+
+print(user_embed)
 ```
 
 ## Spark MLlib
@@ -1237,7 +1261,7 @@ its ALS implementation is also highly scalable.
 [`Starspace`](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
 Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
 
-```{bash starspace_usage}
+```{bash starspace}
 #starspace
 ```
 
