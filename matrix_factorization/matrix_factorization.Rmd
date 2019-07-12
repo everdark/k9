@@ -402,9 +402,12 @@ b_predictions = tf.sigmoid(tf.matmul(bmf_model.P, bmf_model.Q, transpose_b=True)
 b_mask = np.zeros_like(b_ratings)
 b_mask[b_ratings.nonzero()] = 1
 
-# Check prediction on training entries.
-print(np.round(b_predictions * b_mask, 2))
+print(np.round(b_predictions * b_mask, 2)) # Check prediction on training entries.
+
+print(np.round(b_predictions, 2))  # Prediction for all entries.
 ```
+
+Notice that predictions for items that were never interacted will be very closed to 0.5.
 
 ## One-Class Matrix Factorization
 
@@ -1167,7 +1170,15 @@ the label must be coded by `{1, -1}` in the training data file:
 head Rb.txt
 ```
 
+Or in the original interaction matrix:
+
+```{python}
+print(b_ratings)
+```
+
 For training we set `-f 5`:
+
+(Dry-run `mf-train` to see all supported arguments.)
 
 ```{bash libmf_bmf}
 # bash
@@ -1191,6 +1202,9 @@ print(np.round(_sigmoid(user_embed.dot(item_embed.T)), 2))
 Since the dataset is tiny,
 the prediction for unknown entries will be highly volatile and depends on the random initialization of embeddings.
 But the prediction on the known entries should be very close to the true labels.
+And again as we already discover in our early toy implementation,
+for items never interacted with any user,
+the predicted probability will be very close to 0.5.
 
 ### One-Class Matrix Factorization {-}
 
