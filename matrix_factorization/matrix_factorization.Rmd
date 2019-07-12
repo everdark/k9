@@ -1098,7 +1098,10 @@ It also supports on-disk data parsing for large scale application where the trai
 
 To train a factorization model using `libmf`,
 the training data must be sparsely prepared as triplet text lines only recording non-zero entries.
-For our toy example it will be:
+
+```{bash, include=FALSE}
+mkdir -p data
+```
 
 ```{python toy_to_file}
 # Write a sparse representation of the toy example to file.
@@ -1107,13 +1110,15 @@ def to_file(R, outfile):
     for u, i, r in list(zip(*R.nonzero(), R[R.nonzero()])):
       f.write("{}\t{}\t{}\n".format(u, i, r))
 
-to_file(ratings, "R.txt")
-to_file(b_ratings, "Rb.txt")
+to_file(ratings, "data/R.txt")
+to_file(b_ratings, "data/Rb.txt")
 ```
+
+For our toy example it will be:
 
 ```{bash check_rvmf_toy_file}
 # bash
-head R.txt
+head data/R.txt
 ```
 
 ### Real Value Matrix Factorization {-}
@@ -1128,7 +1133,7 @@ mkdir -p models
 # To compile the binary `mf-train` please refer to the libmf document.
 # We pipe the iteration log to a file.
 LOSS=models/rvmf_losses
-mf-train -f 0 -k 3 -l2 .0001 -t 100 R.txt models/libmf_rvmf.model > $LOSS
+mf-train -f 0 -k 3 -l2 .0001 -t 100 data/R.txt models/libmf_rvmf.model > $LOSS
 
 # Check trace of loss every 10 iter.
 head -n 1 $LOSS
@@ -1171,7 +1176,7 @@ the label must be coded by `{1, -1}` in the training data file:
 
 ```{bash check_bmf_toy_file}
 # bash
-head Rb.txt
+head data/Rb.txt
 ```
 
 Or in the original interaction matrix:
@@ -1187,7 +1192,7 @@ For training we set `-f 5`:
 ```{bash libmf_bmf}
 # bash
 LOSS=models/bmf_losses
-mf-train -f 5 -k 3 -l2 .0001 -t 100 Rb.txt models/libmf_bmf.model > $LOSS
+mf-train -f 5 -k 3 -l2 .0001 -t 100 data/Rb.txt models/libmf_bmf.model > $LOSS
 
 # Check trace of loss every 10 iter.
 head -n 1 $LOSS
@@ -1250,7 +1255,7 @@ print(user_embed)
 
 ## Spark MLlib
 
-In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) as a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
+In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) has a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
 Since Spark itself is designed for distributed computing,
 its ALS implementation is also highly scalable.
 
