@@ -1122,6 +1122,9 @@ To learn a real-valued matrix factorization model:
 
 ```{bash libmf_rvmf}
 # bash
+# Create dir for output model files.
+mkdir -p models
+
 # To compile the binary `mf-train` please refer to the libmf document.
 # We pipe the iteration log to a file.
 LOSS=models/rvmf_losses
