@@ -1059,7 +1059,7 @@ The scope is beyond this notebook where we focus on the decomposition of merely 
 
 In this section we discuss several high-quality open-sourced libraries designed for factorization model.
 
-```{python toy_to_file}
+```{python toy_to_file, results="hide"}
 # Write a sparse representation of the toy example to file.
 with open("R.txt", "wt") as f:
   for u, i, r in list(zip(*ratings.nonzero(), ratings[ratings.nonzero()])):
