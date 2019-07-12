@@ -1089,4 +1089,9 @@ its ALS implementation is also highly scalable.
 
 [Sample code here.]
 
+## StarSpace
+
+[`Starspace`](https://github.com/facebookresearch/Starspace.git)(wu2017starspace) is a library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
+Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
+
 # References
