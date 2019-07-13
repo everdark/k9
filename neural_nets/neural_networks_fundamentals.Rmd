@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook: 
     number_sections: yes
-    theme: flatly
+    theme: paper
     toc: yes
     toc_float: true
     highlight: pygments
@@ -909,11 +909,10 @@ def gd_optimize_tf(X, y, loss_func, lr=.01, n_step=100):
     beta -= lr * grad
   return beta.numpy()
 
-# For the MSE loss problem.
-print(gd_optimize_tf(X_tf, y_tf, loss_func=loss_mse_tf, n_step=3000))
 
-# For the cross entropy loss problem.
-print(gd_optimize_tf(X_tf, y2_tf, loss_func=logloss_tf, lr=.5, n_step=5000))
+print(gd_optimize_tf(X_tf, y_tf, loss_func=loss_mse_tf, n_step=3000))  # MSE loss.
+
+print(gd_optimize_tf(X_tf, y2_tf, loss_func=logloss_tf, lr=.5, n_step=5000))  # Cross entropy loss.
 ```
 
 In the above coding example one should realize that we no longer need to hardcode the functional form of the gradients.
@@ -1506,7 +1505,7 @@ $$
 \end{aligned}
 $$
 
-Solving the above problem (using for example the method of Lagrange multipliers) will result in exactly the same target function as in equation $\eqref{eq:ols}$.
+Solving the above problem (using for example the method of Lagrange multipliers) will result in exactly the same target function as in equation $\eqref{eq:loss_min_reg}$
 
 Now if we plot the linear constraint on the Euclidean space (for the case of $k = 2$ and an arbitrary value of constant $t$),
 the possible parameter combination will fall into a cirle for $p = 2$ (L2 regularization) or a squared diamond for $p = 1$ (L1 regularization),
