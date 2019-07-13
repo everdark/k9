@@ -281,7 +281,7 @@ Fortunately the algorithm can speed up considerably by parallel computing.
 
 ### Automatic Differentiation {-}
 
-To save our ass in later illustration let's use `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
+Let's also try using `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
 `tensorflow` is a powerful framework designed for [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) that helps compute gradients at scale.
 Though our implementation will still be trivial without much engineering optimization,
 by using automatic differentiation we can skip the manual derivation and hardcoding of our gradient function.
