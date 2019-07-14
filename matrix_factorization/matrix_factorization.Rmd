@@ -1263,13 +1263,64 @@ its ALS implementation is also highly scalable.
 
 ## StarSpace
 
-[`Starspace`](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
+[StarSpace](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a C++ library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
 Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
 
-```{bash starspace}
-#starspace
+To use `starspace` under a collaborative filtering context where only the interaction matrix is available,
+we only embed items and represent each user by the average embeddings of item ever interacted with.
+For each training example (a user) one random item is picked up as the label and the model is to learn to predict the label (as a classification task) given a random set of some other negative labels--items not interacted by the given training user.
+
+For detailed illustration one can refer to the [official example](https://github.com/facebookresearch/StarSpace#pagespace-user--page-embeddings).
+
+To prepare training data for `starspace` we need to convert our input data to a special format:
+
+```{bash starspace_convert}
+# bash
+# The code is directly borrowed from the official example with small modification:
+# https://github.com/facebookresearch/StarSpace/blob/master/examples/recomm_user_artists.sh
+convert_data() {
+    PREV_ID=0
+    SET=""
+
+    while read -r line
+    do
+        read USER_ID ITEM_ID COUNT <<< $line
+        if [ $PREV_ID == $USER_ID ]
+        then
+            SET="$SET item_$ITEM_ID"
+        else
+            echo $SET
+            SET="item_$ITEM_ID"
+            PREV_ID=$USER_ID
+        fi
+    done < "$1"
+    echo $SET
+}
+
+convert_data data/R.txt > data/Rss.txt
+cat data/Rss.txt
 ```
 
+Now train with `starspace` command line interface:
+
+```{bash starspace}
+starspace train \
+  -trainFile data/Rss.txt \
+  -model models/starspace.model \
+  -lr 0.1 \
+  -epoch 2 \
+  -dim 3 \
+  -trainMode 1 \
+  -loss softmax \
+  -label "item_" \
+  -verbose 0
+```
+
+The estimated item embeddings will be written to a plain text file:
+
+```{bash}
+cat models/starspace.model.tsv
+```
 
 ## BigQuery ML
 
