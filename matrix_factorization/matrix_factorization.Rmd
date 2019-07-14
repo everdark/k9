@@ -1217,7 +1217,18 @@ the predicted probability will be very close to 0.5.
 
 ### One-Class Matrix Factorization {-}
 
-[Run BPR here.]
+To use `libmf` with BPR loss optimization,
+simply switch the `-f` argument:
+
+```{bash libmf_bpr}
+# bash
+LOSS=models/bpr_losses
+mf-train -f 10 -k 3 -l2 .0001 -t 100 data/R.txt models/libmf_bpr.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
 
 ## LightFM
 
