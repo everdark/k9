@@ -1263,7 +1263,7 @@ its ALS implementation is also highly scalable.
 
 ## StarSpace
 
-[StarSpace](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a C++ library developed by FaceBook AI Research as a general factorization framework for a variety kinds of machine learning task.
+[StarSpace](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a C++ library developed by [FaceBook AI Research](https://research.fb.com/category/facebook-ai-research/) as a general factorization framework for a variety kinds of machine learning task.
 Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
 
 To use `starspace` under a collaborative filtering context where only the interaction matrix is available,
