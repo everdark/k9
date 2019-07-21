@@ -7,10 +7,10 @@
     <title>YouTube-8M-Demo</title>
 
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for("static", filename="style.css") }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-    <script src="{{ url_for("static", filename="jquery-3.4.1.min.js") }}"></script>
-    <script src="{{ url_for("static", filename="socket.io-2.2.0.min.js") }}"></script>
+    <script src="{{ url_for('static', filename='jquery-3.4.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='socket.io-2.2.0.min.js') }}"></script>
     <script type="text/javascript" charset="utf-8">
         // Handle async web socket communication.
         $(document).ready(function() {
