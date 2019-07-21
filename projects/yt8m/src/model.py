@@ -91,11 +91,10 @@ class BaseModel:
 
         FEAT_COL_X = [col for col in FEAT_COL_VIDEO if col.name in FEAT_X]
         l2_reg = tf.keras.regularizers.l2(1e-8)
-        fix = True
+        fix = True  # Keras model to estimator bug workaround.
         if fix:
             inputs = tf.keras.layers.Input(shape=(1024,))
-            logits = tf.keras.layers.Dense(N_CLASS, kernel_regularizer=l2_reg)(inputs)
-            predictions = tf.keras.layers.Activation("sigmoid")(logits)
+            predictions = tf.keras.layers.Dense(N_CLASS, acivation="sigmoid", kernel_regularizer=l2_reg)(inputs)
             model = tf.keras.Model(inputs=inputs, outputs=predictions)
         else :
             model = tf.keras.models.Sequential(name="baseline")
