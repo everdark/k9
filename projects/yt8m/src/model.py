@@ -1,5 +1,6 @@
 """Video classification model on YouTube-8M dataset."""
 
+import logging
 from functools import partial
 
 import pandas as pd
@@ -39,6 +40,8 @@ def _parse(examples, spec, batch_size, n_class):
     features = tf.io.parse_example(examples, features=spec)
     labels = features.pop("labels")
     labels = MULTI_HOT_ENCODER({"labels": labels})
+    # Keras to estimator bug workaround.
+    features["input_1"] = features.pop("mean_rgb")
     return features, labels
 
 
@@ -47,9 +50,9 @@ def input_fn(infiles, spec, mode=tf.estimator.ModeKeys.TRAIN):
     if mode == tf.estimator.ModeKeys.TRAIN:
         dataset = dataset.shuffle(buffer_size=1000).repeat(count=None).batch(BATCH_SIZE, drop_remainder=True)
     else:
-        dataset = dataset.batch(batch_size, drop_remainder=False)
+        dataset = dataset.batch(BATCH_SIZE, drop_remainder=False)
     dataset = dataset.map(partial(_parse, spec=spec, batch_size=BATCH_SIZE, n_class=N_CLASS))
-    dataset = dataset.prefetch(batch_size)
+    dataset = dataset.prefetch(BATCH_SIZE)
     return dataset
 
     
@@ -60,6 +63,8 @@ def serving_input_receiver_fn():
     # Parse them into feature tensors.
     features = tf.io.parse_example(example_bytestring, FEAT_SPEC_VIDEO)
     features.pop("labels")  # Dummy label. Not important at all.
+    # Keras to estimator bug workaround.
+    features["input_1"] = features.pop("mean_rgb")
     return tf.estimator.export.ServingInputReceiver(features, {"examples_bytes": example_bytestring})
 
 
@@ -86,9 +91,16 @@ class BaseModel:
 
         FEAT_COL_X = [col for col in FEAT_COL_VIDEO if col.name in FEAT_X]
         l2_reg = tf.keras.regularizers.l2(1e-8)
-        model = tf.keras.models.Sequential(name="baseline")
-        model.add(tf.keras.layers.DenseFeatures(FEAT_COL_X))
-        model.add(tf.keras.layers.Dense(N_CLASS, activation="sigmoid", kernel_regularizer=l2_reg))
+        fix = True
+        if fix:
+            inputs = tf.keras.layers.Input(shape=(1024,))
+            logits = tf.keras.layers.Dense(N_CLASS, kernel_regularizer=l2_reg)(inputs)
+            predictions = tf.keras.layers.Activation("sigmoid")(logits)
+            model = tf.keras.Model(inputs=inputs, outputs=predictions)
+        else :
+            model = tf.keras.models.Sequential(name="baseline")
+            model.add(tf.keras.layers.DenseFeatures(FEAT_COL_X))
+            model.add(tf.keras.layers.Dense(N_CLASS, activation="sigmoid", kernel_regularizer=l2_reg))
         model.compile(
             optimizer="adam",
             loss=hamming_loss,
@@ -114,7 +126,7 @@ class BaseModel:
             throttle_secs=1,
             exporters=exporter
         )
-        tf.logging.set_verbosity(tf.logging.INFO)
+        logging.getLogger("tensorflow").setLevel(logging.INFO)
         tf.estimator.train_and_evaluate(
             estimator=self.estimator,
             train_spec=train_spec,
