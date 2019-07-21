@@ -21,6 +21,10 @@ navbar:
     - text: "Learning to Rank"
       href: learning_to_rank/learning_to_rank.html
   right:
+    - text: "Projects"
+      menu:
+          - text: "YouTube-8M Multi-Label Classification: A TensorFlow 2.0 Journey"
+            href: projects/yt8m/yt8m.html
     - icon: fa-github
       href: https://github.com/everdark/k9
 output:
