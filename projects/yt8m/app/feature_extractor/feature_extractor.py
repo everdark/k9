@@ -22,7 +22,7 @@ import tensorflow as tf
 
 INCEPTION_TF_GRAPH = 'http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz'
 YT8M_PCA_MAT = 'http://data.yt8m.org/yt8m_pca.tgz'
-MODEL_DIR = os.path.join(os.getenv('HOME'), 'yt8m')
+MODEL_DIR = 'yt8m'
 
 
 class YouTube8MFeatureExtractor(object):

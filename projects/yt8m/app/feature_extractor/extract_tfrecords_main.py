@@ -52,7 +52,7 @@ if __name__ == '__main__':
       '<video_file> must be a path of a video and <labels> '
       'must be an integer list joined with semi-colon ";"')
   # Optional flags.
-  flags.DEFINE_string('model_dir', os.path.join(os.getenv('HOME'), 'yt8m'),
+  flags.DEFINE_string('model_dir', 'yt8m'),
                       'Directory to store model files. It defaults to ~/yt8m')
 
   # The following flags are set to match the YouTube-8M dataset format.
