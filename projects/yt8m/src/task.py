@@ -35,7 +35,6 @@ if __name__ == "__main__":
         required=False,
         default=True
     )
-
     parser.add_argument(
         "--job-dir",
         help="This is not used by our model, but it is required by gcloud",

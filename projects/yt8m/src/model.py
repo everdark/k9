@@ -55,7 +55,7 @@ def input_fn(infiles, spec, mode=tf.estimator.ModeKeys.TRAIN):
     dataset = dataset.prefetch(BATCH_SIZE)
     return dataset
 
-    
+
 def serving_input_receiver_fn():
     """Parse seralized tfrecord string for online inference."""
     # Accept a list of serialized tfrecord string.
@@ -69,7 +69,7 @@ def serving_input_receiver_fn():
 
 
 class BaseModel:
-    
+
     def __init__(self, params):
         self.params = params
         config = tf.estimator.RunConfig(
@@ -109,7 +109,7 @@ class BaseModel:
                 AverageNClass(),
                 HitAtOne()
             ]
-        )        
+        )
         return model
 
     def train_and_evaluate(self, params):

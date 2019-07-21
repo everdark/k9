@@ -18,7 +18,7 @@ class AverageNClass(tf.keras.metrics.Metric):
             shape=(),
             dtype=tf.float32,
             initializer=init_ops.zeros_initializer)
-        
+
     def update_state(self, y_true, y_pred, **kwargs):
         # Accumulate sample size.
         batch_size = tf.cast(len(y_true), tf.float32)
@@ -45,7 +45,7 @@ class HitAtOne(tf.keras.metrics.Metric):
             shape=(),
             dtype=tf.float32,
             initializer=init_ops.zeros_initializer)
-        
+
     def update_state(self, y_true, y_pred, **kwargs):
         # Accumulate sample size.
         batch_size = tf.cast(len(y_true), tf.float32)
