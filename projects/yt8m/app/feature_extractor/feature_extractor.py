@@ -145,11 +145,11 @@ class YouTube8MFeatureExtractor(object):
     return download_path
 
   def _load_inception(self, proto_file):
-    graph_def = tf.GraphDef.FromString(open(proto_file, 'rb').read())
-    self._inception_graph = tf.Graph()
+    graph_def = tf.compat.v1.GraphDef.FromString(open(proto_file, 'rb').read())
+    self._inception_graph = tf.compat.v1.Graph()
     with self._inception_graph.as_default():
       _ = tf.import_graph_def(graph_def, name='')
-      self.session = tf.Session()
+      self.session = tf.compat.v1.Session()
       Frame_Features = self.session.graph.get_tensor_by_name(
           'pool_3/_reshape:0')
       Pca_Mean = tf.constant(value=self.pca_mean, dtype=tf.float32)
