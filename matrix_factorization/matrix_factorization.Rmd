@@ -994,9 +994,119 @@ for i, loss in enumerate(lmf_model.loss):
 ### Bayesian Personalized Ranking
 
 Contrary to the point-wise (per user-item pair) loss framework discussed above,
-@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR model which is also widely adopted in many recommender system algorithms.
+@rendle2009bpr proposed the idea of a pair-wise loss optimization approach under the implicit feedback setup, which is also widely adopted in many recommender system algorithms.
 
-[Discussion goes here.]
+In BPR learning,
+training examples are pairs of items given a user.
+We use the triplet notation $(u, i, j)$ to denote a user $u$ prefer item $i$ over item $j$.
+Item with a positive (or larger) interaction is assumed to be preferred over item with missing (or smaller) interaction.
+Then by [Bayes' rule](https://en.wikipedia.org/wiki/Bayes%27_theorem) the posterior model parameter $\Theta$ given a user $u$ with its preference structure $R_u$ can be written down as:
+
+$$
+P(\Theta | R_u) = \frac{P(R_u | \Theta)P(\Theta)}{P(R_u)} \propto P(R_u | \Theta)P(\Theta).
+$$
+
+Now by assuming each user's preference is independent from the others' and the ranking of $(i, j)$ does not depend on the ranking of other items,
+the likelihood of preference-revealing data for user $u$ can be expressed as:
+
+$$
+P(R_u | \Theta) = \prod_{u, i, j} P(i \succ j | \Theta),
+$$
+
+where $P(i \succ j)$ denotes the probability of user $u$ prefer item $i$ over item $j$.
+
+For example,
+given a user-item interaction vector of the following values:
+
+$$
+I_u = \begin{bmatrix} I_1 \\ I_2 \\ I_3 \\ I_4 \end{bmatrix} = \begin{bmatrix} 0 \\ 3 \\ 2 \\ 0 \end{bmatrix},
+$$
+
+it implies we have the following preference learning examples:
+
+$$
+R_u = \begin{bmatrix}
+I_2 \succ I_1 \\
+I_2 \succ I_3 \\
+I_2 \succ I_4 \\
+I_3 \succ I_1 \\
+I_3 \succ I_4
+\end{bmatrix},
+$$
+
+with the data likelihood (conditioned on model parameters) to be:
+
+$$
+P(R_u | \Theta) = P(I_2 \succ I_1 | \Theta) \cdot P(I_2 \succ I_3 | \Theta) \cdot P(I_2 \succ I_4 | \Theta) \cdot P(I_3 \succ I_1 | \Theta) \cdot P(I_3 \succ I_4 | \Theta).
+$$
+
+By specifying the functional form of $P(i \succ j | \Theta)$ along with a prior on $\Theta$,
+we can learn the model weights by solving the [maximum a posteriori estimatior](https://en.wikipedia.org/wiki/Maximum_a_posteriori_estimation) for the posterior:
+
+$$
+\max_{\Theta} P(R_u | \Theta)P(\Theta).
+$$
+
+A common choice for $P(i \succ j | \Theta)$ will be a logistic function $\sigma(t) = \frac{1}{1 + e^{-t}}$, where the logits $t$ can be any linear or non-linear function in $\Theta$.
+
+For the choice of prior (to pin down the term $P(\Theta)$ in the target function) in @rendle2009bpr independent Normal distributions are used for each model parameters.^[For readers who are unfamiliar with Bayesian modeling framework, here is a comprehensive [notebook about Bayesian statistics](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html with hands-on examples.]
+
+A Normal prior on parameters will effectively lead to L2 regularization in the target function,
+with the regularizer being the size of the variance of each parameter prior.^[Again for a detailed discussion on this, one can refer to [this notebook](file:///D:/Users/fcdyuc/projects/k9/neural_nets/neural_networks_fundamentals.nb.html#44_probabilistic_interpretation_of_l1l2_regularization).]
+The loss function (negative likelihood) hence can be expressed as a *pair-wise* log-loss:
+
+$$
+\begin{equation} \label{eq:bpr_loss}
+\mbox{BPR-Loss} =
+\underbrace{
+- \sum_{u}\sum_{(i, j) \in R_u}\ln \sigma(s_{ij}(\Theta))
+}_\text{Log-Loss} +
+\underbrace{
+\lambda_\Theta \vert\vert \Theta \vert\vert^2,
+\vphantom{\sum_{u}\sum_{(i, j)}}
+}_\text{L2-Regularization}
+\end{equation}
+$$
+
+where $s_{ij}(\Theta)$ is a real-valued scoring function act as the logits to the sigmoid function.
+A straightforward choice of such function is a scoring difference function:
+
+$$
+s_{ij}(\Theta) = s_{i}(\Theta) - s_{j}(\Theta).
+$$
+
+That is,
+we have a parameterized *point-wise* scoring function for each item given a user,
+while the learning algorithm is to learn the weights such that the preferred item $i$ should have a higher score than the inferior item $j$,
+resulting in higher $P(i \succ j)$ after the activation of a sigmoid function.
+
+The point-wise scoring function can fit directly into the matrix factorization framework we just went through.
+Remember that for each user-item pair the predicted score is just the dot-product of user and item embeddings.
+Now we have
+
+$$
+s_{i} = p_u^Tq_i,
+$$
+
+where the embeddings are the model weights to be learned with a BPR loss function.
+
+#### SGD with Boostrap Sampling {-}
+
+The BPR-Loss formulated in equation $\eqref{eq:bpr_loss}$ can be minimized by stochastic gradient descent algorithm.
+However the number of training pairs are prohibitively large for model convergence.
+We can instead use a bootstrap samples to iterate the gradient updates.
+This reduce the scalability issue and also handle the data skewness by avoiding continuous updates from the same popular item or dominant user.
+
+#### AUC Optimization {-}
+
+[Area Under the Receiver Operating Characteristic curve](https://en.wikipedia.org/wiki/Receiver_operating_characteristic#Area_under_the_curve),
+commonly shorted as AUC,
+is a ranking metric that evaluate the ranking performance based on the ordering of predictions.
+Under the personalized ranking context,
+it is intuitive to interpret the metric as *the expected probability that a uniformly drawn random positive item is ranked higher than a uniformly drawn random negative.*
+
+It turns out that minimizing the BPR loss has the same effect as maximizing the AUC metric.
+The difference lies in the fact that AUC is non-differentiable.
 
 [Toy implementation goes here.]
 
