@@ -1090,13 +1090,6 @@ $$
 
 where the embeddings are the model weights to be learned with a BPR loss function.
 
-#### SGD with Boostrap Sampling {-}
-
-The BPR-Loss formulated in equation $\eqref{eq:bpr_loss}$ can be minimized by stochastic gradient descent algorithm.
-However the number of training pairs are prohibitively large for model convergence.
-We can instead use a bootstrap samples to iterate the gradient updates.
-This reduce the scalability issue and also handle the data skewness by avoiding continuous updates from the same popular item or dominant user.
-
 #### AUC Optimization {-}
 
 [Area Under the Receiver Operating Characteristic curve](https://en.wikipedia.org/wiki/Receiver_operating_characteristic#Area_under_the_curve),
@@ -1107,6 +1100,13 @@ it is intuitive to interpret the metric as *the expected probability that a unif
 
 It turns out that minimizing the BPR loss has the same effect as maximizing the AUC metric.
 The difference lies in the fact that AUC is non-differentiable.
+
+#### SGD with Boostrap Sampling {-}
+
+The BPR-Loss formulated in equation $\eqref{eq:bpr_loss}$ can be minimized by stochastic gradient descent algorithm.
+However the number of training pairs are prohibitively large for model convergence.
+We can instead use a bootstrap samples to iterate the gradient updates.
+This reduce the scalability issue and also handle the data skewness by avoiding continuous updates from the same popular item or dominant user.
 
 [Toy implementation goes here.]
 
