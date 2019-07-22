@@ -1,5 +1,16 @@
 ---
-title: "About Me"
+title: "Yet Another Data Scientist"
 ---
 
-Nothing.
+<style type="text/css">
+h1.title {
+  text-align: center;
+}
+</style>
+
+<center>
+![](assets/avatar.jpg)
+
+[LinkedIn](https://www.linkedin.com/in/kylechung/) | [Medium](https://medium.com/@knine)
+</center>
+

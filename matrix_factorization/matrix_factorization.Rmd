@@ -1,0 +1,1369 @@
+---
+title: "Matrix Factorization"
+subtitle: "for Recommender systems"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook: 
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  code_download: true
+bibliography: matrix_factorization.bib
+abstract: |
+  Matrix factorization is a useful technique for building practical recommender systems at scale. In this notebook we review a family of different factorization models with built-from-scratch Python coding examples to thoroughly understand the inner working of each of the underlying optimization problem. We also include a survey and short hands-on on several open-sourced libraries that efficiently implement factorization models for large scale application.
+---
+<!--For controling code folding by chunk.-->
+<script src="../site_libs/utils/hide_output.js"></script>
+
+<!--For equation reference in Rmd.-->
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+# The Task
+
+Matrix factorization is a rather general term to describe a whole family of techniques aiming to solve a variety of problems.
+In this notebook we are particularly interested in matrix factorization as a solution to a [recommender system](https://en.wikipedia.org/wiki/Recommender_system).
+It belongs to a more general (and hence also broader) concept called [collaborative filtering](https://en.wikipedia.org/wiki/Collaborative_filtering).
+In the problem we have a $m$ user by $n$ item matrix $R$ which records only the *observed* interaction between users and items.
+
+Mathematically,
+the problem is to approximately decompose a real (or binary) matrix $R_{m \times n}$ into a dot product of two matrices:
+
+$$
+\begin{equation}
+{\underbrace{R_{m \times n} \vphantom{P_{Q \times m}^T}}_\text{Interaction Matrix}}
+\approx
+{\underbrace{P_{m \times k} \vphantom{Q_{k \times m}^T}}_\text{User Matrix}}
+\cdot
+{\underbrace{Q_{n \times k}^T}_\text{Item Matrix}}.
+\end{equation}
+$$
+
+Matrix $R$ is usually very *sparse* due to the presence of a large amount of both users and items.
+The dimension $k$ is a hyperparameter of the factorization model representing the length used to embed both users and items into real vectors.
+That is,
+each user and item is represented by a real vector of length $k$,
+called the embedding,
+and a dot product of a user embedding and an item embedding represents the interaction result of the given user-item pair.
+
+In the rest of the notebook we will use the following notations for user embedding matrix
+
+$$
+P =
+\begin{pmatrix} 
+p_{11} & p_{12} & \dots \\
+\vdots & \ddots & \vdots\\
+p_{m1} & \dots  & p_{mk} 
+\end{pmatrix}_{m \times k},
+$$
+
+and item embedding matrix:
+
+$$
+Q =
+\begin{pmatrix}
+q_{11} & q_{12} & \dots \\
+\vdots & \ddots & \vdots \\
+q_{n1} & \dots  & q_{nk} 
+\end{pmatrix}_{n \times k}.
+$$
+
+For embedding vector $p_u$ representing individual user $u$
+
+$$
+p_u =
+\begin{pmatrix} 
+p_{u1} \\
+\vdots \\
+p_{uk} 
+\end{pmatrix},
+$$
+
+and $q_i$ representing individual item $i$
+
+$$
+q_i =
+\begin{pmatrix}
+q_{i1} \\
+\vdots \\
+q_{ik}
+\end{pmatrix}.
+$$
+
+The task is hence to learn the embeddings of all users and items such that their dot products can closely represent their corresponding observed interaction.^[By interaction, we mean a rating, a click, a like, or virtually anything that could happen for a pair of user and item.]
+
+Our model weights to be learned are scalar values filled up all the embedding vectors for every user and item.
+To learn all these weights,
+we can formulate a general optimization problem:
+
+$$
+\begin{equation} \label{eq:mf_min}
+\min_{P,Q} \sum_{u,i \in R} \bigg[
+L(p_u, q_i, r_{ui}) + 
+\underbrace{\gamma_p\vert\vert p_u \vert\vert^1 + \gamma_q\vert\vert q_i \vert\vert^1}_\text{L1 Regularization} +
+\underbrace{\lambda_p\vert\vert p_u \vert\vert^2 + \lambda_q\vert\vert q_i \vert\vert^2}_\text{L2 Regularization}
+\bigg],
+\end{equation}
+$$
+
+where $u$ and $i$ are index of the $u$-th user and the $i$-th item in the matrix $R$,
+$p_u$ is the user embedding vector for user $u$ and $q_i$ the item embedding vector for item $i$.
+Function $L(\cdot)$ is a generic loss function depends on the embeddings and the actual interaction $r_{ui}$.
+Constant $\gamma_*$ and $\lambda*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
+
+There is obviously no closed-form solution for the above problem.
+But we can initialize the embeddings with random weights and apply numerical method such as [*gradient descent*](https://en.wikipedia.org/wiki/Gradient_descent) to approximate the solution.
+One important trick in training the model is that,
+the gradients are only calculated with respect to non-missing values in the interaction matrix.
+
+# Model Learning Objectives
+
+Before we actually solve the problem defined above,
+we need to explicitly specify the loss function.
+How should we pick up the loss function for the task in equation $\eqref{eq:mf_min}$?
+It turns out that it really depends on what type of data we have and what kind of problem by nature we'd like to solve.
+Generally speaking,
+there are 3 types of interaction matrix we may encounter in a real-world problem:
+
+1. Real-valued matrix: The interaction is well quantified, such as ratings, number of visits... 
+2. Binary matrix: The interaction is a binary preference, such as like/dislike.
+3. One-class matrix: The case of *implicit* feedback--only positive reactions are recorded.
+
+The first two cases are sometimes referred to as explicit feedback.
+The difference lies in how we interpret the missing values in the interaction matrix.
+In implicit feedback,
+a missing entry can be due to a user not like the item or doesn't know the item.
+In general implicit feedback seems more plausible in real world and has become the mainstream approach for recommender systems.
+
+For comepleteness we will still illustrate all 3 cases in the following sub-sections.
+
+## Real Value Matrix Factorization
+
+When the interaction matrix records real-valued feedback such as a rating matrix,
+it is natural to use the *squared error* as our loss:
+
+$$
+L(p_u, q_i, r_{ui}) = \sum_{u, i \in R} \big( r_{ui} - p_u^Tq_i \big)^2,
+$$
+
+where the model score for a user-item pair $(u, i)$ is
+
+$$
+p_u^Tq_i = \sum_{j=1}^kp_{uj} \cdot q_{ij}.
+$$
+
+The gradient w.r.t. model weights $p_{uk}$ and $q_{ik}$ for a user-item pair $(u, i)$ are quite straightforward:
+
+$$
+\begin{aligned}
+\frac{\partial L(\cdot)}{\partial p_{uk}}
+&= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial p_{uk}} \\
+&= 2(r_{ui} - p_u^Tq_i)q_{ik}, \\
+\frac{\partial L(\cdot)}{\partial q_{ik}}
+&= 2(r_{ui} - p_u^Tq_i) \cdot \frac{\partial p_u^Tq_i}{\partial q_{ik}} \\
+&= 2(r_{ui} - p_u^Tq_i)p_{uk}.
+\end{aligned}
+$$
+
+The following Python code is a toy implementation of such factorization model with L2 regularization:
+
+```{python rvmf}
+import numpy as np
+
+def mf(R, k, n_epoch=5000, lr=.0003, l2=.04):
+  tol = .001  # Tolerant loss.
+  m, n = R.shape
+  # Initialize the embedding weights.
+  P = np.random.rand(m, k)
+  Q = np.random.rand(n, k)
+  for epoch in range(n_epoch):
+    # Update weights by gradients.
+    for u, i in zip(*R.nonzero()):
+      err_ui = R[u,i] - P[u,:].dot(Q[i,:])
+      for j in range(k):
+        P[u][j] += lr * (2 * err_ui * Q[i][j] - l2/2 * P[u][j])
+        Q[i][j] += lr * (2 * err_ui * P[u][j] - l2/2 * Q[i][j])
+    # compute the loss.
+    E = (R - P.dot(Q.T))**2
+    obj = E[R.nonzero()].sum() + lr*((P**2).sum() +(Q**2).sum())
+    if obj < tol:
+        break
+  return P, Q
+```
+
+Let's make an old Netflix-styled 5-star ratings and test our solver:^[Starting 2017 Netflix no longer uses 5-star rating any more but adopts a binary like/dislike interaction. The reason seems to be a higher user response rate which boost available interaction data.]
+
+```{python rvmf_toy_data}
+np.random.seed(777)
+
+# Make missing more prevail.
+stars = np.arange(6)
+p = np.array([10, 1, 1, 1, 1, 1])
+m = 5
+n = 10
+
+# A 5-star rating matrix.
+ratings = np.random.choice(stars, size=m*n, p=p / p.sum()).reshape((m, n))
+print(ratings)
+```
+
+```{python rvmf_toy_solution}
+P, Q = mf(ratings, k=3)
+
+print(P)  # User embeddings.
+
+print(Q)  # Item embeddings.
+```
+
+We can use the embeddings to calculate user or item similarity:
+
+```{python rvmf_user_sim}
+# User similarity.
+l2 = np.sqrt(pow(P, 2).sum(axis=1))
+user_sim = P.dot(P.T) / np.outer(l2, l2)
+print(np.round(user_sim, 2))
+```
+
+One can verify the result using high-level api such as `sklearn`:
+
+```python
+# Not run.
+from sklearn.metrics.pairwise import cosine_similarity
+cosine_similarity(P)
+```
+
+The dot product of our estimated user and item embeddings should approximately resemble the original ratings whenever available:
+
+```{python rvmf_toy_prediction_masked}
+predictions = P.dot(Q.T)
+mask = np.zeros_like(ratings)
+mask[ratings.nonzero()] = 1
+
+# Mask out unknown ratings as 0 for ease of comparison.
+print(np.round(predictions * mask, 2))
+```
+
+And the dot products for missing entries serve as our model prediction to the unknown user-item interaction:
+
+```{python rvmf_toy_prediction}
+# Mask out known ratings as 0 for ease of comparison.
+print(np.round(predictions * (1 - mask), 2))
+```
+
+Since now every user and item is represented by a real vector,
+given a user and a list of items we can generate the recommended items orderd by predicted model score.
+
+One subtle thing to aware is that in our toy example above we have 3 items (1st, 2nd, and 4th) never interacted with any users.
+This means that the embeddings for these items are never learned (update) by the model.
+The resulting score is hence purely random based on the random initialization of the item embeddings and should not be used at all.
+
+Our simple educational implementation won't scale as the dimension of interaction matrix grows.
+Fortunately the algorithm can speed up considerably by parallel computing.
+@chin2015fast gives a very good review on different strategies of parallellization on gradient descent for matrix factorization problem.
+
+### Automatic Differentiation {-}
+
+Let's also try using `tensorflow` (@tensorflow2015-whitepaper) to implement the factorization model.
+`tensorflow` is a powerful framework designed for [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) that helps compute gradients at scale.
+Though our implementation will still be trivial without much engineering optimization,
+by using automatic differentiation we can skip the manual derivation and hardcoding of our gradient function.
+
+```{python import_tensorflow}
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+
+import tensorflow as tf
+print(tf.__version__)
+```
+
+```{python rvmf_tf}
+class MatrixFactorization:
+  def __init__(self, R, k, lr=.0003, l2=.04, seed=777):
+    self.R = tf.convert_to_tensor(R, dtype=tf.float32)
+    self.mask = tf.not_equal(self.R, 0)
+    self.m, self.n = R.shape
+    self.k = k
+    self.lr = lr
+    self.l2 = l2
+    self.tol = .001
+    # Initialize trainable weights.
+    self.weight_init = tf.random_normal_initializer(seed=seed)
+    self.P = tf.Variable(self.weight_init((self.m, self.k)))
+    self.Q = tf.Variable(self.weight_init((self.n, self.k)))
+
+  def loss(self):
+    raise NotImplementedError
+
+  def grad_update(self):
+    with tf.GradientTape() as t:
+      t.watch([self.P, self.Q])
+      self.current_loss = self.loss()
+    gP, gQ = t.gradient(self.current_loss, [self.P, self.Q])
+    self.P.assign_sub(self.lr * gP)
+    self.Q.assign_sub(self.lr * gQ)
+
+  def train(self, n_epoch=5000):
+    for epoch in range(n_epoch):
+      self.grad_update()
+      if self.current_loss < self.tol:
+        break
+
+
+class RealValueMF(MatrixFactorization):
+  # The implementation is far from optimized since we don't need the product of entire P'Q.
+  # We only need scores for non-missing entries.
+  # The code is hence for educational purpose only.
+  def loss(self):
+    """Squared error loss."""
+    E = (self.R - tf.matmul(self.P, self.Q, transpose_b=True))**2
+    l2_norm = tf.reduce_sum(self.P**2) + tf.reduce_sum(self.Q**2)
+    out = tf.reduce_sum(tf.boolean_mask(E, self.mask)) + self.l2 * l2_norm
+    return out
+```
+
+```{python rvmf_tf_prediction}
+rvmf_model = RealValueMF(ratings, k=3)
+rvmf_model.train()
+
+predictions = tf.matmul(rvmf_model.P, rvmf_model.Q, transpose_b=True).numpy()
+print(np.round(predictions * mask, 2))
+```
+
+## Binary Matrix Factorization
+
+When the user-item interaction is a binary outcome ($r_{ui} \in \{0, 1\}$),
+it is natural to use [cross entropy](https://en.wikipedia.org/wiki/Cross_entropy) as our loss function for the optimization problem in $\eqref{eq:mf_min}$.
+That is,
+
+$$
+L(p_u, q_i, r_{ui}) = \sum_{u, i \in R} \bigg[
+r_{ui}\log (p_u^Tq_i) + (1 - r_{ui}) \log (1 - p_u^Tq_i)
+\bigg].
+$$
+
+```{python bmf_toy_data}
+# Make missing more prevail.
+responses = [-1, 0, 1]
+p = np.array([1, 5, 1])
+m = 5
+n = 10
+
+# A binary response matrix.
+b_ratings = np.random.choice(responses, size=m*n, p=p / p.sum()).reshape((m, n))
+print(b_ratings)
+```
+
+```{python bmf_tf}
+class BinaryMF(MatrixFactorization):
+  def train(self, n_epoch=5000):
+    # Cast 1/-1 as binary encoding of 0/1.
+    self.labels = tf.cast(tf.not_equal(tf.boolean_mask(self.R, self.mask), -1), dtype=tf.float32)
+    for epoch in range(n_epoch):
+      self.grad_update()
+
+  # The implementation is far from optimized since we don't need the product of entire P'Q.
+  # We only need scores for non-missing entries.
+  # The code is hence for educational purpose only.
+  def loss(self):
+    """Cross entropy loss."""
+    logits = tf.boolean_mask(tf.matmul(self.P, self.Q, transpose_b=True), self.mask)
+    logloss = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.labels, logits=logits)
+    mlogloss = tf.reduce_mean(logloss)
+    l2_norm = tf.reduce_sum(self.P**2) + tf.reduce_sum(self.Q**2)
+    return mlogloss + self.l2 * l2_norm
+```
+
+```{python bmf_tf_prediction_masked}
+# We increase the learning a bit since logloss has a very different scale than squared error.
+# For the same reason we decrease the L2 coefficient.
+bmf_model = BinaryMF(b_ratings, k=3, lr=.03, l2=.0001)
+bmf_model.train()
+
+b_predictions = tf.sigmoid(tf.matmul(bmf_model.P, bmf_model.Q, transpose_b=True)).numpy()
+
+b_mask = np.zeros_like(b_ratings)
+b_mask[b_ratings.nonzero()] = 1
+
+print(np.round(b_predictions * b_mask, 2)) # Check prediction on training entries.
+
+print(np.round(b_predictions, 2))  # Prediction for all entries.
+```
+
+Notice that predictions for items that were never interacted will be very closed to 0.5.
+
+## One-Class Matrix Factorization
+
+In previous two examples,
+we assume users always express their explicit feedbacks (positive or negative and optionally with the level of magnitude) for items they ever interacted with.
+This means that for all the missing entries in the interaction matrix,
+they must be the case where the corresponding user and item never interact.
+And our interest is to predict the result provided they actually interact.
+
+The assumption of explicit feedback doesn't always hold in practice.
+A user may choose to NOT react to a disliked item,
+leaving the entry for that item missing.
+Or the nature of the data doesn't capture the explicit preference in the first place.
+For example a clickstream dataset may only reveal how frequent a user visit an item,
+but that is not equivalent to say the user like the item.
+Indeed a user may not be able to dislike an item without at least visit its page in the first place.
+Or a user has already seen the item somewhere else before and decide not to look at it anymore because she is not interested in it.
+Both cases the user dislikes the item,
+but there is no way to tell by only looking at the clickstream data.
+This is where the problem of implicit feedback comes into the picture.
+
+@hu2008collaborative documents well the propoerties of an implicit feedback dataset:
+
+1. There is no negative feedback.^[The wording "negative" here is a bit sloppy. Some researchers refer to the zero entries as "negative observations" compared to the positive ones. What we really try to say here is that there is no EXPLICIT negative feedback.]
+2. Feedbacks are noisy. The observed data is usually behavioral-based and the acutal motives are hidden behind.
+3. Value of a feedback should be viewed as *confidence* of preference rather than preference per se.
+4. Missing entries are considered as "zero behavior" compared to positive counts of behavior.
+5. Evaluation must be handled properly. (More on this latter.)
+
+The name *one-class* results directly from the 4th point above.
+Now missing entries have no special treatment but act as valid records of zero behavior.
+Remember that in explicit feedback problem we train the model using only non-missing entries.
+This is no longer the case in implicit feedback problem since technically speaking there is no missing data at all.
+
+### ALS Matrix Factorization
+
+In their original works two more variables are introduced for implicit feedback.
+The preference indicator
+
+$$
+\phi_{ui} =
+\begin{cases}
+1 \mbox{ if } r_{ui} > 0 \\
+0 \mbox{ if } r_{ui} = 0
+\end{cases}
+$$
+
+binarizes the interaction matrix.
+(There is no missing data by this definition.)
+And the confidence level
+
+$$
+c_{ui} = 1 + \alpha \cdot r_{ui}
+$$
+
+models the confidence about $p_{ui} = 1$.
+Increasing in observed behavior $r_{ui}$ causes increasing in the confidence.
+Note that $c_{ui} \ne 0$ even for $r_{ui} = 0$ to take into account minimum confidence where there is no observed behavior of user $u$ on item $i$.
+$\alpha$ is a hyperparameter for confidence set to $\alpha = 40$ at the original experiment.
+
+Based on the above setup the optimization problem in $\eqref{eq:mf_min}$ will have a loss function of the following form:
+
+$$
+\begin{equation}  \label{eq:als_loss}
+L(p_u, q_i, r_{ui})
+= \sum_{u, i \in R} c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2
+= \sum_{u, i \in R} \big(1 + \alpha r_{ui}\big)\big( \phi_{ui} - p_u^Tq_i \big)^2.
+\end{equation}
+$$
+
+Intuitively speaking,
+the loss function suggests that higher confidence $c_{ui}$ leads to heavier weight on the gradient,
+meaning that making a mistake on high-confidence interaction will have a greater penalty.
+The loss is indeed just a weighted root mean squared error where the weights are determined by number of interactions.^[In the notation of this notebook we ignore the "root mean" part of the RMSE loss, more just to save some typings. In theory it makes no difference since the objective function is monotone in a root-mean operation. In practice it can make a difference due to the scaling issue of the gradient update, which can be indeed countered by adjusting learning rate. Since all our implementations are toy-level for educational purpose, we choose to keep the notation as simple as possible.]
+
+A maybe much more influential difference compared to the real value factorization for explicit feedback we just discussed previously is that,
+the interaction matrix is now a *dense* representation of user behavior counts on items.
+As a consequence,
+the model can no longer be solved by gradient descent since the involved computational complexity is a prohibitive $\mathcal{O}(m \times n \times k)$ for just one epoch of training.
+
+#### Alternating Least Squares {-}
+
+To efficiently learn the user and item embeddings in the above problem,
+we can use instead a technique called alternating least squares (ALS).
+The idea is to solve for model weights in user embeddings first,
+holding item embeddings fixed.
+Then solve for model weights in item embeddings,
+holding user embeddings fixed.
+And so on and so forth.
+The training process is iterating in this alternating manner until convergence.
+Of course the technique can also be used to train an explicit feedback model,
+but is more valuable in training an implicit one due to its capability to overcome scalability issue in the dense loss function.
+
+Let's dive into the mathematical artifacts a little bit to get the full picture of what's going on.
+Given the objective function in equation $\eqref{eq:als_loss}$,
+when we fix all item embeddings $Q$ as constant,
+the problem of finding the optimal user embedding $p_u$ for a user $u$ actually reduces to *a linear regression* problem given the user for all items.
+
+This can be illustrated in the following notation:
+
+$$
+\begin{aligned}
+&\color{blue}{
+\overbrace{
+\begin{pmatrix}
+q_{11} & q_{21} & \dots & q_{n1} \\
+\vdots & \ddots &       & \vdots \\
+q_{1k} & \dots  & \dots & q_{nk}
+\end{pmatrix}_{k \times n}
+}^\text{Item Embeddings Q' (Fixed)}} \\
+\underbrace{
+\begin{pmatrix}
+\color{green}{p_{11}} & \color{green}{p_{12}} & \color{green}{\dots} & \color{green}{p_{1k}} \\
+\vdots & \ddots & & \vdots\\
+p_{m1} & \dots  & \dots & p_{mk}
+\end{pmatrix}_{m \times k}
+}_\text{User Embeddings P (To Learn)}
+&\underbrace{
+\begin{pmatrix}
+\color{red}{r_{11}} & \color{red}{r_{12}} & \color{red}{\dots} & \color{red}{r_{1n}} \\
+\vdots & \ddots & & \vdots \\
+r_{m1} & \dots & \dots & r_{mn}
+\end{pmatrix}_{m \times n}
+}_\text{Behavioral Matrix R}
+\end{aligned}
+$$
+
+$$
+\color{red}{r_1} = \color{blue}Q\color{green}{p_1}.
+$$
+
+When item embeddings are fixed,
+solving for user embeddings is equivalently to solve for $m$ linear regression models,
+each for one user.
+
+More general,
+think of $p_u$ as the regression coefficients ($\beta$),
+$\phi_u$ as the response ($y$),
+and $Q$ as the design matrix collecting values of regressors ($X$),
+the problem is equivalent to solve a linear system
+
+(We replace the behavior count $r$ with its binarized value $\phi$)
+
+$$
+\phi_u = Qp_u
+$$
+
+with the [OLS estimator](https://en.wikipedia.org/wiki/Ordinary_least_squares)
+
+$$
+\hat{p_u} = (Q^TQ)^{-1}Q^T\phi_u.
+$$
+
+Just that our model also contains a weight vector (the confidence level) on each regressor,
+the solution hence becomes:
+
+$$
+\hat{p_u} = (Q^TC_uQ)^{-1}Q^TC_u\phi_u,
+$$
+
+where $C_u$ is a diagonal matrix collecting all confidence levels of user $u$ on all $n$ items:
+
+$$
+C_u =
+\begin{pmatrix}
+c_{u1} & 0     & \dots  & 0\\
+0      & c_{u2} \\
+\vdots &       & \ddots & \\
+0     &        &        & c_{un}
+\end{pmatrix}.
+$$
+
+If we further take into account L2 regularization,
+the solution simply becomes:
+
+$$
+\begin{equation} \label{eq:als_ols}
+\hat{p_u} = (Q^TC_uQ + \lambda_p I)^{-1}Q^TC_u\phi_u.
+\end{equation}
+$$
+
+That is,
+in each step of the alternating least squares fixing item embeddings,
+our solution to each user's embedding vector has an OLS closed form.
+The same is true when user embeddings are fixed and we are in turn solving for item embeddings.
+
+Without using the analogy to OLS,
+let's do the tedious calculus works to manually derive the gradient vectors of user embeddings $p_u$ for a user $u$,
+holding all item embeddings as constant.
+To be specific,
+the optimization problem is:
+
+(We assume the same regularization parameter for user and item embeddings for notational simplicity.)
+
+$$
+\begin{equation}
+\min_{P} \sum_{i=1}^n \bigg[
+c_{ui} \cdot \big( \phi_{ui} - p_u^Tq_i \big)^2
+\bigg] + \lambda\sum_{j=1}^kp_{uj}^2.
+\end{equation}
+$$
+
+Gradient vector for embeddings of user $u$ given all item embeddings fixed:
+
+$$
+\begin{bmatrix}
+\frac{\partial L(p_u, r_{ui} \vert q_i)}{\partial p_{u1}} \\
+\frac{\partial L(p_u, r_{u2} \vert q_i)}{\partial p_{u2}} \\
+\vdots \\
+\frac{\partial L(p_u, r_{uk} \vert q_i)}{\partial p_{uk}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+-2 \sum_{i=1}^n c_{u1}\big(\phi_{u1} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{i1} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+-2 \sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{i2} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+\vdots \\
+-2 \sum_{i=1}^n c_{uk}\big(\phi_{uk} - \sum_{j=1}^k p_{uj}q_{ij}\big)q_{ik} + 2\lambda
+\vphantom{\frac{\partial L()}{\partial p_{u1}}} \\
+\end{bmatrix}.
+$$
+
+Setting all the gradients to zero (a.k.a first-order condition) gives the optimal solution for $\hat{p_{u}}$ as a linear system:
+
+$$
+\begin{bmatrix}
+\sum_{i=1}^n c_{u1}\big(\phi_{u1} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{i1} \\
+\sum_{i=1}^n c_{u2}\big(\phi_{u2} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{i2} \\
+\vdots \\
+\sum_{i=1}^n c_{uk}\big(\phi_{uk} - \sum_{j=1}^k \hat{p_{uj}}q_{ij}\big)q_{ik}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)} \\
+\vdots \\
+\lambda \vphantom{\sum_{i=1}^n\big(\sum_{j=1}^k\big)}
+\end{bmatrix}.
+$$
+
+By re-arranging:
+
+$$
+\underbrace{
+\begin{bmatrix}
+c_{u1}\phi_{u1}\sum_{i=1}^nq_{i1} \vphantom{\sum_{i=1}^n\sum_{j=1}^k} \\
+c_{u2}\phi_{u2}\sum_{i=1}^nq_{i2} \vphantom{\sum_{i=1}^n\sum_{j=1}^k} \\
+\vdots \\
+c_{uk}\phi_{uk}\sum_{i=1}^nq_{ik} \vphantom{\sum_{i=1}^n\sum_{j=1}^k}
+\end{bmatrix}
+}_{Q^TC_u\phi_u.}
+=
+\underbrace{
+\begin{bmatrix}
+\lambda + c_{u1}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{i1} \\
+\lambda + c_{u2}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{i2}  \\
+\vdots \\
+\lambda + c_{uk}\sum_{i=1}^n\sum_{j=1}^k\hat{p_{uj}}q_{ij}q_{ik}  \\
+\end{bmatrix}
+}_{Q^TC_uQ\hat{p_u} + \lambda I}.
+$$
+
+Now if we express the vector in matrix notation and solve the system for $\hat{p_u}$,
+we will arrive exactly at equation $\eqref{eq:als_ols}$.
+
+Notice that during the training iteration a speedup can be achieved by the fact that
+
+$$
+Q^TC_uQ = Q^TQ + Q^T(C_u - I)Q.
+$$
+
+This is because $C_u$ varies by user but $Q^TQ$ is the same for all users.
+When iterate over users we only need to compute $Q^TQ$ once and also $C_u - I$ is sparse so it can reduce computation further.
+The same logic applies to alternating round at updating item embeddings.
+
+As one may realize,
+ALS is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel),
+since each user (and each item) embedding vector can be solved by a linear regression model separately while sharing the same design matrix.
+
+#### Model Explanation {-}
+
+A by-product of ALS is a matrix decomposition readily available for explanation of the predicted recommendation.
+
+The predicted score of a given user-item pair is the dot-product of their embeddings $p_u^Tq_i$.
+Given equation $\eqref{eq:als_ols}$ hte dot-product can be re-written as:
+
+$$
+\begin{aligned}
+p_u^Tq_i = q_i^Tp_u
+&= q_i^T \underbrace{(Q^TC_uQ + \lambda_p I)^{-1}}_{\equiv W_u} Q^TC_u\phi_u \\
+&= q_i^TW_uQ^TC_u\phi_u \\
+&= q_i^T\sum_{i = 1; r_{ui} > 0}^nW_u q_j c_{uj}.
+\end{aligned}
+$$
+
+The term $q_i^TW_uq_j$ can be loosely interpreted as *similarity between item $i$ and $j$ given preference confidence from user $u$*.
+The term $q_i^T\sum_{i = 1; r_{ui} > 0}^nW_uq_j$ hence is the sum of all such item pair similarity between item $i$ and all items with nonzero counts.
+This is a linear decomposition of the predicted score of user-item pair $(u, i)$,
+with more similar item contributing more to the score,
+but also weighted by confidence of preference of the user on that item.
+
+Using the decomposition we can attribute the predicted score to those items the user interacted in the past.
+This is handy because simply looking into embeddings will give no clue about the prediction.
+They are just real-number abstraction of latent factors which cannot be directly reasoned.
+
+As usual, let's implement the ALS matrix factorization from scratch using our previous toy example.
+Because we have a closed form solution for each of the alternating iteration,
+we will not use automatic differentiation but rather directly code the matrix operation by hands.
+
+Print again the interatction matrix:
+
+```{python als_toy}
+print(ratings)
+```
+
+And here goes our toy implementation:
+
+```{python als}
+class ALS:
+  def __init__(self, R, k=3, a=40, lambd=10):
+    self.R = R
+    self.k = k
+    self.a = a
+    self.lambd = lambd
+    self.m, self.n = R.shape
+    self.P = np.random.rand(m, k)
+    self.Q = np.random.rand(n, k)
+    self.Phi = np.where(R > 0, 1, 0)  # Binarized interaction matrix.
+    self.C = 1 + a*R  # Confidence of preference.
+    self.loss = []
+
+  def train(self, n_step=10):
+    l2_reg = self.lambd * np.identity(self.k)
+    for step in range(n_step):
+      # Each step contains two alternating iterations one for users another for items.
+      # Fix P and update Q:
+      PtP = self.P.T.dot(self.P)
+      for i in range(self.n):
+        Ci = np.diag(self.C[:,i])
+        Wi = PtP + self.P.T.dot(Ci - np.identity(self.m)).dot(self.P) + l2_reg
+        self.Q[i] = np.linalg.inv(Wi).dot(self.P.T.dot(Ci).dot(self.Phi[:,i]))
+      # Fix Q and update P:
+      QtQ = self.Q.T.dot(self.Q)
+      for u in range(self.m):
+        Cu = np.diag(self.C[u,:])
+        Wu = QtQ + self.Q.T.dot(Cu - np.identity(self.n)).dot(self.Q) + l2_reg
+        self.P[u] = np.linalg.inv(Wu).dot(self.Q.T.dot(Cu).dot(self.Phi[u,:]))
+      # Trace the loss per step.
+      _loss = (self.C*(self.Phi - self.P.dot(self.Q.T))**2).sum()
+      _l2 = (pow(self.P, 2).sum() + pow(self.Q, 2).sum())
+      self.loss.append(_loss + self.lambd * _l2)
+
+  def predict(self, u, i):
+    """Calculate score for a single user-item pair (u, i)."""
+    return self.P[u].dot(self.Q[i])
+
+  def explain(self, u, i):
+    # Note that if the alternating order is to learn first P then Q,
+    # the score produced by this decomposition will not be exactly the same
+    # as in the predict function (the dot-product) unless the model fully converges.
+    pu = self.P[u]
+    qi = self.Q[i]
+    Wu = self._Wu(u)
+    Cu = np.diag(self.C[u])
+    decomp = qi.T.dot(Wu).dot(self.Q.T)
+    s = decomp.dot(Cu).dot(self.Phi[u])
+    print("Predicted Score for User u on Item i: {}".format(s))
+    print("Item No. | User-Perceived Item Simialrity | Confidence Weight | Phi")
+    for i, (sim, conf, phi) in enumerate(zip(decomp, Cu.diagonal(), self.Phi[u])):
+      print("{:8} | {:30} | {:17} | {:3}".format(i + 1, np.round(sim, 5), conf, phi))
+
+  def _Wu(self, u):
+    Cu = np.diag(self.C[u,:])
+    Wu = (self.Q.T.dot(self.Q) + self.Q.T.dot(Cu - np.identity(self.n)).dot(self.Q)
+          + self.lambd * np.identity(self.k))
+    return np.linalg.inv(Wu)
+```
+
+```{python als_prediction}
+als_model = ALS(ratings)
+als_model.train(n_step=20)
+print(np.round(als_model.P.dot(als_model.Q.T), 2))
+```
+
+One interesting thing to note on the predicted scores above is that items that are never interacted by any user will get a zero score for all users.
+This is because the analytical solution for embeddings of item that never interacted by any user is just zero.
+To check all the item embeddings:
+
+```{python als_item_embed}
+# Items never interacted will have analytically 0 weights.
+print(als_model.Q)
+```
+
+For the first user our top recommendation is the last item (after excluding items already interacted before),
+with a score of
+
+```{python als_reasoning_score_ui}
+# Investigate the user-item pair (u, i) for the predicted score.
+u = 0
+i = -1
+als_model.predict(u, i)
+```
+
+Let's decompose this particular score for reasoning of this recommendation.
+The score is the inner product of user-perceived item similarity and the associated confidence of preference:
+
+```{python als_reasoning_ui_decomp}
+als_model.explain(u, i)
+```
+
+The decomposition tells us all item similarity to the target item 10,
+conditioned on user $u$'s past interaction.
+Here we found out that item 6 contributed the most to the score of item 10 due to both its positive similarity and a considerable confidence weight.
+
+The decomposition helps us understand the role of confidence $c_{ui}$ in calculating recommendation.
+It not only directly re-weight the pseudo item similarity on a by-user basis,
+it also re-scales the contribution of each other items to the target scoring item given a user.
+
+Note that only items interacted in the past by the user will contribute to the final score.
+In the pair example $(u=0, i=10)$ the user has interacted with 4 items in the past.
+Two of them are negatively contribute to the score and the rest two positively.
+The overall effect is the final recommendation scoring for this pair.
+
+Finally,
+we can check our training loss to see if it stablized over time:
+
+(Indeed we should do this a bit earlier.)
+
+```{python als_loss}
+for i, loss in enumerate(als_model.loss):
+  print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```
+
+### Logistic Matrix Factorization
+
+We can also replace the sum of squared error loss in the one-class implicit feedback data with a cross entropy loss,
+resulting in a probablistic model:
+
+$$
+Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}},
+$$
+
+where $\phi_{ui}$ is now a binary indicator of user $u$ having a positive preference over item $i$.
+This is proposed by @johnson2014logistic and termed as logistic matrix factorization.
+
+The confidence level of a given user-item pair $(u,i)$ now is defined as
+
+$$
+c_{ui} = \alpha \cdot r_{ui}
+$$
+
+and interpreted purely as a *weighted number of observations*.^[In the RMSE-version of the model we need $c_{ui}$ to be nonzero for $r_{ui} = 0$ otherwise items not interacted won't be able to affect the score at all. This is not a problem when we model the interaction probabilistically because there can always be a non-zero probability of zero interaction.]
+
+In @johnson2014logistic it is suggested that a $alpha$ value that balances the number of zero and non-zero entries works the best out of several cross-validation experiments.
+That is,
+
+$$
+\alpha = \frac{\vert r_{ui} = 0 \vert}{\sum_{u, i}r_{ui}},
+$$
+
+the ratio of number of zero entris to the sum (not number) of non-zero entries.
+The larger the $\alpha$ the more weight put on non-zero entries.
+
+To solve for the model weights in such setup we need a maximum likelihood estimator:
+
+$$
+\max_{P, Q} \prod_{u, i}Pr(\phi_{ui} = 1)^{\alpha r_{ui}}Pr(\phi_{ui} = 0),
+$$
+
+which is equivalent to minimize the negative log-likelihood:^[Here we follow the notation of @johnson2014logistic to denote $Pr(\phi_{ui} = 1) = \frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}$. It is also common to write $Pr(\phi_{ui} = 1) = \frac{1}{1 + e^{-p_u^Tq_i}}$ as what we did earlier in this section. Also note that the loss is not a vanilla cross entropy but a weighted cross entropy.]
+
+$$
+\begin{aligned}
+\min_{P, Q} L(p_u, q_i, r_{ui})
+&= - \sum_{u, i \in R} \bigg[
+\alpha r_{ui}\ln Pr(\phi_{ui} = 1) + \ln Pr(\phi_{ui} = 0)
+\bigg] \\
+&= - \sum_{u, i \in R} \bigg[
+\alpha r_{ui} \ln\frac{e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}} + \ln\frac{1}{1 + e^{p_u^Tq_i}}
+\bigg] \\
+&= - \sum_{u, i \in R} \bigg[
+\alpha r_{ui}p_u^Tq_i - (1 + \alpha r_{ui})\ln(1 + e^{p_u^Tq_i})
+\bigg].
+\end{aligned}
+$$
+
+The model no longer has a closed-form solution even under an alternating optimization procedure like we do for ALS model.
+But we can use *alternating gradient descent* to solve it numerically.
+The loss function is still a dense function as we still need to treat zero entries as trainable data point.
+In large scale application we do sampling on the zero entries (in the literature sometimes also termed as *negative sampling* considering zero entries to be negative observations) to achieve scalability.
+In addition,
+parallel computing can be achieved by dividing interaction matrix into independent matrix blocks then apply the alternating gradient descent to each block.
+
+In order to implement the solver we need to manually derive the gradient.
+For example the gradient w.r.t. the $k$-th embedding weight of user $u$ is:^[Here we use the common derivatives: $\frac{d\ln f(x)}{dx} = \frac{f'(x)}{f(x)}$ and $\frac{de^{f(x)}}{dx} = f'(x)e^{f(x)}.$]
+
+$$
+\frac{\partial L(p_u, q_i, r_{ui})}{\partial p_{uk}} =
+- \sum_{i} \bigg[
+\alpha r_{ui}q_{ik} - \frac{q_{ik}(1 + \alpha r_{ui})e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}
+\bigg].
+$$
+
+Implementation-wise we can further vectorize the operation over the embedding dimension $k$,
+arriving at a gradient vector expression:
+
+$$
+\frac{\partial L(p_u, q_i, r_{ui})}{\partial p_{u}} =
+- \sum_{i} \bigg[
+\alpha r_{ui}q_{i} - \frac{q_{i}(1 + \alpha r_{ui})e^{p_u^Tq_i}}{1 + e^{p_u^Tq_i}}
+\bigg].
+$$
+
+```{python logistic_mf}
+class LogisticMF:
+  def __init__(self, R, k=3, a=None, lambd=.1):
+    self.R = R
+    self.k = k
+    self.lambd = lambd
+    self.m, self.n = R.shape
+    if a is None:
+      # Balance the counts of zero and non-zero interactions.
+      self.a = len(np.where(R == 0)[0]) / R.sum()
+    else:
+      self.a = a
+    self.P = np.random.rand(m, k)
+    self.Q = np.random.rand(n, k)
+    self.loss = []
+
+  def train(self, lr=.01, n_step=10):
+    # We don't do negative sampling here since our problem is a toy scale problem.
+    # Gradients are computed by vectorizing over k dimension.
+    for step in range(n_step):
+      # Each step contains two alternating iterations one for users another for items.
+      # Fix P and update Q:
+      for i in range(self.n):
+        arp = self.a * self.R[:,i][:,np.newaxis] * self.P  # m x k
+        epq = np.exp(self.P.dot(self.Q[i]))  # 1 x m (the same for j = 1...k)
+        epq = epq[:,np.newaxis]  # Reshape for broadcasting.
+        grads = (- arp + ((self.P + arp) * epq) / (1 + epq)).sum(axis=0)  # Sum over u = 1...m.
+        grads += 2 * self.lambd * self.Q[i]  # 1 x k
+        self.Q[i] -= lr * grads
+      # Fix Q and update P:
+      for u in range(self.m):
+        arq = self.a * self.R[u,:][:,np.newaxis] * self.Q  # n x k
+        epq = np.exp(self.Q.dot(self.P[u]))  # 1 x n (the same for j = 1...k)
+        epq = epq[:,np.newaxis]  # Reshape for broadcasting.
+        grads = (- arq + ((self.Q + arq) * epq) / (1 + epq)).sum(axis=0)  # Sum over i = 1...n.
+        grads += 2 * self.lambd * self.P[u]  # 1 x k
+        self.P[u] -= lr * grads
+      # Trace the loss per step.
+      logits = self.P.dot(self.Q.T)
+      lik_p1 = self._sigmoid(self.a * self.R[self.R.nonzero()] * logits[self.R.nonzero()])
+      lik_p0 = 1 - self._sigmoid(logits[np.where(self.R == 0)])
+      loglik = np.log(lik_p1).sum() + np.log(lik_p0).sum()
+      _l2 = (pow(self.P, 2).sum() + pow(self.Q, 2).sum())
+      self.loss.append(-loglik + self.lambd * _l2)
+
+  def predict(self, u, i):
+    """Calculate score for a single user-item pair (u, i)."""
+    return self._sigmoid(self.P[u].dot(self.Q[i]))
+
+  def predict_all(self):
+    return self._sigmoid(self.P.dot(self.Q.T))
+
+  def _sigmoid(self, x):
+    """Numerically stable sigmoid."""
+    return np.exp(-np.logaddexp(0, -x))
+```
+
+```{python logistic_mf_prediction}
+lmf_model = LogisticMF(ratings, lambd=.1)
+lmf_model.train(n_step=100, lr=.1)
+print(np.round(lmf_model.predict_all(), 2))
+```
+
+```{python logistic_mf_loss}
+for i, loss in enumerate(lmf_model.loss):
+  if i % 10 == 0:
+    print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```
+
+### Bayesian Personalized Ranking
+
+Contrary to the point-wise (per user-item pair) loss framework discussed above,
+@rendle2009bpr proposed the idea of a pair-wise loss optimization approach called the BPR model which is also widely adopted in many recommender system algorithms.
+
+[Discussion goes here.]
+
+[Toy implementation goes here.]
+
+# Neural Netork Representation
+
+For people who are familiar with neural network models,
+matrix factorization model should look very similar to them.
+Indeed a matrix factorization model *is* a shallow neural network model.^[For an overall discussion about neural networks one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html).]
+
+<div class="fold s">
+```{r mf_as_nn_diagram, fig.width=8, fig.height=4}
+DiagrammeR::grViz("
+digraph subscript {
+  labelloc='t'
+  label='Factorization Model as a Neural Network'
+
+  graph [layout = dot rankdir = LR ordering = in style=dotted]
+
+  node [shape = circle]
+
+  subgraph cluster_indicator_layer {
+    label = 'Indicator Feature Columns'
+    u [label = 'User']
+    i [label = 'Item']
+  }
+
+  subgraph cluster_embedding_layer {
+    label = 'Embeddings'
+    P [label = 'P']
+    Q [label = 'Q']
+  }
+
+  subgraph cluster_bias_layer {
+    label = 'Biases'
+    Bp [label = 'B@_{P}']
+    Bq [label = 'B@_{Q}']
+  }
+
+  subgraph cluster_output_layer_rv {
+    label = 'Real Value Output'
+    y [label = 'y']
+  }
+
+  subgraph cluster_output_layer_b {
+    label = 'Binary Output'
+    s [label = 's']
+  }
+
+  edge [arrowsize = .25]
+
+  u -> P [label = 'embedding lookup']
+  i -> Q [label = 'embedding lookup']
+  P -> y
+  Q -> y
+  Bp -> y
+  Bq -> y
+  y -> s [label = 'Sigmoid']
+
+}")
+```
+</div>
+
+The indicator feature column layer is just a collection of user-item indices where the entries are not missing in the interaction matrix.
+It can be viewed as a sparse representation of the interaction matrix which acts as our training input.
+
+Though not particularly discussed in any of our previous secions,
+we can also include bias term in the factorization which may help improve the model performance.
+That is,
+instead of using the dot-product of user and item embeddings alone to determine a predicted score,
+we have:
+
+$$
+s_{ui} = p_u^Tq_i + \beta_u + \beta_i,
+$$
+
+where $\beta_u$ is a bias for user $u$ and $\beta_i$ a bias for item $i$.
+The optimization problem can be solved by exactly the same prodecure for each type of model,
+just adding on two additional weight vectors to learn.
+
+Based on this general view,
+factorization model using *deep* neural nets are also increasingly popular in both the literature and practical space.
+Such models are using additional contextual features to enrich the model's knowledge about user-item interaction.
+The scope is beyond this notebook where we focus on the decomposition of merely the interaction matrix.
+
+[TensorFlow estimator coding examples here.]
+
+# Model Evaluation
+
+[Discuss popular eval metrics here.]
+
+# Efficient Implementations
+
+In this section we discuss several high-quality open-sourced libraries designed for factorization model.
+
+## LIBMF
+
+Package [`libmf`](https://github.com/cjlin1/libmf)(@chin2016libmf) is an extremely efficient C++ implementation of matrix factorization utilizing block-wise matrix parallel computing in cpu.
+It also supports on-disk data parsing for large scale application where the training data cannot fit in local memory.
+
+To train a factorization model using `libmf`,
+the training data must be sparsely prepared as triplet text lines only recording non-zero entries.
+
+```{bash, include=FALSE}
+mkdir -p data
+```
+
+```{python toy_to_file}
+# Write a sparse representation of the toy example to file.
+def to_file(R, outfile):
+  with open(outfile, "wt") as f:
+    for u, i, r in list(zip(*R.nonzero(), R[R.nonzero()])):
+      f.write("{}\t{}\t{}\n".format(u, i, r))
+
+to_file(ratings, "data/R.txt")
+to_file(b_ratings, "data/Rb.txt")
+```
+
+For our toy example it will be:
+
+```{bash check_rvmf_toy_file}
+# bash
+head data/R.txt
+```
+
+### Real Value Matrix Factorization {-}
+
+To learn a real-valued matrix factorization model:
+
+```{bash libmf_rvmf}
+# bash
+# Create dir for output model files.
+mkdir -p models
+
+# To compile the binary `mf-train` please refer to the libmf document.
+# We pipe the iteration log to a file.
+LOSS=models/rvmf_losses
+mf-train -f 0 -k 3 -l2 .0001 -t 100 data/R.txt models/libmf_rvmf.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
+
+The model file output by `libmf` is just a plain txt file storing the embedding weights.
+For our previous run it will output a model file looks like:
+
+```{bash libmf_rvmf_model_file}
+# bash
+cat models/libmf_rvmf.model
+```
+
+Note that items that were never interacted with any user will have embeddings of exactly 0.
+This is indeed a special notation used by `libmf` to denote `NaN` (not-a-number).
+So essentially these items have *undefined* embeddings instead of zero embeddings.
+
+To obtain the learned embeddings and prediction:
+
+```{python libmf_rvmf_prediction}
+# Parse the model file and load the embeddings as numpy arrays.
+import os
+
+def load_PQ(model_file):
+  with os.popen("tail -n +6 {}".format(model_file)) as pse:
+    PQ = [l.strip("\n").split(" ")[2:-1] for l in pse]
+  P = np.array(PQ[:m]).astype(np.float32)
+  Q = np.array(PQ[m:]).astype(np.float32)
+  return P, Q
+
+user_embed, item_embed = load_PQ("models/libmf_rvmf.model")
+print(np.round(user_embed.dot(item_embed.T), 2))
+```
+
+### Binary Matrix Factorization {-}
+
+For binary matrix factorization,
+the label must be coded by `{1, -1}` in the training data file:
+
+```{bash check_bmf_toy_file}
+# bash
+head data/Rb.txt
+```
+
+Or in the original interaction matrix:
+
+```{python}
+print(b_ratings)
+```
+
+For training we set `-f 5`:
+
+(Dry-run `mf-train` to see all supported arguments.)
+
+```{bash libmf_bmf}
+# bash
+LOSS=models/bmf_losses
+mf-train -f 5 -k 3 -l2 .0001 -t 100 data/Rb.txt models/libmf_bmf.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
+
+```{python libmf_bmf_prediction}
+def _sigmoid(x):
+  """Numerically stable sigmoid."""
+  return np.exp(-np.logaddexp(0, -x))
+
+user_embed, item_embed = load_PQ("models/libmf_bmf.model")
+print(np.round(_sigmoid(user_embed.dot(item_embed.T)), 2))
+```
+
+Since the dataset is tiny,
+the prediction for unknown entries will be highly volatile and depends on the random initialization of embeddings.
+But the prediction on the known entries should be very close to the true labels.
+And again as we already discover in our early toy implementation,
+for items never interacted with any user,
+the predicted probability will be very close to 0.5.
+
+### One-Class Matrix Factorization {-}
+
+To use `libmf` with BPR loss optimization,
+simply switch the `-f` argument:
+
+```{bash libmf_bpr}
+# bash
+LOSS=models/bpr_losses
+mf-train -f 10 -k 3 -l2 .0001 -t 100 data/R.txt models/libmf_bpr.model > $LOSS
+
+# Check trace of loss every 10 iter.
+head -n 1 $LOSS
+tail -n +2 $LOSS | awk 'NR % 10 == 0'
+```
+
+## LightFM
+
+[`lightfm`](https://github.com/lyst/lightfm)(@DBLP:conf/recsys/Kula15) is a library for more than just matrix factorization.
+It is designed for a more general factorization model we called *factorization machines*,
+where both users and items can be represented by a set of their own discrete features.
+The model will learn embeddings for each feature and use the aggregation of the feature embeddings to form the corresponding user or item embeddings.
+
+To align with the scope we will only use it for a vanilla matrix factorization where each user and each item is represented by a singleton feature (their unique identifier).
+
+```{python lightfm_bpr}
+from scipy.sparse import csr_matrix
+from lightfm import LightFM
+
+# lightfm supports only sparse matrix.
+sR = csr_matrix(np.where(ratings > 0, 1, 0)).tocoo()
+
+bpr_model = LightFM(
+  loss="bpr", no_components=3,
+  item_alpha=.0001, user_alpha=.0001,
+  random_state=777)
+
+_ = bpr_model.fit(sR, epochs=10)
+```
+
+By default `lightfm` include a bias term for both user and item.
+
+```{python lightfm_user_embed}
+user_bias, user_embed = bpr_model.get_user_representations()
+
+print(user_bias)
+
+print(user_embed)
+```
+
+## Spark MLlib
+
+In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) has a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
+Since Spark itself is designed for distributed computing,
+its ALS implementation is also highly scalable.
+
+[Sample code here.]
+
+## StarSpace
+
+[StarSpace](https://github.com/facebookresearch/Starspace.git)(@wu2017starspace) is a C++ library developed by [FaceBook AI Research](https://research.fb.com/category/facebook-ai-research/) as a general factorization framework for a variety kinds of machine learning task.
+Under the hood it is a [learning-to-rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html) algorithm that embed entities (of different kinds) by their discrete features and solve a pair-wise ranking problem to find out the best matched entities.
+
+To use `starspace` under a collaborative filtering context where only the interaction matrix is available,
+we only embed items and represent each user by the average embeddings of item ever interacted with.
+For each training example (a user) one random item is picked up as the label and the model is to learn to predict the label (as a classification task) given a random set of some other negative labels--items not interacted by the given training user.
+
+For detailed illustration one can refer to the [official example](https://github.com/facebookresearch/StarSpace#pagespace-user--page-embeddings).
+
+To prepare training data for `starspace` we need to convert our input data to a special format:
+
+```{bash starspace_convert}
+# bash
+# The code is directly borrowed from the official example with small modification:
+# https://github.com/facebookresearch/StarSpace/blob/master/examples/recomm_user_artists.sh
+convert_data() {
+    PREV_ID=0
+    SET=""
+
+    while read -r line
+    do
+        read USER_ID ITEM_ID COUNT <<< $line
+        if [ $PREV_ID == $USER_ID ]
+        then
+            SET="$SET item_$ITEM_ID"
+        else
+            echo $SET
+            SET="item_$ITEM_ID"
+            PREV_ID=$USER_ID
+        fi
+    done < "$1"
+    echo $SET
+}
+
+convert_data data/R.txt > data/Rss.txt
+cat data/Rss.txt
+```
+
+Now train with `starspace` command line interface:
+
+```{bash starspace}
+starspace train \
+  -trainFile data/Rss.txt \
+  -model models/starspace.model \
+  -lr 0.1 \
+  -epoch 2 \
+  -dim 3 \
+  -trainMode 1 \
+  -loss softmax \
+  -label "item_" \
+  -verbose 0
+```
+
+The estimated item embeddings will be written to a plain text file:
+
+```{bash}
+cat models/starspace.model.tsv
+```
+
+## BigQuery ML
+
+Though not under the open source category,
+[BigQuery ML](https://cloud.google.com/bigquery-ml/docs/bigqueryml-intro) is a worth mentioning alternative cloud service provided by Google to enable some basic machine learning models based on tabular data stored right on BigQuery.
+As of the notebook is published,
+it built-in currently supports:
+
++ Linear Regression
++ Logistic Regression
++ Multilayer Percentron (Fully-Connected Deep Neural Nets)
++ Matrix Factorization
++ K-Means
+
+It also supports model inference (but not training) using a pre-trained `tensorflow` model directory.
+
+Suppose a [movielens](https://grouplens.org/datasets/movielens/) dataset is stored on BigQuery as the table `movielens.ratings`.
+To train a matrix factorization model one can do something like:
+
+```sql
+#standardsql
+CREATE OR REPLACE MODEL movielens.recommender
+options(model_type='matrix_factorization',
+        user_col='userId', item_col='movieId', rating_col='rating',
+        l2_reg=0.2, num_factors=16)
+AS
+
+SELECT
+userId, movieId, rating
+FROM movielens.ratings
+```
+
+For more details one can refer to the [official document](https://cloud.google.com/bigquery-ml/docs/reference/standard-sql/bigqueryml-syntax-create).
+
+# References

@@ -1,14 +1,32 @@
 name: "k9-gh-page"
 output_dir: "."
 navbar:
+  type: default
   title: "k9"
   left:
-    - text: "Home"
-      href: index.html
     - text: "About Me"
       href: about.html
-    - text: "Learning Bayesian"
-      href: bayesian/bayesian_modeling_explained.nb.html
+    - text: "Bayesian"
+      menu:
+        - text: "Bayesian Modeling Explained"
+          href: bayesian/bayesian_modeling_explained.nb.html
+    - text: "Neural Networks"
+      menu:
+        - text: "Neural Networks Fundamentals"
+          href: neural_nets/neural_networks_fundamentals.nb.html
+    - text: "Recommender Systems"
+      menu:
+        - text: "Matrix Factorization"
+          href: matrix_factorization/matrix_factorization.nb.html
+    - text: "Learning to Rank"
+      href: learning_to_rank/learning_to_rank.html
+  right:
+    - text: "Projects"
+      menu:
+          - text: "YouTube-8M Multi-Label Classification: A TensorFlow 2.0 Journey"
+            href: projects/yt8m/yt8m.html
+    - icon: fa-github
+      href: https://github.com/everdark/k9
 output:
   html_document:
     theme: flatly
