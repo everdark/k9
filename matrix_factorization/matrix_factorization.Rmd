@@ -1088,7 +1088,7 @@ $$
 s_{i} = p_u^Tq_i,
 $$
 
-where the embeddings are the model weights to be learned with a BPR loss function.
+where the embeddings are the model weights to be learned with a BPR loss minimization.
 
 #### AUC Optimization {-}
 
