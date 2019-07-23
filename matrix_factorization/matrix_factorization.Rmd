@@ -1223,7 +1223,7 @@ the model has a considerable chance of ranking item 4 and 5 incorrectly by scori
 even on this tiny dataset.
 This is indeed because during the training the embeddings of item 4 will get more chances to be updated than item 5,
 since it has one more user ever interacted with.
-This will introduce exponetially more steps for item 4 embeddings to be updated since each interacted item in a user vector will be compared against the user's other interacted items.
+This will introduce exponentially more steps for item 4 embeddings to be updated since each interacted item in a user vector will be compared against the user's other interacted items.
 
 There are lots of studies focusing on how the sampling can be designed in order to offset the bias introduced by such common user-item imbalance in the training data.
 Looking into that direction will be out of our scope in this notebook.
