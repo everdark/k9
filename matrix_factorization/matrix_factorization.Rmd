@@ -1047,12 +1047,18 @@ $$
 \max_{\Theta} P(R_u | \Theta)P(\Theta).
 $$
 
-A common choice for $P(i \succ j | \Theta)$ will be a logistic function $\sigma(t) = \frac{1}{1 + e^{-t}}$, where the logits $t$ can be any linear or non-linear function in $\Theta$.
+A common choice for $P(i \succ j | \Theta)$ will be a sigmoid function
 
-For the choice of prior (to pin down the term $P(\Theta)$ in the target function) in @rendle2009bpr independent Normal distributions are used for each model parameters.^[For readers who are unfamiliar with Bayesian modeling framework, here is a comprehensive [notebook about Bayesian statistics](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html with hands-on examples.]
+$$
+\sigma(t) = \frac{1}{1 + e^{-t}},
+$$
+
+where the logits $t$ can be any linear or non-linear function in $\Theta$.
+
+For the choice of prior (to pin down the term $P(\Theta)$ in the target function) in @rendle2009bpr independent Normal distributions are used for each model parameters.^[For readers who are unfamiliar with Bayesian modeling framework, here is a comprehensive [notebook about Bayesian statistics](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html) with hands-on examples.]
 
 A Normal prior on parameters will effectively lead to L2 regularization in the target function,
-with the regularizer being the size of the variance of each parameter prior.^[Again for a detailed discussion on this, one can refer to [this notebook](file:///D:/Users/fcdyuc/projects/k9/neural_nets/neural_networks_fundamentals.nb.html#44_probabilistic_interpretation_of_l1l2_regularization).]
+with the regularizer being the size of the variance of each parameter prior.^[Again for a detailed discussion on this, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#44_probabilistic_interpretation_of_l1l2_regularization).]
 The loss function (negative likelihood) hence can be expressed as a *pair-wise* log-loss:
 
 $$
@@ -1075,6 +1081,8 @@ $$
 s_{ij}(\Theta) = s_{i}(\Theta) - s_{j}(\Theta).
 $$
 
+This is called *personalized* ranking since the scoring is on a per-user basis.
+The total loss is simply the summation of all ranking loss from each individual user.
 That is,
 we have a parameterized *point-wise* scoring function for each item given a user,
 while the learning algorithm is to learn the weights such that the preferred item $i$ should have a higher score than the inferior item $j$,
@@ -1085,10 +1093,44 @@ Remember that for each user-item pair the predicted score is just the dot-produc
 Now we have
 
 $$
-s_{i} = p_u^Tq_i,
+\begin{aligned}
+s_{i} &= p_u^Tq_i, \\
+s_{ij} &= p_u^Tq_i - p_u^Tq_j = p_u^T(q_i - q_j),
+\end{aligned}
 $$
 
-where the embeddings are the model weights to be learned with a BPR loss minimization.
+where the embedding values are the model weights ($\Theta$) to be learned with BPR loss minimization.
+
+Let's further denote $s_{uij}$ to be the scoring difference of item $i$ and $j$ given a user $u$,
+based on the fact that $\frac{\partial\sigma(t)}{\partial t} = \sigma(t)(1 - \sigma(t))$ and $\frac{\partial \ln f(x)}{\partial x} = \frac{f'(x)}{f(x)}$,
+the gradient of the BPR loss w.r.t. model weights can be easily derived as:
+
+$$
+\frac{\partial\mbox{BPR-Loss}}{\partial\Theta} =
+- \sum_{(u,i,j) \in R} \frac{e^{-s_{uij}(\Theta)}}{1 + e^{-s_{uij}(\Theta)}} \cdot \frac{\partial s_{uij}(\Theta)}{\partial\Theta} + 2\lambda_{\Theta} \cdot \Theta,
+$$
+
+where $R$ is the set of all training triplets $(u, i, j)$ exhibiting $i \succ j$ for user $u$.
+
+To be more specific on the scalar-level:
+
+$$
+\begin{aligned}
+\frac{\partial\mbox{BPR-Loss}}{\partial p_{uf}}
+&= - \sum_{(u,i,j) \in R} \frac{e^{-s_{uij}}}{1 + e^{-s_{uij}}} \cdot (q_{if} - q_{jf}) + 2\lambda_U \cdot p_{uf}, \\
+\frac{\partial\mbox{BPR-Loss}}{\partial q_{if}}
+&= - \sum_{(u,i,j) \in R} \frac{e^{-s_{uij}}}{1 + e^{-s_{uij}}} \cdot p_{uf} + 2\lambda_I \cdot q_{if}, \\
+\frac{\partial\mbox{BPR-Loss}}{\partial q_{jf}}
+&= - \sum_{(u,i,j) \in R} \frac{e^{-s_{uij}}}{1 + e^{-s_{uij}}} \cdot (- p_{uf}) + 2\lambda_I \cdot q_{jf},
+\end{aligned}
+$$
+
+where $\lambda_U$ and $\lambda_I$ are regularization for user and item embeddings, respectively.
+And $f$ is along the embedding dimension $k$ such that
+
+$$
+s_{uij} = p_u^T(q_i - q_j) = \sum_{f=1}^k p_{uf}(q_{if} - q_{jf}).
+$$
 
 #### AUC Optimization {-}
 
@@ -1108,7 +1150,12 @@ However the number of training pairs are prohibitively large for model convergen
 We can instead use a bootstrap samples to iterate the gradient updates.
 This reduce the scalability issue and also handle the data skewness by avoiding continuous updates from the same popular item or dominant user.
 
-[Toy implementation goes here.]
+```{python bpr_opt}
+print(ratings)
+
+
+```
+
 
 # Neural Netork Representation
 
@@ -1209,7 +1256,7 @@ It also supports on-disk data parsing for large scale application where the trai
 To train a factorization model using `libmf`,
 the training data must be sparsely prepared as triplet text lines only recording non-zero entries.
 
-```{bash, include=FALSE}
+```{bash create_data_dir, include=FALSE}
 mkdir -p data
 ```
 
@@ -1291,7 +1338,7 @@ head data/Rb.txt
 
 Or in the original interaction matrix:
 
-```{python}
+```{python print_binary_R}
 print(b_ratings)
 ```
 
@@ -1439,7 +1486,7 @@ starspace train \
 
 The estimated item embeddings will be written to a plain text file:
 
-```{bash}
+```{bash cat_starspace_model}
 cat models/starspace.model.tsv
 ```
 
