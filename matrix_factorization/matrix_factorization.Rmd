@@ -1143,19 +1143,89 @@ it is intuitive to interpret the metric as *the expected probability that a unif
 It turns out that minimizing the BPR loss has the same effect as maximizing the AUC metric.
 The difference lies in the fact that AUC is non-differentiable.
 
-#### SGD with Boostrap Sampling {-}
+#### SGD with Bootstrap Sampling {-}
 
 The BPR-Loss formulated in equation $\eqref{eq:bpr_loss}$ can be minimized by stochastic gradient descent algorithm.
 However the number of training pairs are prohibitively large for model convergence.
 We can instead use a bootstrap samples to iterate the gradient updates.
 This reduce the scalability issue and also handle the data skewness by avoiding continuous updates from the same popular item or dominant user.
 
+Operationally,
+gradient update is performed on a randomly sampled training triplet $u,i,j$,
+for user embeddings $p_u$ and two item embeddings $q_i$ and $q_j$.
+
+Here is a toy implementation of matrix factorization with BPR optimization:
+
 ```{python bpr_opt}
-print(ratings)
+def bpr_mf(R, k, n_step=5000, lr=.003, l2=.04):
+  m, n = R.shape
+  P = np.random.rand(m, k)
+  Q = np.random.rand(n, k)
 
+  def _sigmoid(x):
+    """Numerically stable sigmoid."""
+    return np.exp(-np.logaddexp(0, -x))
 
+  def _draw_triplet():
+    """Bootstrap sampler for training triplets."""
+    # Draw a user u.
+    u = np.random.choice(m)
+    pu = R[u,:]
+    # Draw a positive item i given u.
+    i = np.random.choice(pu.nonzero()[0])
+    # Draw a negativce item j given u, i.
+    j = np.random.choice(np.where(pu[i] > pu)[0])
+    return u, i, j
+
+  loss = []
+  for step in range(n_step):
+    u, i, j = _draw_triplet()
+    s_uij = P[u].dot(Q[i] - Q[j])
+    sigmoid_grad = 1 - _sigmoid(s_uij)
+    # Gradient updates are vectorized over the embedding dimension k.
+    P[u] -= lr * (-sigmoid_grad * (Q[i] - Q[j]) + 2 * l2 * P[u])
+    Q[i] -= lr * (-sigmoid_grad * P[u] + 2 * l2 * Q[i])
+    Q[j] -= lr * (-sigmoid_grad * (- P[u]) + 2 * l2 * Q[j])
+    # Trace SGD loss.
+    loss.append(- np.log(_sigmoid(s_uij)) + l2 * (pow(P, 2).sum() + pow(Q, 2).sum()))
+
+  return P, Q, loss
 ```
 
+Test the algo on our toy data:
+
+```{python bpr_result}
+P_bpr, Q_bpr, loss_bpr = bpr_mf(ratings, k=5)
+
+bpr_mask = np.zeros_like(ratings)
+bpr_mask[ratings.nonzero()] = 1
+
+bpr_predictions = P_bpr.dot(Q_bpr.T)
+
+print(ratings)  # Original interaction matrix.
+print(np.round(bpr_predictions, 2) * bpr_mask)  # Fitted scores.
+print(np.round(bpr_predictions, 2))  # All predicted scores.
+```
+
+We can check thg stochastic loss trace over training iterations:
+
+```{r bpr_loss_trace_plot}
+# R
+loss <- unlist((py$loss_bpr))
+plot(zoo::rollmean(loss, 100), type="l", xlab="Step", ylab="Loss",
+     main="Stochastic BPR Loss (100-Step Moving Average)")
+```
+
+By running multiple times the algorithm one may realize that for user $u = 0$ the ranking among item $i = 4$ and item $j = 5$ is particularly tricky to learn correctly.
+That is,
+the model has a considerable chance of ranking item 4 and 5 incorrectly by scoring the former higher than the latter,
+even on this tiny dataset.
+This is indeed because during the training the embeddings of item 4 will get more chances to be updated than item 5,
+since it has one more user ever interacted with.
+This will introduce exponetially more steps for item 4 embeddings to be updated since each interacted item in a user vector will be compared against the user's other interacted items.
+
+There are lots of studies focusing on how the sampling can be designed in order to offset the bias introduced by such common user-item imbalance in the training data.
+Looking into that direction will be out of our scope in this notebook.
 
 # Neural Netork Representation
 
