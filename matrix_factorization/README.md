@@ -5,7 +5,7 @@
 + [`rmarkdown`](https://rmarkdown.rstudio.com/)
 + [`reticulate`](https://github.com/rstudio/reticulate): To enable Python code interoperation in R.
 + [`DiagrammeR`](https://github.com/rich-iannone/DiagrammeR): To draw NN diagram.
-
++ [`zoo`](https://cran.r-project.org/web/packages/zoo/index.html): To plot moving average series.
 
 ## Python Dependencies for Coding Examples
 
