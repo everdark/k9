@@ -94,7 +94,7 @@ class BaseModel:
         fix = True  # Keras model to estimator bug workaround.
         if fix:
             inputs = tf.keras.layers.Input(shape=(1024,))
-            predictions = tf.keras.layers.Dense(N_CLASS, acivation="sigmoid", kernel_regularizer=l2_reg)(inputs)
+            predictions = tf.keras.layers.Dense(N_CLASS, activation="sigmoid", kernel_regularizer=l2_reg)(inputs)
             model = tf.keras.Model(inputs=inputs, outputs=predictions)
         else :
             model = tf.keras.models.Sequential(name="baseline")
