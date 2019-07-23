@@ -1217,6 +1217,7 @@ plot(zoo::rollmean(loss, 100), type="l", xlab="Step", ylab="Loss",
 ```
 
 By running multiple times the algorithm one may realize that for user $u = 0$ the ranking among item $i = 4$ and item $j = 5$ is particularly tricky to learn correctly.
+This is even true when we try increasing the embedding dimension (at the intention of overfitting our tiny dataset.)
 That is,
 the model has a considerable chance of ranking item 4 and 5 incorrectly by scoring the former higher than the latter,
 even on this tiny dataset.
@@ -1312,7 +1313,39 @@ The scope is beyond this notebook where we focus on the decomposition of merely 
 
 # Model Evaluation
 
-[Discuss popular eval metrics here.]
+Evaluation on a recommender system can be very tricky.
+In this section we will discuss several popular *offline* approaches for model evaluation.
+The general idea is to mask out a fraction of interaction entries preserved as the testing set,
+so we know the actual interaction but exclude them from training data.
+
+Metrics derived based on this technique is usually considered *recall-based* since it is only based on the known positives.
+
+## Mean Percentile Rank
+
+For each user we generate an ordered list of recommended items.
+Then we calculate the percentile rank for each item in the testing set for that user.
+A percentile rank of 0 means it is ranked at top,
+and 100 at bottom.
+Hence the lower the better for the testing items.
+The percentile rank of all testing items is then averaged to arrive at the Mean Percentile Rank (MPR).
+
+## Average User-Level AUC
+
+For each user we can randomly mask out a known interacted item $i$ as the testing set.
+AUC for a user in this way can be calculated as the fraction of ranking pairs $(i, j)$ that is correctly predicted.
+By averaging the AUC over all users we arrive at the model-level AUC.
+
+We can of course mask out more than 1 items per user,
+or simply mask out a fraction of the interaction entries.
+
+## Other Ranking Metrics
+
+If we formulate our recommender system as a ranking model,
+there are some more metrics to consider.
+In the [notebook of Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html#Evaluation-of-LTR-Model) we have a detailed discussion on those ranking metrics with hands-on examples.
+
+In the end,
+which metric to use depends solely on the nature of the problem and also the availability of the data.
 
 # Efficient Implementations
 
