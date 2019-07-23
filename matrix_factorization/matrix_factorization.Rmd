@@ -1278,8 +1278,9 @@ digraph subscript {
 
   u -> P [label = 'embedding lookup']
   i -> Q [label = 'embedding lookup']
-  P -> y
-  Q -> y
+  P -> dot
+  Q -> dot
+  dot -> y
   Bp -> y
   Bq -> y
   y -> s [label = 'Sigmoid']
