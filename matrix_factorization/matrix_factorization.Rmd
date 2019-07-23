@@ -1367,7 +1367,6 @@ class KerasMF:
 keras_mf = KerasMF(R=ratings, with_bias=True)
 ```
 
-
 ```{python keras_fit}
 keras_mf.model.fit(train_data, epochs=10, steps_per_epoch=100, verbose=0)
 ```
