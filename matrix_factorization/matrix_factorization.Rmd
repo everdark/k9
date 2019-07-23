@@ -1375,7 +1375,7 @@ Check the loss per epoch after fit:
 
 ```{r keras_loss_trace_plot}
 # R
-plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
+plot(unlist(py$keras_mf$model$history$history["loss"]), pch="X", type="o",
      xlab="Epoch", ylab="Loss", main="Keras Factorization Model Loss Trace")
 ```
 
