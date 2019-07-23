@@ -1310,7 +1310,73 @@ factorization model using *deep* neural nets are also increasingly popular in bo
 Such models are using additional contextual features to enrich the model's knowledge about user-item interaction.
 The scope is beyond this notebook where we focus on the decomposition of merely the interaction matrix.
 
-[TensorFlow estimator coding examples here.]
+Should we seriously treat the factorization model as a neural network model,
+here is a formal implementation using `tensorflow` with `keras`'s functional API (assuming a real-valued factorization):
+
+```{python keras_functional_implementation}
+from tensorflow import feature_column as fc
+
+m, n = ratings.shape
+k = 3
+
+# Create input function directly from numpy array.
+R_u, R_i = ratings.nonzero()
+R_s = ratings[ratings.nonzero()]
+train_data = tf.data.Dataset.from_tensor_slices(
+  ({"user": R_u, "item": R_i}, R_s))
+train_data = train_data.shuffle(buffer_size=1000).repeat(count=None).batch(1)
+
+# Build the factorization network.
+l2_reg = tf.keras.regularizers.l2(1e-8)
+
+user_inputs = tf.keras.layers.Input(shape=(1,), name="user")
+item_inputs = tf.keras.layers.Input(shape=(1,), name="item")
+user_embeddings = tf.keras.layers.Embedding(
+  input_dim=m, output_dim=k, name="user_embedding")(user_inputs)
+item_embeddings = tf.keras.layers.Embedding(
+  input_dim=n, output_dim=k, name="item_embedding")(item_inputs)
+dots = tf.keras.layers.Dot(axes=-1, name="logits")([user_embeddings, item_embeddings])
+model = tf.keras.Model(inputs=[user_inputs, item_inputs],
+                       outputs=dots,
+                       name="matrix_factorizer")
+model.compile(
+  optimizer=tf.keras.optimizers.SGD(),
+  loss=tf.keras.losses.MeanSquaredError(),
+  metrics=[
+    tf.keras.metrics.MeanSquaredError()
+  ]
+)
+
+model.summary()
+```
+
+```{python keras_fit}
+model.fit(train_data, epochs=10, steps_per_epoch=100, verbose=0)
+```
+
+Check the loss per epoch after fit:
+
+```{r keras_loss_trace_plot}
+# R
+plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
+     xlab="Epoch", ylab="Loss", main="Keras Factorization Model Loss Trace")
+```
+
+Let's check the predictions on the training entries (left column for fitted values and right for the labels):
+
+```{python kreas_model_predict}
+keras_preds = model.predict({"user": R_u, "item": R_i})
+print(np.stack([np.squeeze(keras_preds),
+               ratings[ratings.nonzero()]], axis=1))
+```
+
+Or we can extract the embedding layers to manually calculate the predictions:
+
+```{python keras_model_layers}
+keras_user_embeddings = model.get_layer(name="user_embedding").weights[0].numpy()
+keras_item_embeddings = model.get_layer(name="item_embedding").weights[0].numpy()
+print(np.round(keras_user_embeddings.dot(keras_item_embeddings.T), 2))
+```
 
 # Model Evaluation
 
