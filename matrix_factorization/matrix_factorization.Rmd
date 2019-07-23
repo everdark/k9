@@ -837,9 +837,10 @@ we can check our training loss to see if it stablized over time:
 
 (Indeed we should do this a bit earlier.)
 
-```{python als_loss}
-for i, loss in enumerate(als_model.loss):
-  print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```{r als_loss_trace_plot}
+# R
+plot(unlist(py$als_model$loss), type="l", xlab="Step", ylab="Loss",
+     main="ALS MF Loss Trace")
 ```
 
 ### Logistic Matrix Factorization
@@ -985,10 +986,10 @@ lmf_model.train(n_step=100, lr=.1)
 print(np.round(lmf_model.predict_all(), 2))
 ```
 
-```{python logistic_mf_loss}
-for i, loss in enumerate(lmf_model.loss):
-  if i % 10 == 0:
-    print("Training Step {:2} | Loss: {}".format(i + 1, np.round(loss, 4)))
+```{r lmf_loss_trace_plot}
+# R
+plot(unlist(py$lmf_model$loss), type="l", xlab="Step", ylab="Loss",
+     main="Logistic MF Loss Trace")
 ```
 
 ### Bayesian Personalized Ranking
@@ -1211,7 +1212,7 @@ We can check thg stochastic loss trace over training iterations:
 
 ```{r bpr_loss_trace_plot}
 # R
-loss <- unlist((py$loss_bpr))
+loss <- unlist(py$loss_bpr)
 plot(zoo::rollmean(loss, 100), type="l", xlab="Step", ylab="Loss",
      main="Stochastic BPR Loss (100-Step Moving Average)")
 ```
@@ -1232,7 +1233,7 @@ Looking into that direction will be out of our scope in this notebook.
 
 For people who are familiar with neural network models,
 matrix factorization model should look very similar to them.
-Indeed a matrix factorization model *is* a shallow neural network model.^[For an overall discussion about neural networks one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html).]
+Indeed a matrix factorization model *is* a shallow neural network model.
 
 <div class="fold s">
 ```{r mf_as_nn_diagram, fig.width=8, fig.height=4}
@@ -1328,6 +1329,8 @@ A percentile rank of 0 means it is ranked at top,
 and 100 at bottom.
 Hence the lower the better for the testing items.
 The percentile rank of all testing items is then averaged to arrive at the Mean Percentile Rank (MPR).
+
+One drawback of this metric is that it can be very costly to compute since it involves multiple sorting operations of potentially large lists.
 
 ## Average User-Level AUC
 
