@@ -1315,11 +1315,6 @@ Should we seriously treat the factorization model as a neural network model,
 here is a formal implementation using `tensorflow` with `keras`'s functional API (assuming a real-valued factorization):
 
 ```{python keras_functional_implementation}
-from tensorflow import feature_column as fc
-
-m, n = ratings.shape
-k = 3
-
 # Create input function directly from numpy array.
 R_u, R_i = ratings.nonzero()
 R_s = ratings[ratings.nonzero()]
@@ -1328,31 +1323,53 @@ train_data = tf.data.Dataset.from_tensor_slices(
 train_data = train_data.shuffle(buffer_size=1000).repeat(count=None).batch(1)
 
 # Build the factorization network.
-l2_reg = tf.keras.regularizers.l2(1e-8)
+class KerasMF:
 
-user_inputs = tf.keras.layers.Input(shape=(1,), name="user")
-item_inputs = tf.keras.layers.Input(shape=(1,), name="item")
-user_embeddings = tf.keras.layers.Embedding(
-  input_dim=m, output_dim=k, name="user_embedding")(user_inputs)
-item_embeddings = tf.keras.layers.Embedding(
-  input_dim=n, output_dim=k, name="item_embedding")(item_inputs)
-dots = tf.keras.layers.Dot(axes=-1, name="logits")([user_embeddings, item_embeddings])
-model = tf.keras.Model(inputs=[user_inputs, item_inputs],
-                       outputs=dots,
-                       name="matrix_factorizer")
-model.compile(
-  optimizer=tf.keras.optimizers.SGD(),
-  loss=tf.keras.losses.MeanSquaredError(),
-  metrics=[
-    tf.keras.metrics.MeanSquaredError()
-  ]
-)
+  def __init__(self, R, k=3, l2=1e-4, with_bias=False):
+    self.l2_reg = tf.keras.regularizers.l2(l2)
+    self.m, self.n = R.shape
+    self.k = k
+    self.with_bias = with_bias
+    self.model = self.create_model()
 
-model.summary()
+  def create_model(self):
+    user_inputs = tf.keras.layers.Input(shape=(1,), name="user")
+    item_inputs = tf.keras.layers.Input(shape=(1,), name="item")
+    user_embeddings = tf.keras.layers.Embedding(
+      input_dim=self.m, output_dim=self.k, name="user_embedding",
+      embeddings_regularizer=self.l2_reg)(user_inputs)
+    item_embeddings = tf.keras.layers.Embedding(
+      input_dim=self.n, output_dim=self.k, name="item_embedding",
+      embeddings_regularizer=self.l2_reg)(item_inputs)
+    dots = tf.keras.layers.Dot(axes=-1, name="logits")([user_embeddings, item_embeddings])
+    if self.with_bias:
+      # The formal use of bias need a tf.keras.layers.Dense layer.
+      # But since we are customizing our network architecture,
+      # we will use the tf.keras.layers.Embedding layer to do the trick.
+      user_biases = tf.keras.layers.Embedding(
+        input_dim=self.m, output_dim=1, name="user_bias")(user_inputs)
+      item_biases = tf.keras.layers.Embedding(
+        input_dim=self.n, output_dim=1, name="item_bias")(item_inputs)
+      dots = tf.keras.layers.Add()([dots, user_biases, item_biases])
+    model = tf.keras.Model(
+      name="matrix_factorizer",
+      inputs=[user_inputs, item_inputs], outputs=dots)
+    model.compile(
+      optimizer=tf.keras.optimizers.SGD(),
+      loss=tf.keras.losses.MeanSquaredError(),
+      metrics=[
+        tf.keras.metrics.MeanSquaredError()
+      ]
+    )
+    print(model.summary())
+    return model
+
+keras_mf = KerasMF(R=ratings, with_bias=True)
 ```
 
+
 ```{python keras_fit}
-model.fit(train_data, epochs=10, steps_per_epoch=100, verbose=0)
+keras_mf.model.fit(train_data, epochs=10, steps_per_epoch=100, verbose=0)
 ```
 
 Check the loss per epoch after fit:
@@ -1366,7 +1383,7 @@ plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
 Let's check the predictions on the training entries (left column for fitted values and right for the labels):
 
 ```{python kreas_model_predict}
-keras_preds = model.predict({"user": R_u, "item": R_i})
+keras_preds = keras_mf.model.predict({"user": R_u, "item": R_i})
 print(np.stack([np.squeeze(keras_preds),
                ratings[ratings.nonzero()]], axis=1))
 ```
@@ -1374,9 +1391,14 @@ print(np.stack([np.squeeze(keras_preds),
 Or we can extract the embedding layers to manually calculate the predictions:
 
 ```{python keras_model_layers}
-keras_user_embeddings = model.get_layer(name="user_embedding").weights[0].numpy()
-keras_item_embeddings = model.get_layer(name="item_embedding").weights[0].numpy()
-print(np.round(keras_user_embeddings.dot(keras_item_embeddings.T), 2))
+keras_user_embeddings = keras_mf.model.get_layer(name="user_embedding").weights[0].numpy()
+keras_item_embeddings = keras_mf.model.get_layer(name="item_embedding").weights[0].numpy()
+keras_user_biases = keras_mf.model.get_layer(name="user_bias").weights[0].numpy()
+keras_item_biases = keras_mf.model.get_layer(name="item_bias").weights[0].numpy()
+dots = keras_user_embeddings.dot(keras_item_embeddings.T)
+dots += keras_user_biases
+dots += keras_item_biases[:,-1]
+print(np.round(dots, 2))
 ```
 
 # Model Evaluation
