@@ -1,6 +1,6 @@
 ---
 title: "Matrix Factorization for Recommender Systems"
-subtitle: "Deep-Dive from Ground Zero"
+subtitle: "A Deep-Dive from Ground Zero"
 author:
 - name: Kyle Chung
   affiliation:
@@ -1059,10 +1059,10 @@ $$
 
 where the logits $t$ can be any linear or non-linear function in $\Theta$.
 
-For the choice of prior (to pin down the term $P(\Theta)$ in the target function) in @rendle2009bpr independent Normal distributions are used for each model parameters.^[For readers who are unfamiliar with Bayesian modeling framework, here is a comprehensive [notebook about Bayesian statistics](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html) with hands-on examples.]
+For the choice of prior (to pin down the term $P(\Theta)$ in the target function) in @rendle2009bpr independent Normal distributions are used for each model parameters.^[For readers who are unfamiliar with Bayesian modeling framework, here is a comprehensive [notebook of *Bayesian Modeling Explained*](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html) with hands-on examples.]
 
 A Normal prior on parameters will effectively lead to L2 regularization in the target function,
-with the regularizer being the size of the variance of each parameter prior.^[Again for a detailed discussion on this, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#44_probabilistic_interpretation_of_l1l2_regularization).]
+with the regularizer being the size of the variance of each parameter prior.^[For a detailed discussion on this, one can refer to [the notebook of *Neural Network Fundamentals*](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#44_probabilistic_interpretation_of_l1l2_regularization).]
 The loss function (negative likelihood) hence can be expressed as a *pair-wise* log-loss:
 
 $$
