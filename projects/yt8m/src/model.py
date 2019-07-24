@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from tensorflow import feature_column as fc
+from tensorflow.python.lib.io import file_io
 from tensorflow.python.ops import init_ops
 from .eval_metrics import AverageNClass, HitAtOne
 
@@ -22,6 +23,7 @@ FEAT_COL_VIDEO = [
 FEAT_X = ["mean_rgb"]
 FEAT_SPEC_VIDEO = fc.make_parse_example_spec(FEAT_COL_VIDEO)
 MULTI_HOT_ENCODER = tf.keras.layers.DenseFeatures(FEAT_COL_VIDEO[-1])
+KERAS_TO_ESTIMATOR = False
 
 
 def calc_class_weight(infile, scale=1):
@@ -29,7 +31,12 @@ def calc_class_weight(infile, scale=1):
     The class weight for class i (w_i) is determined by:
     w_i = total no. samples / (n_class * count(class i))
     """
-    vocab = pd.read_csv(infile).sort_values("Index")
+    if infile.startswith("gs://"):
+        with file_io.FileIO(infile, "r") as f:
+            vocab = pd.read_csv(f)
+    else:
+        vocab = pd.read_csv(infile)
+    vocab.sort_values("Index", inplace=True)
     cnt = vocab["TrainVideoCount"]
     w = cnt.sum() / (len(vocab) * cnt)
     w = w.values.astype(np.float32)
@@ -40,8 +47,9 @@ def _parse(examples, spec, batch_size, n_class):
     features = tf.io.parse_example(examples, features=spec)
     labels = features.pop("labels")
     labels = MULTI_HOT_ENCODER({"labels": labels})
-    # Keras to estimator bug workaround.
-    features["input_1"] = features.pop("mean_rgb")
+    if KERAS_TO_ESTIMATOR:
+        # Keras to estimator naming inconsistency workaround.
+        features["input_1"] = features.pop("mean_rgb")
     return features, labels
 
 
@@ -63,8 +71,8 @@ def serving_input_receiver_fn():
     # Parse them into feature tensors.
     features = tf.io.parse_example(example_bytestring, FEAT_SPEC_VIDEO)
     features.pop("labels")  # Dummy label. Not important at all.
-    # Keras to estimator bug workaround.
-    features["input_1"] = features.pop("mean_rgb")
+    if KERAS_TO_ESTIMATOR:
+        features["input_1"] = features.pop("mean_rgb")
     return tf.estimator.export.ServingInputReceiver(features, {"examples_bytes": example_bytestring})
 
 
@@ -79,7 +87,10 @@ class BaseModel:
         )
         self.class_weights = calc_class_weight(VOCAB_FILE, scale=1)
         self.serving_input_receiver_fn = serving_input_receiver_fn
-        self.estimator = tf.keras.estimator.model_to_estimator(keras_model=self.model_fn(), config=config)
+        If KERAS_TO_ESTIMATOR:
+            self.estimator = tf.keras.estimator.model_to_estimator(keras_model=self.model_fn(), config=config)
+        else:
+            self.estimator = self.model_fn()
 
     def model_fn(self):
 
@@ -91,11 +102,10 @@ class BaseModel:
 
         FEAT_COL_X = [col for col in FEAT_COL_VIDEO if col.name in FEAT_X]
         l2_reg = tf.keras.regularizers.l2(1e-8)
-        fix = True  # Keras model to estimator bug workaround.
-        if fix:
+        if KERAS_TO_ESTIMATOR:
             inputs = tf.keras.layers.Input(shape=(1024,))
             predictions = tf.keras.layers.Dense(N_CLASS, acivation="sigmoid", kernel_regularizer=l2_reg)(inputs)
-            model = tf.keras.Model(inputs=inputs, outputs=predictions)
+            model = tf.keras.Model(inputs=inputs, outputs=predictions, name="baseline")
         else :
             model = tf.keras.models.Sequential(name="baseline")
             model.add(tf.keras.layers.DenseFeatures(FEAT_COL_X))
@@ -113,21 +123,34 @@ class BaseModel:
         return model
 
     def train_and_evaluate(self, params):
-        train_spec = tf.estimator.TrainSpec(
-            input_fn=lambda: input_fn(params["train_data_path"], spec=FEAT_SPEC_VIDEO),
-            max_steps=params["train_steps"]
-        )
-        exporter = tf.estimator.FinalExporter(name="exporter", serving_input_receiver_fn=serving_input_receiver_fn)
-        eval_spec = tf.estimator.EvalSpec(
-            input_fn=lambda: input_fn(params["eval_data_path"], spec=FEAT_SPEC_VIDEO, mode=tf.estimator.ModeKeys.EVAL),
-            steps=100,
-            start_delay_secs=60,
-            throttle_secs=1,
-            exporters=exporter
-        )
-        logging.getLogger("tensorflow").setLevel(logging.INFO)
-        tf.estimator.train_and_evaluate(
-            estimator=self.estimator,
-            train_spec=train_spec,
-            eval_spec=eval_spec
-        )
+        if KERAS_TO_ESTIMATOR:
+            # This is much slower than the native keras model fit under TF 2.0.
+            train_spec = tf.estimator.TrainSpec(
+                input_fn=lambda: input_fn(params["train_data_path"], spec=FEAT_SPEC_VIDEO),
+                max_steps=params["train_steps"]
+            )
+            exporter = tf.estimator.FinalExporter(
+                name="exporter", serving_input_receiver_fn=serving_input_receiver_fn)
+            eval_spec = tf.estimator.EvalSpec(
+                input_fn=lambda: input_fn(params["eval_data_path"], spec=FEAT_SPEC_VIDEO,
+                                          mode=tf.estimator.ModeKeys.EVAL),
+                steps=100,
+                start_delay_secs=60,
+                throttle_secs=1,
+                exporters=exporter
+            )
+            logging.getLogger("tensorflow").setLevel(logging.INFO)
+            tf.estimator.train_and_evaluate(
+                estimator=self.estimator,
+                train_spec=train_spec,
+                eval_spec=eval_spec
+            )
+        else:
+            cp_callback = tf.keras.callbacks.ModelCheckpoint(
+                params["model_dir"], save_weights_only=False,
+                load_weights_on_restart=True, verbose=1)
+            tb_callback = tf.keras.callbacks.TensorBoard(log_dir=params["model_dir"])
+            self.model.fit(
+                train_dataset, validation_data=valid_dataset, epochs=params["train_epochs"],
+                steps_per_epoch=params["train_steps"], validation_steps=100,
+                callbacks=[cp_callback, tb_callback])

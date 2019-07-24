@@ -20,6 +20,12 @@ if __name__ == "__main__":
         default=1000
     )
     parser.add_argument(
+        "--train_epochs",
+        help="Epochss to run the training job for (default: 1)",
+        type=int,
+        default=1
+    )
+    parser.add_argument(
         "--eval_data_path",
         help="GCS or local path to evaluation data",
         required= True
