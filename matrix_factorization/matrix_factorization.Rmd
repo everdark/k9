@@ -1621,7 +1621,34 @@ In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.ap
 Since Spark itself is designed for distributed computing,
 its ALS implementation is also highly scalable.
 
-[Sample code here.]
+Here is a coding example using the module with our toy data:
+
+```{python spark_mllib_als}
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, IntegerType, FloatType
+from pyspark.ml.recommendation import ALS
+
+spark = SparkSession.builder.appName('als_toy_example').getOrCreate()
+
+schema = StructType([
+    StructField("user_id", IntegerType(), True),
+    StructField("item_id", IntegerType(), True),
+    StructField("rating", FloatType(), True)])
+ratingsDF = spark.read.csv("data/R.txt", header=False, sep="\t", schema=schema)
+
+als = ALS(rank=3, maxIter=10, regParam=.01,
+          userCol="user_id", itemCol="item_id", ratingCol="rating")
+model = als.fit(ratingsDF)
+
+top_1_recommend = model.recommendForAllUsers(1)
+print(top_1_recommend.toPandas())
+```
+
+One limitation on the built-in prediction API is that it always consider all items instead of items unrated.
+For use case where we are only interested in ranking of unrated items,
+we need to do extra filtering,
+or to simply extract the embeddings and implement the dot product on our own.
+The embeddings can be accessed via `ALS` class member `.userFactors` and `.itemFactors`.
 
 ## StarSpace
 
