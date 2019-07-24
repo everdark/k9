@@ -1636,6 +1636,7 @@ schema = StructType([
     StructField("rating", FloatType(), True)])
 ratingsDF = spark.read.csv("data/R.txt", header=False, sep="\t", schema=schema)
 
+# By default ALS assumes explicit feedback. One can change that by setting implicitPrefs=True.
 als = ALS(rank=3, maxIter=10, regParam=.01,
           userCol="user_id", itemCol="item_id", ratingCol="rating")
 model = als.fit(ratingsDF)
