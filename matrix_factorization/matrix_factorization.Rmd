@@ -1,6 +1,6 @@
 ---
-title: "Matrix Factorization"
-subtitle: "for Recommender systems"
+title: "Matrix Factorization for Recommender Systems"
+subtitle: "Deep-Dive from Ground Zero"
 author:
 - name: Kyle Chung
   affiliation:
