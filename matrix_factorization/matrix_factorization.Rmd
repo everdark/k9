@@ -1617,7 +1617,7 @@ print(user_embed)
 
 ## Spark MLlib
 
-In [Apache Spark](https://spark.apache.org/) the [MlLib module](https://spark.apache.org/mllib/) has a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
+In [Apache Spark](https://spark.apache.org/) the [MLlib module](https://spark.apache.org/mllib/) has a [Collaborative Filtering submodule](https://spark.apache.org/docs/latest/ml-collaborative-filtering.html) which implements the ALS matrix factorization for both explicit and implicit feedback problems.
 Since Spark itself is designed for distributed computing,
 its ALS implementation is also highly scalable.
 
