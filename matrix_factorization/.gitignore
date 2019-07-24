@@ -1,3 +1,4 @@
 render.sh
 models/*
 data/*
+logs
