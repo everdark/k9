@@ -1,5 +1,6 @@
 """Video classification model on YouTube-8M dataset."""
 
+import os
 import logging
 from functools import partial
 
@@ -15,6 +16,9 @@ from .eval_metrics import AverageNClass, HitAtOne
 N_CLASS = 3862
 BATCH_SIZE = 1024
 VOCAB_FILE = "data/vocabulary.csv"
+# Exclude audio feature since we didn't implement audio feature extraction.
+# Even if the model can be trained on audio feature,
+# they won't be available for inference on new video.
 FEAT_COL_VIDEO = [
     fc.numeric_column(key="mean_rgb", shape=(1024,), dtype=tf.float32),
     #fc.numeric_column(key="mean_audio", shape=(128,), dtype=tf.float32),
@@ -47,9 +51,6 @@ def _parse(examples, spec, batch_size, n_class):
     features = tf.io.parse_example(examples, features=spec)
     labels = features.pop("labels")
     labels = MULTI_HOT_ENCODER({"labels": labels})
-    if KERAS_TO_ESTIMATOR:
-        # Keras to estimator naming inconsistency workaround.
-        features["input_1"] = features.pop("mean_rgb")
     return features, labels
 
 
@@ -71,8 +72,6 @@ def serving_input_receiver_fn():
     # Parse them into feature tensors.
     features = tf.io.parse_example(example_bytestring, FEAT_SPEC_VIDEO)
     features.pop("labels")  # Dummy label. Not important at all.
-    if KERAS_TO_ESTIMATOR:
-        features["input_1"] = features.pop("mean_rgb")
     return tf.estimator.export.ServingInputReceiver(features, {"examples_bytes": example_bytestring})
 
 
@@ -87,7 +86,7 @@ class BaseModel:
         )
         self.class_weights = calc_class_weight(VOCAB_FILE, scale=1)
         self.serving_input_receiver_fn = serving_input_receiver_fn
-        If KERAS_TO_ESTIMATOR:
+        if KERAS_TO_ESTIMATOR:
             self.estimator = tf.keras.estimator.model_to_estimator(keras_model=self.model_fn(), config=config)
         else:
             self.estimator = self.model_fn()
@@ -103,12 +102,13 @@ class BaseModel:
         FEAT_COL_X = [col for col in FEAT_COL_VIDEO if col.name in FEAT_X]
         l2_reg = tf.keras.regularizers.l2(1e-8)
         if KERAS_TO_ESTIMATOR:
-            inputs = tf.keras.layers.Input(shape=(1024,))
+            # DenseFeatures doesn't play well with Estimator.
+            inputs = tf.keras.layers.Input(shape=(1024,), name="mean_rgb")
             predictions = tf.keras.layers.Dense(N_CLASS, activation="sigmoid", kernel_regularizer=l2_reg)(inputs)
-            model = tf.keras.Model(inputs=inputs, outputs=predictions)
+            model = tf.keras.Model(inputs=inputs, outputs=predictions, name="baseline")
         else :
             model = tf.keras.models.Sequential(name="baseline")
-            model.add(tf.keras.layers.DenseFeatures(FEAT_COL_X))
+            model.add(tf.keras.layers.DenseFeatures(FEAT_COL_X, name="mean_rgb"))
             model.add(tf.keras.layers.Dense(N_CLASS, activation="sigmoid", kernel_regularizer=l2_reg))
         model.compile(
             optimizer="adam",
@@ -146,11 +146,14 @@ class BaseModel:
                 eval_spec=eval_spec
             )
         else:
-            cp_callback = tf.keras.callbacks.ModelCheckpoint(
-                params["model_dir"], save_weights_only=False,
-                load_weights_on_restart=True, verbose=1)
-            tb_callback = tf.keras.callbacks.TensorBoard(log_dir=params["model_dir"])
-            self.model.fit(
-                train_dataset, validation_data=valid_dataset, epochs=params["train_epochs"],
-                steps_per_epoch=params["train_steps"], validation_steps=100,
-                callbacks=[cp_callback, tb_callback])
+            model_dir = os.path.join(".", params["model_dir"])
+            train_dataset = input_fn(params["train_data_path"], spec=FEAT_SPEC_VIDEO)
+            valid_dataset = input_fn(params["eval_data_path"], spec=FEAT_SPEC_VIDEO,
+                                     mode=tf.estimator.ModeKeys.EVAL)
+            tb_callback = tf.keras.callbacks.TensorBoard(log_dir=model_dir)
+            self.estimator.fit(
+                train_dataset, validation_data=valid_dataset,
+                epochs=params["train_epochs"], steps_per_epoch=params["train_steps"],
+                validation_steps=100,
+                callbacks=[tb_callback])
+            self.estimator.save(model_dir, save_format="tf")
