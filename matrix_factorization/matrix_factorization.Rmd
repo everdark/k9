@@ -347,6 +347,9 @@ predictions = tf.matmul(rvmf_model.P, rvmf_model.Q, transpose_b=True).numpy()
 print(np.round(predictions * mask, 2))
 ```
 
+For a serious (yet still simple) implementation using `tensorflow.keras` APIs,
+please refer to the [Neural Network Representation] section.
+
 ## Binary Matrix Factorization
 
 When the user-item interaction is a binary outcome ($r_{ui} \in \{0, 1\}$),
@@ -1399,6 +1402,9 @@ dots += keras_user_biases
 dots += keras_item_biases[:,-1]
 print(np.round(dots, 2))
 ```
+
+Unlike the previous educational examples in the [Automatic Differentiation] section,
+here we are using high-level modern APIs that can scale well with the data.
 
 # Model Evaluation
 
