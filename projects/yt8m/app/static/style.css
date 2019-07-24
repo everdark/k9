@@ -1,0 +1,44 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body, section, div {
+  height: 100%;
+}
+
+body { 
+  font-family: sans-serif;
+  font-size: 1.25rem;
+  line-height: 150%;
+  text-align: center;
+}
+
+section {
+  width: 100%;
+}
+
+article {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  padding: 1rem;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.75rem 0;
+}
+
+/* Pattern styles */
+.left-half {
+  background-color: rgb(230, 90, 78);
+  float: left;
+  width: 70%;
+}
+.right-half {
+  background-color: rgb(230, 45, 39);
+  float: left;
+  width: 30%;
+}

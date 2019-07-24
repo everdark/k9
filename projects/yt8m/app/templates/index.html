@@ -1,0 +1,88 @@
+<!doctype html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <title>YouTube-8M-Demo</title>
+
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <script src="{{ url_for('static', filename='jquery-3.4.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='socket.io-2.2.0.min.js') }}"></script>
+    <script type="text/javascript" charset="utf-8">
+        // Handle async web socket communication.
+        $(document).ready(function() {
+            namespace = "";
+            var socket = io(namespace);
+            // Send async request to server.
+            $("form#yt_link").submit(function(event) {
+                //socket.emit("predict_request", {data: $("#video_link").val()});
+                socket.emit("predict_request",  {link: $("#video_link").val()});
+                return false;
+            });
+            // Receive async response from server.
+            socket.on("video_response", function(msg, cb) {
+                var iframe = $("<iframe>", {
+                   src: "https://www.youtube.com/embed/" + msg.tag + "?autoplay=1",
+                   frameborder: 0,
+                   style: "position:absolute;top:0;left:0;width:100%;height:100%;"
+                });
+                $("#video-frame").html(iframe);
+                // Clear previous predictions, if any.
+                $("#predictions").html("");
+                if (cb)
+                    cb();
+            });
+            socket.on("predict_response", function(msg, cb) {
+                var output = $("<ol>");
+                output.append("<h2>Predictions</h2>")
+                var cnt = 0;
+                $(msg.top_k).each(function(index, item) {
+                    cnt += 1;
+                    output.append(
+                        $(document.createElement("li")).text(item)
+                    );
+                    if ( cnt == msg.n_class ) {
+                        output.append("---<br>")
+                    }
+                });
+                output.append("---<br>")
+                output.append("Total No. of Predicted Classes: ")
+                output.append("<h2>" + msg.n_class + "</h2>")
+                $("#predictions").html(output);
+                if (cb)
+                    cb();
+            });
+            socket.on("status_update", function(msg, cb) {
+                $("#predictions").append("<p>" + msg.status + "</p>");
+                if (cb)
+                    cb();
+            });
+        });
+    </script>
+
+</head>
+
+<body>
+
+    <h1>Hello YouTube-8M!</h1>
+
+    <form id="yt_link" method="post" action="#">
+        <input placeholder="Put a youtube video link here..." 
+               type="text" name="video_link" id="video_link"
+               style="width:45%;margin:auto;">
+    </form>
+
+    <section class="container">
+        <div class="left-half">
+            <div style="position:relative;padding-top:56.25%;">
+                <div id="video-frame"></div>
+            </div>
+        </div>
+        <div class="right-half">
+            <div id="predictions"></div>
+        </div>
+    </section>
+</body>
