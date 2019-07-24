@@ -127,7 +127,7 @@ $$
 where $u$ and $i$ are index of the $u$-th user and the $i$-th item in the matrix $R$,
 $p_u$ is the user embedding vector for user $u$ and $q_i$ the item embedding vector for item $i$.
 Function $L(\cdot)$ is a generic loss function depends on the embeddings and the actual interaction $r_{ui}$.
-Constant $\gamma_*$ and $\lambda*$ are (optional) hyperparameters for regularization.^[For a detailed discussion about regularization, one can refer to [this notebook](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#4_regularization).]
+Constant $\gamma_*$ and $\lambda*$ are (optional) hyperparameters for regularization.
 
 There is obviously no closed-form solution for the above problem.
 But we can initialize the embeddings with random weights and apply numerical method such as [*gradient descent*](https://en.wikipedia.org/wiki/Gradient_descent) to approximate the solution.
@@ -1370,7 +1370,7 @@ class KerasMF:
 keras_mf = KerasMF(R=ratings, with_bias=True)
 ```
 
-```{python keras_fit}
+```{python keras_fit, results="hide"}
 keras_mf.model.fit(train_data, epochs=10, steps_per_epoch=100, verbose=0)
 ```
 
@@ -1408,11 +1408,13 @@ here we are using high-level modern APIs that can scale well with the data.
 
 # Model Evaluation
 
+In this notebook we focus more on how the training algorithm works in several classical matrix factorization tasks.
+For completeness we will also discuss briefly about model evaluation.
+
 Evaluation on a recommender system can be very tricky.
-In this section we will discuss several popular *offline* approaches for model evaluation.
+In this section we will bring up several popular *offline* approaches for model evaluation.
 The general idea is to mask out a fraction of interaction entries preserved as the testing set,
 so we know the actual interaction but exclude them from training data.
-
 Metrics derived based on this technique is usually considered *recall-based* since it is only based on the known positives.
 
 ## Mean Percentile Rank
@@ -1439,7 +1441,7 @@ or simply mask out a fraction of the interaction entries.
 
 If we formulate our recommender system as a ranking model,
 there are some more metrics to consider.
-In the [notebook of Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html#Evaluation-of-LTR-Model) we have a detailed discussion on those ranking metrics with hands-on examples.
+In the [notebook of *Introduction to Learning-to-Rank*](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html#Evaluation-of-LTR-Model) we have a detailed discussion on those ranking metrics with hands-on examples.
 
 In the end,
 which metric to use depends solely on the nature of the problem and also the availability of the data.
