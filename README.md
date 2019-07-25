@@ -10,11 +10,14 @@ The major programming language used for most of the notebooks is either [Python]
 + Statistics
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html)
 + Machine Learning
-    + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html)
+    + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
++ Natural Language Understanding
+    + Understand Subword Units for Natural Language Modeling (W.I.P.)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
+    + A General-Purpose Neural Ranking Model (W.I.P.)
 
 ## [Optional] Setup Python Environment
 
@@ -44,8 +47,7 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
         + Neural Machine Translation
     + GANs
 + Natural Language Understanding
-    + Chatbots
-    + Unsupervised Tokenization
+    + RASA Chatbots
 
 ### Site
 + Dockerize each notebook (for complete reproducibility)?
