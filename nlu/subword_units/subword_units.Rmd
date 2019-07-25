@@ -43,12 +43,15 @@ there will be too many unknown words to a model.
 
 To deal with such challenge,
 (@sennrich2015neural) propose the idea to break up rare words into subword units for neural network modeling.
-The segmentation approach is called the *byte pair encoding* compression algorithm,
+The segmentation approach is inspired by the [*byte pair encoding*](https://en.wikipedia.org/wiki/Byte_pair_encoding) compression algorithm,
 or BPE in short.
 
 ## Byte Pair Encoding
 
 BPE is a data compression algorithm that iteratively replaces the most frequent pair of bytes in a sequence with single unused byte.
+By maintaining a mapping table of the new byte and the replaced old bytes,
+we can recover the original message from a compressed representation.
+
 The same idea can be applied on charater-level instead of byte-level.
 
 Do not consider paris across word boundaries.
