@@ -1,0 +1,162 @@
+---
+title: "Understand Subword Units for Natural Language Modeling"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook: 
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  code_download: true
+bibliography: subword_units.bib
+abstract: |
+  TBC.
+---
+<!--For equation reference in Rmd.-->
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+# Subword Units
+
+Neural network models use a fixed size vocabulary to handle natrual language.
+When the potentail vocabulary space is huge,
+especially for a neural machine translation task,
+there will be too many unknown words to a model.
+
+To deal with such challenge,
+(@sennrich2015neural) propose the idea to break up rare words into subword units for neural network modeling.
+The segmentation approach is called the *byte pair encoding* compression algorithm,
+or BPE in short.
+
+## Byte Pair Encoding
+
+BPE is a data compression algorithm that iteratively replaces the most frequent pair of bytes in a sequence with single unused byte.
+The same idea can be applied on charater-level instead of byte-level.
+
+Do not consider paris across word boundaries.
+Number of merge operations is the only hyperparameter for the algorithm.
+
+The final symbol vocabulary size is equal to the size of the initial vocabulary,
+plus the number of merge operations.
+
+
+```{python bpe}
+import re
+from collections import defaultdict
+
+class BPE:
+  def __init__(self):
+    self.pairs = defaultdict(int)
+    
+  def count_pair_chars_on_word(self, w):
+    """Count and update the frequency of each 2 consecutive characters in a word."""
+    for i in range(len(w) - 1):
+      self.pairs[w[i], w[i+1]] += 1
+
+  def count_pair_chars(self, sent):
+    words = re.split(r"\W+", sent)
+    for w in words:
+      self.count_pair_chars_on_word(w)
+      
+  best = max(self.pairs, key=self.pairs.get)
+```
+
+Let's use the site [`README.md`](https://github.com/everdark/k9/blob/master/README.md) file as the input example to run the BPE algorithm:
+
+```{python bpe_try}
+with open("../../README.md", "rt") as f:
+  readme = [line.strip("\n").lower().strip() for line in f.readlines()]
+
+bpe = BPE()
+for sent in readme:
+  bpe.count_pair_chars(sent)
+print(bpe.pairs)
+```
+
+
+```{python bpe_vocab_example}
+vocab = {"low": 5, "lowest": 2, "newer": 6, "wider": 3}
+
+bpe = BPE()
+for sent in vocab.items:
+  bpe.count_pair_chars(sent)
+print(bpe.pairs)
+```
+
+
+
+```{python}
+# This is the original example from https://www.aclweb.org/anthology/P16-1162.
+import re
+import collections
+
+def get_stats(vocab):
+  pairs = collections.defaultdict(int)
+  for word, freq in vocab.items():
+    symbols = word.split()
+    for i in range(len(symbols)-1):
+      pairs[symbols[i],symbols[i+1]] += freq
+  return pairs
+
+def merge_vocab(pair, v_in):
+  v_out = {}
+  bigram = re.escape(' '.join(pair))
+  p = re.compile(r'(?<!\S)' + bigram + r'(?!\S)')
+  for word in v_in:
+    w_out = p.sub(''.join(pair), word)
+    v_out[w_out] = v_in[word]
+  return v_out
+
+vocab = {'l o w </w>': 5, 'l o w e r </w>': 2, 'n e w e s t </w>': 6, 'w i d e s t </w>': 3}
+num_merges = 10
+for i in range(num_merges):
+  pairs = get_stats(vocab)
+  best = max(pairs, key=pairs.get)
+  vocab = merge_vocab(best, vocab)
+  print(best)
+```
+
+```{python}
+vocab = {'l o w </w>': 5, 'l o w e r </w>': 2, 'n e w e s t </w>': 6, 'w i d e s t </w>': 3}
+for word, freq in vocab.items():
+  print(word)
+  print(freq)
+```
+
+
+```{python}
+
+```
+
+
+# Subword Regularization
+
+@kudo2018subword proposes a method called subword regularization.
+
+
+# SentencePiece
+
+@kudo2018sentencepiece
+
+BPE encodes a sentence into a unique subword sequences.
+A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by subwords.
+
+# References
