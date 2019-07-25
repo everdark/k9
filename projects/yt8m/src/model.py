@@ -27,7 +27,9 @@ FEAT_COL_VIDEO = [
 FEAT_X = ["mean_rgb"]
 FEAT_SPEC_VIDEO = fc.make_parse_example_spec(FEAT_COL_VIDEO)
 MULTI_HOT_ENCODER = tf.keras.layers.DenseFeatures(FEAT_COL_VIDEO[-1])
-KERAS_TO_ESTIMATOR = False
+# If we'd like to use a custom serving input function, we need to use the estimator API.
+# There is no document on how a keras model can use a custom serving input function.
+KERAS_TO_ESTIMATOR = True
 
 
 def calc_class_weight(infile, scale=1):

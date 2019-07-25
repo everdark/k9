@@ -17,7 +17,7 @@ import numpy as np
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-PROJECT = os.environ["PROJECT"]
+PROJECT = os.environ["PROJECT"]  # Name of gcloud project.
 MODEL = "yt8m_video"  # Name of the deployed ai-platform model.
 LABEL_VOCAB_FILE = "../data/vocabulary.csv"
 VIDEO_DIR = "test_videos"
