@@ -270,7 +270,7 @@ th {
 }
 @font-face {
   font-family: 'Glyphicons Halflings';
-  src: url('../components/bootstrap/fonts/glyphicons-halflings-regular.eot'/);
+  src: url('../components/bootstrap/fonts/glyphicons-halflings-regular.eot');
   src: url('../components/bootstrap/fonts/glyphicons-halflings-regular.eot?#iefix') format('embedded-opentype'), url('../components/bootstrap/fonts/glyphicons-halflings-regular.woff2') format('woff2'), url('../components/bootstrap/fonts/glyphicons-halflings-regular.woff') format('woff'), url('../components/bootstrap/fonts/glyphicons-halflings-regular.ttf') format('truetype'), url('../components/bootstrap/fonts/glyphicons-halflings-regular.svg#glyphicons_halflingsregular') format('svg');
 }
 .glyphicon {
@@ -16395,7 +16395,7 @@ $( document ).ready(function(){
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="Multi-Label-Video-Classification-"><strong>Multi-Label Video Classification</strong> <a class="tocSkip" /><a class="anchor-link" href="#Multi-Label-Video-Classification-">&#182;</a></h1><h2 id="A-TensorFlow-2.0-Journey,-and-More!-">A TensorFlow 2.0 Journey, and More! <a class="tocSkip" /><a class="anchor-link" href="#A-TensorFlow-2.0-Journey,-and-More!-">&#182;</a></h2><p><em>Kyle Chung</em></p>
-<p><em>2019-07-22 04:40:50 Last Updated</em></p>
+<p><em>2019-07-25 Last Updated</em></p>
 <hr>
 <p>This is a project I've done in the open project week during my training on Goole's Advanced Solutions Labs at Singapore site.
 The dataset used is <a href="https://research.google.com/youtube8m/">YouTue-8M</a>: a public dataset created by Google Research.
@@ -16417,7 +16417,8 @@ It can also serve as a reference point for my experience on TensorFlow 2.0, whic
 <div class="prompt input_prompt">In&nbsp;[1]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">logging</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
@@ -16676,7 +16677,6 @@ Since the task is a multi-label classification, meaning that each example can ha
 
 <span class="c1"># Define feature columns.</span>
 <span class="c1"># We will ignore the id column since we don&#39;t need it.</span>
-<span class="c1"># Also we drop the audio feature for now.</span>
 <span class="n">feat_col_video</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">fc</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
     <span class="n">fc</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mean_audio&quot;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">128</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
@@ -16738,7 +16738,8 @@ Since the task is a multi-label classification, meaning that each example can ha
     <span class="k">else</span><span class="p">:</span>
         <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">drop_remainder</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">_parse</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
-                                  <span class="n">n_class</span><span class="o">=</span><span class="n">n_class</span><span class="p">,</span> <span class="n">multi_hot_y</span><span class="o">=</span><span class="n">multi_hot_y</span><span class="p">))</span>
+                                  <span class="n">n_class</span><span class="o">=</span><span class="n">n_class</span><span class="p">,</span> <span class="n">multi_hot_y</span><span class="o">=</span><span class="n">multi_hot_y</span><span class="p">),</span>
+                          <span class="n">num_parallel_calls</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
     <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">prefetch</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">dataset</span>
 </pre></div>
@@ -16782,25 +16783,25 @@ Since the task is a multi-label classification, meaning that each example can ha
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>======Feature Dict======
 {&#39;mean_audio&#39;: &lt;tf.Tensor: id=146, shape=(32, 128), dtype=float32, numpy=
-array([[-1.360545  , -0.71442294, ...,  0.45849124,  0.695119  ],
-       [ 0.6953419 , -0.37989992, ...,  0.11259682, -0.9513509 ],
+array([[-1.6872855 ,  1.997464  , ...,  1.6208844 , -1.6786798 ],
+       [ 0.8285996 , -0.58513963, ..., -0.2040619 ,  0.17910004],
        ...,
-       [ 0.5794203 ,  0.10077982, ..., -0.37566462, -0.18742932],
-       [ 1.0512134 ,  1.9373561 , ..., -1.6345668 ,  0.24890658]],
+       [-0.39937705, -0.93784577, ...,  0.6170562 , -0.6303761 ],
+       [-0.35025287,  0.35353798, ...,  0.8385576 ,  0.5330936 ]],
       dtype=float32)&gt;, &#39;mean_rgb&#39;: &lt;tf.Tensor: id=147, shape=(32, 1024), dtype=float32, numpy=
-array([[ 0.49278513,  0.37351862, ..., -0.21506596,  0.02092673],
-       [ 1.2855642 , -1.721913  , ...,  0.7256164 , -0.53691953],
+array([[-0.05144676,  0.2870064 , ...,  0.48885825,  0.1084661 ],
+       [-0.03612004,  0.99390876, ..., -0.20461038, -0.00935465],
        ...,
-       [-0.07312868, -1.0586973 , ..., -0.1454424 ,  0.1598125 ],
-       [-0.37564442,  0.1038415 , ..., -0.28838128, -0.09355511]],
+       [-0.27052552,  0.7982887 , ...,  0.21574901, -0.03560487],
+       [-0.6038999 , -1.43956   , ..., -0.10758619,  0.4874465 ]],
       dtype=float32)&gt;}
 ======Label Tensor:======
 tf.Tensor(
-[[1. 1. ... 0. 0.]
+[[0. 0. ... 0. 0.]
  [0. 0. ... 0. 0.]
  ...
  [0. 0. ... 0. 0.]
- [0. 0. ... 0. 0.]], shape=(32, 3862), dtype=float32)
+ [1. 1. ... 0. 0.]], shape=(32, 3862), dtype=float32)
 </pre>
 </div>
 </div>
@@ -16846,11 +16847,11 @@ We can print also its dense representation for a clear view:</p>
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>tf.Tensor(
-[[   2  522 1561    0    0    0    0    0]
- [   3    6    0    0    0    0    0    0]
- [  41    0    0    0    0    0    0    0]
- [   0   12    0    0    0    0    0    0]
- [   0   12    0    0    0    0    0    0]], shape=(5, 8), dtype=int64)
+[[  2   7 252 464   0   0   0]
+ [  3   4   6   9  10   0   0]
+ [  2   7 402   0   0   0   0]
+ [ 11  20  22  29  32   0   0]
+ [  5  16   0   0   0   0   0]], shape=(5, 7), dtype=int64)
 </pre>
 </div>
 </div>
@@ -16872,7 +16873,7 @@ Since the only operation needed when doing model inference is covered by the sta
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Debug-Network-Layers">Debug Network Layers<a class="anchor-link" href="#Debug-Network-Layers">&#182;</a></h2><p>We will use <code>tf.keras.layers</code> API to construct our model.
+<h2 id="Debug-Network-Layers">Debug Network Layers<a class="anchor-link" href="#Debug-Network-Layers">&#182;</a></h2><p>We will use <code>tf.keras.layers</code> functional API to construct our model.
 Before we build the model, it is good to first observe how feature columns are parsed into network layers.
 We can use <code>tf.keras.layers.DenseFeatures</code> to create a layer from a list of feature columns.
 Essentially what it does is just to concatenate the vector to form a single tensor ready for connection to subsequent hidden layers.</p>
@@ -16911,11 +16912,11 @@ Essentially what it does is just to concatenate the vector to form a single tens
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>tf.Tensor(
-[[-1.360545   -0.71442294 ... -0.21506596  0.02092673]
- [ 0.6953419  -0.37989992 ...  0.7256164  -0.53691953]
+[[-1.6872855   1.997464   ...  0.48885825  0.1084661 ]
+ [ 0.8285996  -0.58513963 ... -0.20461038 -0.00935465]
  ...
- [ 0.5794203   0.10077982 ... -0.1454424   0.1598125 ]
- [ 1.0512134   1.9373561  ... -0.28838128 -0.09355511]], shape=(32, 1152), dtype=float32)
+ [-0.39937705 -0.93784577 ...  0.21574901 -0.03560487]
+ [-0.35025287  0.35353798 ... -0.10758619  0.4874465 ]], shape=(32, 1152), dtype=float32)
 </pre>
 </div>
 </div>
@@ -16963,11 +16964,11 @@ And we feed the input layer derived from feature columns to this output layer to
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>tf.Tensor(
-[[0.48733622 0.46331215 ... 0.46246886 0.5137628 ]
- [0.5214744  0.46407914 ... 0.40597236 0.40556628]
+[[0.5560694  0.5394199  ... 0.6719381  0.43064767]
+ [0.48574066 0.48891518 ... 0.5101847  0.48729917]
  ...
- [0.489693   0.5337485  ... 0.55123544 0.5208428 ]
- [0.39137942 0.44164637 ... 0.55346745 0.51629794]], shape=(32, 3862), dtype=float32)
+ [0.40846935 0.5233854  ... 0.43280134 0.42753273]
+ [0.572879   0.5014741  ... 0.64102185 0.53809464]], shape=(32, 3862), dtype=float32)
 </pre>
 </div>
 </div>
@@ -17013,11 +17014,11 @@ Sp if we manually implement the matrix operation, the result shoudl coincide wit
 
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>tf.Tensor(
-[[0.48733622 0.46331215 ... 0.46246886 0.5137628 ]
- [0.5214744  0.46407914 ... 0.40597236 0.40556628]
+[[0.5560694  0.5394199  ... 0.6719381  0.43064767]
+ [0.48574066 0.48891518 ... 0.5101847  0.48729917]
  ...
- [0.489693   0.5337485  ... 0.55123544 0.5208428 ]
- [0.39137942 0.44164637 ... 0.55346745 0.51629794]], shape=(32, 3862), dtype=float32)
+ [0.40846935 0.5233854  ... 0.43280134 0.42753273]
+ [0.572879   0.5014741  ... 0.64102185 0.53809464]], shape=(32, 3862), dtype=float32)
 </pre>
 </div>
 </div>
@@ -17059,7 +17060,7 @@ Let's examine the API for binary cross entropy.</p>
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>0.7081387
+<pre>0.707195
 </pre>
 </div>
 </div>
@@ -17106,7 +17107,7 @@ To verify the result, we can manually code the calculation:</p>
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>0.70813894
+<pre>0.7071952
 </pre>
 </div>
 </div>
@@ -17151,7 +17152,7 @@ Essentially we are still calculating individual cross entropy, but will sum over
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>2734.8325
+<pre>2731.1877
 </pre>
 </div>
 </div>
@@ -17200,7 +17201,7 @@ To calculate the metric given a batch:</p>
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>0.0009851262</pre>
+<pre>0.00097288884</pre>
 </div>
 
 </div>
@@ -17212,7 +17213,16 @@ To calculate the metric given a batch:</p>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Build-Models">Build Models<a class="anchor-link" href="#Build-Models">&#182;</a></h2><p>For model not very complicated and customized, <code>tf.keras.models</code> API is a very fast way for prototyping.
+<p><code>tf.keras.metrics.Metric</code> is special in that it is <em>stateful</em>, so can be used to update the metric by batch.
+This fits well with the batching data pipeline adopted by the <code>tensorflow</code> neural network learning framework.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Build-Models">Build Models<a class="anchor-link" href="#Build-Models">&#182;</a></h2><p>For model not very complicated and customized, <code>tf.keras.models</code> API is a very fast but also flexible way for prototyping.
 We will simply connect the input layer to output layer, essentially build K-logistic regression model for K labels independently.
 This is a classical baseline model for a multi-label learning task.</p>
 
@@ -17235,8 +17245,8 @@ This is a classical baseline model for a multi-label learning task.</p>
 
 <span class="n">l2_reg</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">regularizers</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="mf">1e-8</span><span class="p">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;baseline&quot;</span><span class="p">)</span>
-<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">feat_col_x</span><span class="p">))</span>
-<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">3862</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">feat_col_x</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="mi">3862</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;output&quot;</span><span class="p">,</span>
                                 <span class="n">kernel_regularizer</span><span class="o">=</span><span class="n">l2_reg</span><span class="p">))</span>
 <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
     <span class="n">optimizer</span><span class="o">=</span><span class="s2">&quot;adam&quot;</span><span class="p">,</span>
@@ -17288,9 +17298,9 @@ This is a classical baseline model for a multi-label learning task.</p>
 _________________________________________________________________
 Layer (type)                 Output Shape              Param #   
 =================================================================
-dense_features_2 (DenseFeatu multiple                  0         
+input (DenseFeatures)        multiple                  0         
 _________________________________________________________________
-dense_1 (Dense)              multiple                  4452886   
+output (Dense)               multiple                  4452886   
 =================================================================
 Total params: 4,452,886
 Trainable params: 4,452,886
@@ -17328,7 +17338,7 @@ _________________________________________________________________
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>100/100 [==============================] - 2s 18ms/step - loss: 0.6682 - precision_1: 0.0012 - recall: 0.6144 - val_loss: 0.6327 - val_precision_1: 0.0016 - val_recall: 0.6531
+<pre>100/100 [==============================] - 2s 21ms/step - loss: 0.6682 - precision_1: 0.0012 - recall: 0.6128 - val_loss: 0.6328 - val_precision_1: 0.0016 - val_recall: 0.6514
 </pre>
 </div>
 </div>
@@ -17341,7 +17351,7 @@ _________________________________________________________________
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;tensorflow.python.keras.callbacks.History at 0x1670951c898&gt;</pre>
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203ed72bc50&gt;</pre>
 </div>
 
 </div>
@@ -17353,7 +17363,7 @@ _________________________________________________________________
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Use-Tensorboard-with-Keras-Model">Use Tensorboard with Keras Model<a class="anchor-link" href="#Use-Tensorboard-with-Keras-Model">&#182;</a></h3><p>To use <code>tensorboard</code> for keras model on tracking the model losses, we need to explicitly implement a callback function and pass it to the <code>fit</code> method.</p>
+<h3 id="Use-Tensorboard-with-Keras-Model">Use Tensorboard with Keras Model<a class="anchor-link" href="#Use-Tensorboard-with-Keras-Model">&#182;</a></h3><p>To use <code>tensorboard</code> for keras model on tracking the model loss and evaluation metrics, we need to explicitly implement a callback function and pass it to the <code>fit</code> method.</p>
 
 </div>
 </div>
@@ -17364,7 +17374,7 @@ _________________________________________________________________
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span>%%bash
-<span class="c1"># Create directory to save pre-trained models.</span>
+<span class="c1"># Create directory to save pre-trained model tb events.</span>
 mkdir -p models
 </pre></div>
 
@@ -17401,7 +17411,7 @@ mkdir -p models
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;tensorflow.python.keras.callbacks.History at 0x1676015bac8&gt;</pre>
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203f310cda0&gt;</pre>
 </div>
 
 </div>
@@ -17555,7 +17565,7 @@ It should not tru to predict too many labels on average since the overall averag
 <div class="prompt input_prompt">In&nbsp;[24]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">create_baseline_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">create_baseline_model</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="n">feat_cols</span><span class="p">):</span>
     <span class="n">l2_reg</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">regularizers</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="mf">1e-8</span><span class="p">)</span>
     <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;baseline_&quot;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
     <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">feat_col_x</span><span class="p">))</span>
@@ -17591,12 +17601,11 @@ It should not tru to predict too many labels on average since the overall averag
 <div class="prompt input_prompt">In&nbsp;[25]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># NOTE:</span>
-<span class="c1"># For Windows we need to use backslash to avoid a known bug in tensorboard.</span>
-<span class="n">model_1</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;entropy&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">binary_crossentropy</span><span class="p">)</span>
-<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="s2">&quot;models\eval\entropy&quot;</span><span class="p">)</span>
-<span class="n">model_1</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
-            <span class="n">epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_1_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;loss_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;entropy&quot;</span><span class="p">)</span>
+<span class="n">model_1</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;entropy&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">binary_crossentropy</span><span class="p">,</span> <span class="n">feat_cols</span><span class="o">=</span><span class="n">feat_col_x</span><span class="p">)</span>
+<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="n">model_1_dir</span><span class="p">)</span>
+<span class="n">model_1</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+            <span class="n">epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
             <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">tensorboard_callback</span><span class="p">])</span>
 </pre></div>
 
@@ -17614,26 +17623,16 @@ It should not tru to predict too many labels on average since the overall averag
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Epoch 1/10
-3000/3000 [==============================] - 36s 12ms/step - loss: 0.2788 - precision_2: 0.0044 - recall_1: 0.5788 - average_n_class: 538.4087 - hit_at_one: 0.5977 - val_loss: 0.1014 - val_precision_2: 0.2616 - val_recall_1: 0.4653 - val_average_n_class: 5.3413 - val_hit_at_one: 0.7602
-Epoch 2/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 0.0542 - precision_2: 0.3959 - recall_1: 0.4613 - average_n_class: 3.9574 - hit_at_one: 0.7620 - val_loss: 0.0260 - val_precision_2: 0.8550 - val_recall_1: 0.4760 - val_average_n_class: 1.6719 - val_hit_at_one: 0.7774
-Epoch 3/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0153 - precision_2: 0.8564 - recall_1: 0.4835 - average_n_class: 1.6976 - hit_at_one: 0.7846 - val_loss: 0.0085 - val_precision_2: 0.8532 - val_recall_1: 0.5060 - val_average_n_class: 1.7811 - val_hit_at_one: 0.7905
-Epoch 4/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0056 - precision_2: 0.8477 - recall_1: 0.5128 - average_n_class: 1.8216 - hit_at_one: 0.7943 - val_loss: 0.0038 - val_precision_2: 0.8452 - val_recall_1: 0.5351 - val_average_n_class: 1.9015 - val_hit_at_one: 0.8000
-Epoch 5/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0030 - precision_2: 0.8416 - recall_1: 0.5406 - average_n_class: 1.9348 - hit_at_one: 0.8045 - val_loss: 0.0025 - val_precision_2: 0.8381 - val_recall_1: 0.5544 - val_average_n_class: 1.9867 - val_hit_at_one: 0.8048
-Epoch 6/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0023 - precision_2: 0.8337 - recall_1: 0.5566 - average_n_class: 2.0173 - hit_at_one: 0.8091 - val_loss: 0.0021 - val_precision_2: 0.8320 - val_recall_1: 0.5630 - val_average_n_class: 2.0322 - val_hit_at_one: 0.8068
-Epoch 7/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0020 - precision_2: 0.8318 - recall_1: 0.5673 - average_n_class: 2.0552 - hit_at_one: 0.8130 - val_loss: 0.0020 - val_precision_2: 0.8305 - val_recall_1: 0.5734 - val_average_n_class: 2.0734 - val_hit_at_one: 0.8105
-Epoch 8/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0019 - precision_2: 0.8270 - recall_1: 0.5717 - average_n_class: 2.0835 - hit_at_one: 0.8139 - val_loss: 0.0019 - val_precision_2: 0.8281 - val_recall_1: 0.5782 - val_average_n_class: 2.0971 - val_hit_at_one: 0.8131
-Epoch 9/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0019 - precision_2: 0.8271 - recall_1: 0.5780 - average_n_class: 2.1004 - hit_at_one: 0.8131 - val_loss: 0.0019 - val_precision_2: 0.8301 - val_recall_1: 0.5785 - val_average_n_class: 2.0930 - val_hit_at_one: 0.8146
-Epoch 10/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 0.0018 - precision_2: 0.8266 - recall_1: 0.5807 - average_n_class: 2.1106 - hit_at_one: 0.8169 - val_loss: 0.0018 - val_precision_2: 0.8311 - val_recall_1: 0.5807 - val_average_n_class: 2.0987 - val_hit_at_one: 0.8147
+<pre>Epoch 1/5
+3000/3000 [==============================] - 373s 124ms/step - loss: 0.2678 - precision_2: 0.0046 - recall_1: 0.6202 - average_n_class: 522.0993 - hit_at_one: 0.6858 - val_loss: 0.0983 - val_precision_2: 0.3321 - val_recall_1: 0.4850 - val_average_n_class: 4.3865 - val_hit_at_one: 0.7691
+Epoch 2/5
+3000/3000 [==============================] - 365s 122ms/step - loss: 0.0522 - precision_2: 0.5380 - recall_1: 0.4817 - average_n_class: 2.8471 - hit_at_one: 0.7750 - val_loss: 0.0249 - val_precision_2: 0.8653 - val_recall_1: 0.4939 - val_average_n_class: 1.7143 - val_hit_at_one: 0.7889
+Epoch 3/5
+3000/3000 [==============================] - 356s 119ms/step - loss: 0.0146 - precision_2: 0.8670 - recall_1: 0.5001 - average_n_class: 1.7371 - hit_at_one: 0.7944 - val_loss: 0.0080 - val_precision_2: 0.8697 - val_recall_1: 0.5258 - val_average_n_class: 1.8157 - val_hit_at_one: 0.8053
+Epoch 4/5
+3000/3000 [==============================] - 361s 120ms/step - loss: 0.0052 - precision_2: 0.8683 - recall_1: 0.5333 - average_n_class: 1.8494 - hit_at_one: 0.8100 - val_loss: 0.0034 - val_precision_2: 0.8654 - val_recall_1: 0.5549 - val_average_n_class: 1.9259 - val_hit_at_one: 0.8159
+Epoch 5/5
+3000/3000 [==============================] - 345s 115ms/step - loss: 0.0026 - precision_2: 0.8627 - recall_1: 0.5615 - average_n_class: 1.9599 - hit_at_one: 0.8208 - val_loss: 0.0021 - val_precision_2: 0.8608 - val_recall_1: 0.5756 - val_average_n_class: 2.0083 - val_hit_at_one: 0.8244
 </pre>
 </div>
 </div>
@@ -17646,7 +17645,7 @@ Epoch 10/10
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;tensorflow.python.keras.callbacks.History at 0x1688aa7e320&gt;</pre>
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203f8bbef98&gt;</pre>
 </div>
 
 </div>
@@ -17660,10 +17659,11 @@ Epoch 10/10
 <div class="prompt input_prompt">In&nbsp;[26]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_2</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;hamming&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">hamming_loss</span><span class="p">)</span>
-<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="s2">&quot;models\eval\hamming&quot;</span><span class="p">)</span>
-<span class="n">model_2</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
-            <span class="n">epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_2_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;loss_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;hamming&quot;</span><span class="p">)</span>
+<span class="n">model_2</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;hamming&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">hamming_loss</span><span class="p">,</span> <span class="n">feat_cols</span><span class="o">=</span><span class="n">feat_col_x</span><span class="p">)</span>
+<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="n">model_2_dir</span><span class="p">)</span>
+<span class="n">model_2</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+            <span class="n">epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
             <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">tensorboard_callback</span><span class="p">])</span>
 </pre></div>
 
@@ -17681,26 +17681,16 @@ Epoch 10/10
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Epoch 1/10
-3000/3000 [==============================] - 36s 12ms/step - loss: 1074.9952 - precision_3: 0.0043 - recall_2: 0.5764 - average_n_class: 539.6016 - hit_at_one: 0.5993 - val_loss: 390.3731 - val_precision_3: 0.2589 - val_recall_2: 0.4659 - val_average_n_class: 5.4035 - val_hit_at_one: 0.7604
-Epoch 2/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 208.5797 - precision_3: 0.3930 - recall_2: 0.4621 - average_n_class: 4.0039 - hit_at_one: 0.7620 - val_loss: 99.6288 - val_precision_3: 0.8532 - val_recall_2: 0.4775 - val_average_n_class: 1.6808 - val_hit_at_one: 0.7776
-Epoch 3/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 58.4551 - precision_3: 0.8547 - recall_2: 0.4852 - average_n_class: 1.7067 - hit_at_one: 0.7847 - val_loss: 32.2992 - val_precision_3: 0.8498 - val_recall_2: 0.5087 - val_average_n_class: 1.7976 - val_hit_at_one: 0.7908
-Epoch 4/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 21.2756 - precision_3: 0.8436 - recall_2: 0.5162 - average_n_class: 1.8425 - hit_at_one: 0.7947 - val_loss: 14.1521 - val_precision_3: 0.8387 - val_recall_2: 0.5391 - val_average_n_class: 1.9306 - val_hit_at_one: 0.8005
-Epoch 5/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 11.1573 - precision_3: 0.8343 - recall_2: 0.5451 - average_n_class: 1.9677 - hit_at_one: 0.8046 - val_loss: 9.1903 - val_precision_3: 0.8292 - val_recall_2: 0.5600 - val_average_n_class: 2.0284 - val_hit_at_one: 0.8048
-Epoch 6/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 8.3969 - precision_3: 0.8247 - recall_2: 0.5626 - average_n_class: 2.0615 - hit_at_one: 0.8091 - val_loss: 7.7755 - val_precision_3: 0.8213 - val_recall_2: 0.5694 - val_average_n_class: 2.0821 - val_hit_at_one: 0.8073
-Epoch 7/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 7.4745 - precision_3: 0.8207 - recall_2: 0.5741 - average_n_class: 2.1082 - hit_at_one: 0.8132 - val_loss: 7.2118 - val_precision_3: 0.8189 - val_recall_2: 0.5811 - val_average_n_class: 2.1312 - val_hit_at_one: 0.8115
-Epoch 8/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 7.1037 - precision_3: 0.8146 - recall_2: 0.5800 - average_n_class: 2.1455 - hit_at_one: 0.8147 - val_loss: 6.9353 - val_precision_3: 0.8151 - val_recall_2: 0.5868 - val_average_n_class: 2.1621 - val_hit_at_one: 0.8136
-Epoch 9/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 6.8647 - precision_3: 0.8143 - recall_2: 0.5867 - average_n_class: 2.1655 - hit_at_one: 0.8140 - val_loss: 6.7664 - val_precision_3: 0.8159 - val_recall_2: 0.5876 - val_average_n_class: 2.1631 - val_hit_at_one: 0.8152
-Epoch 10/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 6.7277 - precision_3: 0.8116 - recall_2: 0.5897 - average_n_class: 2.1825 - hit_at_one: 0.8179 - val_loss: 6.6418 - val_precision_3: 0.8161 - val_recall_2: 0.5904 - val_average_n_class: 2.1728 - val_hit_at_one: 0.8153
+<pre>Epoch 1/5
+3000/3000 [==============================] - 355s 118ms/step - loss: 1030.4967 - precision_3: 0.0046 - recall_2: 0.6236 - average_n_class: 520.7863 - hit_at_one: 0.6950 - val_loss: 377.5508 - val_precision_3: 0.3301 - val_recall_2: 0.4858 - val_average_n_class: 4.4204 - val_hit_at_one: 0.7691
+Epoch 2/5
+3000/3000 [==============================] - 354s 118ms/step - loss: 200.1429 - precision_3: 0.5396 - recall_2: 0.4828 - average_n_class: 2.8416 - hit_at_one: 0.7753 - val_loss: 95.1995 - val_precision_3: 0.8636 - val_recall_2: 0.4962 - val_average_n_class: 1.7258 - val_hit_at_one: 0.7892
+Epoch 3/5
+3000/3000 [==============================] - 358s 119ms/step - loss: 55.7325 - precision_3: 0.8654 - recall_2: 0.5026 - average_n_class: 1.7493 - hit_at_one: 0.7950 - val_loss: 30.3114 - val_precision_3: 0.8670 - val_recall_2: 0.5301 - val_average_n_class: 1.8362 - val_hit_at_one: 0.8064
+Epoch 4/5
+3000/3000 [==============================] - 364s 121ms/step - loss: 19.6852 - precision_3: 0.8655 - recall_2: 0.5383 - average_n_class: 1.8729 - hit_at_one: 0.8114 - val_loss: 12.6482 - val_precision_3: 0.8618 - val_recall_2: 0.5624 - val_average_n_class: 1.9598 - val_hit_at_one: 0.8184
+Epoch 5/5
+3000/3000 [==============================] - 363s 121ms/step - loss: 9.6004 - precision_3: 0.8582 - recall_2: 0.5699 - average_n_class: 1.9997 - hit_at_one: 0.8234 - val_loss: 7.5513 - val_precision_3: 0.8549 - val_recall_2: 0.5875 - val_average_n_class: 2.0638 - val_hit_at_one: 0.8279
 </pre>
 </div>
 </div>
@@ -17713,7 +17703,7 @@ Epoch 10/10
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;tensorflow.python.keras.callbacks.History at 0x1688b14fd68&gt;</pre>
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x20404bbccc0&gt;</pre>
 </div>
 
 </div>
@@ -17727,10 +17717,11 @@ Epoch 10/10
 <div class="prompt input_prompt">In&nbsp;[27]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_3</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;weighted_hamming&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">weighted_hamming_loss</span><span class="p">)</span>
-<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="s2">&quot;models\eval\weighted_hamming&quot;</span><span class="p">)</span>
-<span class="n">model_3</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-            <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_3_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;loss_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;weighted_hamming&quot;</span><span class="p">)</span>
+<span class="n">model_3</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;weighted_hamming&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">weighted_hamming_loss</span><span class="p">,</span> <span class="n">feat_cols</span><span class="o">=</span><span class="n">feat_col_x</span><span class="p">)</span>
+<span class="n">tensorboard_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="n">model_3_dir</span><span class="p">)</span>
+<span class="n">model_3</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+            <span class="n">epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
             <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">tensorboard_callback</span><span class="p">])</span>
 </pre></div>
 
@@ -17748,26 +17739,16 @@ Epoch 10/10
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Epoch 1/10
-3000/3000 [==============================] - 36s 12ms/step - loss: 111280.4596 - precision_4: 0.0043 - recall_3: 0.5763 - average_n_class: 539.6021 - hit_at_one: 0.5926 - val_loss: 40141.0463 - val_precision_4: 0.2590 - val_recall_3: 0.4654 - val_average_n_class: 5.3955 - val_hit_at_one: 0.7604
-Epoch 2/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 21214.0358 - precision_4: 0.3930 - recall_3: 0.4612 - average_n_class: 3.9968 - hit_at_one: 0.7623 - val_loss: 9865.7157 - val_precision_4: 0.8542 - val_recall_3: 0.4766 - val_average_n_class: 1.6758 - val_hit_at_one: 0.7775
-Epoch 3/10
-3000/3000 [==============================] - 36s 12ms/step - loss: 5568.7412 - precision_4: 0.8555 - recall_3: 0.4842 - average_n_class: 1.7017 - hit_at_one: 0.7847 - val_loss: 2837.5890 - val_precision_4: 0.8511 - val_recall_3: 0.5075 - val_average_n_class: 1.7908 - val_hit_at_one: 0.7910
-Epoch 4/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 1682.6722 - precision_4: 0.8448 - recall_3: 0.5150 - average_n_class: 1.8358 - hit_at_one: 0.7947 - val_loss: 937.9595 - val_precision_4: 0.8400 - val_recall_3: 0.5379 - val_average_n_class: 1.9231 - val_hit_at_one: 0.8008
-Epoch 5/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 619.7553 - precision_4: 0.8355 - recall_3: 0.5440 - average_n_class: 1.9608 - hit_at_one: 0.8043 - val_loss: 416.6513 - val_precision_4: 0.8301 - val_recall_3: 0.5586 - val_average_n_class: 2.0209 - val_hit_at_one: 0.8048
-Epoch 6/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 333.0618 - precision_4: 0.8258 - recall_3: 0.5613 - average_n_class: 2.0540 - hit_at_one: 0.8091 - val_loss: 277.6368 - val_precision_4: 0.8226 - val_recall_3: 0.5681 - val_average_n_class: 2.0740 - val_hit_at_one: 0.8073
-Epoch 7/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 250.0174 - precision_4: 0.8219 - recall_3: 0.5730 - average_n_class: 2.1010 - hit_at_one: 0.8134 - val_loss: 231.4587 - val_precision_4: 0.8203 - val_recall_3: 0.5797 - val_average_n_class: 2.1225 - val_hit_at_one: 0.8114
-Epoch 8/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 218.8057 - precision_4: 0.8158 - recall_3: 0.5785 - average_n_class: 2.1372 - hit_at_one: 0.8143 - val_loss: 210.9961 - val_precision_4: 0.8162 - val_recall_3: 0.5853 - val_average_n_class: 2.1537 - val_hit_at_one: 0.8133
-Epoch 9/10
-3000/3000 [==============================] - 34s 11ms/step - loss: 204.7261 - precision_4: 0.8153 - recall_3: 0.5854 - average_n_class: 2.1578 - hit_at_one: 0.8137 - val_loss: 199.6532 - val_precision_4: 0.8172 - val_recall_3: 0.5862 - val_average_n_class: 2.1544 - val_hit_at_one: 0.8147
-Epoch 10/10
-3000/3000 [==============================] - 35s 12ms/step - loss: 195.1797 - precision_4: 0.8128 - recall_3: 0.5882 - average_n_class: 2.1740 - hit_at_one: 0.8174 - val_loss: 191.8538 - val_precision_4: 0.8173 - val_recall_3: 0.5890 - val_average_n_class: 2.1645 - val_hit_at_one: 0.8150
+<pre>Epoch 1/5
+3000/3000 [==============================] - 379s 126ms/step - loss: 106687.8849 - precision_4: 0.0046 - recall_3: 0.6217 - average_n_class: 520.8347 - hit_at_one: 0.6859 - val_loss: 38828.6756 - val_precision_4: 0.3299 - val_recall_3: 0.4850 - val_average_n_class: 4.4145 - val_hit_at_one: 0.7691
+Epoch 2/5
+3000/3000 [==============================] - 359s 120ms/step - loss: 20364.3197 - precision_4: 0.5397 - recall_3: 0.4817 - average_n_class: 2.8355 - hit_at_one: 0.7755 - val_loss: 9440.6449 - val_precision_4: 0.8647 - val_recall_3: 0.4946 - val_average_n_class: 1.7177 - val_hit_at_one: 0.7897
+Epoch 3/5
+3000/3000 [==============================] - 356s 119ms/step - loss: 5332.3336 - precision_4: 0.8665 - recall_3: 0.5011 - average_n_class: 1.7417 - hit_at_one: 0.7952 - val_loss: 2691.6536 - val_precision_4: 0.8686 - val_recall_3: 0.5284 - val_average_n_class: 1.8273 - val_hit_at_one: 0.8065
+Epoch 4/5
+3000/3000 [==============================] - 355s 118ms/step - loss: 1591.2705 - precision_4: 0.8667 - recall_3: 0.5367 - average_n_class: 1.8645 - hit_at_one: 0.8114 - val_loss: 868.9480 - val_precision_4: 0.8630 - val_recall_3: 0.5608 - val_average_n_class: 1.9515 - val_hit_at_one: 0.8186
+Epoch 5/5
+3000/3000 [==============================] - 353s 118ms/step - loss: 555.9859 - precision_4: 0.8595 - recall_3: 0.5683 - average_n_class: 1.9910 - hit_at_one: 0.8233 - val_loss: 349.6346 - val_precision_4: 0.8561 - val_recall_3: 0.5856 - val_average_n_class: 2.0545 - val_hit_at_one: 0.8280
 </pre>
 </div>
 </div>
@@ -17780,7 +17761,7 @@ Epoch 10/10
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>&lt;tensorflow.python.keras.callbacks.History at 0x1688f552828&gt;</pre>
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203f9dad438&gt;</pre>
 </div>
 
 </div>
@@ -17792,9 +17773,237 @@ Epoch 10/10
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Model-Deployment-and-Servicing">Model Deployment and Servicing<a class="anchor-link" href="#Model-Deployment-and-Servicing">&#182;</a></h2><p>For model deployment we will use <code>gcloud ai-platform</code>.
-To use the service, we need to convert our <code>keras</code> model to TensorFlow custom estimator.</p>
-<h3 id="Video-Feature-Extraction">Video Feature Extraction<a class="anchor-link" href="#Video-Feature-Extraction">&#182;</a></h3><p>Before we implement the model servicing, we need to also imeplement a video processor to extract features from a raw <code>.mp4</code> file.
+<h3 id="Model-Saving">Model Saving<a class="anchor-link" href="#Model-Saving">&#182;</a></h3><p>There are (confusingly) 3 different ways to save a <code>tensorflow</code> pre-trained model, all resulting in different formats.</p>
+<h4 id="Saving-the-Model-Weights-as-Checkpoint-Files">Saving the Model Weights as Checkpoint Files<a class="anchor-link" href="#Saving-the-Model-Weights-as-Checkpoint-Files">&#182;</a></h4><p>We can use a checkpoint callback functions to periodically write out the model weights.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[28]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_test_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;save_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;ckp&quot;</span><span class="p">,</span> <span class="s2">&quot;checkpoint&quot;</span><span class="p">)</span>
+
+<span class="n">cp_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">ModelCheckpoint</span><span class="p">(</span>
+    <span class="n">model_test_dir</span><span class="p">,</span> <span class="n">save_weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">load_weights_on_restart</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">model_test</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;save_test&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">weighted_hamming_loss</span><span class="p">,</span> <span class="n">feat_cols</span><span class="o">=</span><span class="n">feat_col_x</span><span class="p">)</span>
+<span class="n">model_test</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+               <span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+               <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">cp_callback</span><span class="p">],</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>
+Epoch 00001: saving model to models\save_experiments\ckp\checkpoint
+</pre>
+</div>
+</div>
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[28]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203f9dad630&gt;</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span>%%bash
+ls -l models/save_experiments/ckp
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>total 52192
+-rwxrwxrwx 1 kylechung kylechung       77 Jul 25 01:36 checkpoint
+-rwxrwxrwx 1 kylechung kylechung     1364 Jul 25 01:36 checkpoint.data-00000-of-00002
+-rwxrwxrwx 1 kylechung kylechung 53434656 Jul 25 01:36 checkpoint.data-00001-of-00002
+-rwxrwxrwx 1 kylechung kylechung      837 Jul 25 01:36 checkpoint.index
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>For large model weights will be sharded; hence there will be a index file to locate the shard for weights.
+The load back the weights we will use the <code>tf.keras.Model.load_weights</code> API.
+The model must have the same architecture in order to reload the weight-only checkpoint files.</p>
+<p>Without using a callback, we can also directly call <code>tf.keras.Model.save_weights</code> method to save the current model weights.</p>
+<h4 id="Saving-Full-Model-as-SavedModel-Directory">Saving Full Model as <code>SavedModel</code> Directory<a class="anchor-link" href="#Saving-Full-Model-as-SavedModel-Directory">&#182;</a></h4><p>Using the same approach above we can also choose to store the entire model structure along with the weights by simply setting <code>save_weights_only=False</code>.
+The resulting model directory structure will be a little bit different.</p>
+<p>The <code>.pb</code> model is a TensorFlow <code>SavedModel</code> object, with its own special internal format.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[30]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model_test_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;save_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;saved_model&quot;</span><span class="p">)</span>
+
+<span class="n">cp_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">ModelCheckpoint</span><span class="p">(</span>
+    <span class="n">model_test_dir</span><span class="p">,</span> <span class="n">save_weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">load_weights_on_restart</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">model_test</span> <span class="o">=</span> <span class="n">create_baseline_model</span><span class="p">(</span><span class="s2">&quot;save_test&quot;</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">weighted_hamming_loss</span><span class="p">,</span> <span class="n">feat_cols</span><span class="o">=</span><span class="n">feat_col_x</span><span class="p">)</span>
+<span class="n">model_test</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+               <span class="n">epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">validation_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+               <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">cp_callback</span><span class="p">],</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>
+Epoch 00001: saving model to models\save_experiments\saved_model
+</pre>
+</div>
+</div>
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[30]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>&lt;tensorflow.python.keras.callbacks.History at 0x203f8e67ef0&gt;</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[33]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span>%%bash
+ls -lR models/save_experiments/saved_model
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>models/save_experiments/saved_model:
+total 76
+drwxrwxrwx 1 kylechung kylechung   512 Jul 25 01:36 assets
+-rwxrwxrwx 1 kylechung kylechung 77102 Jul 25 01:36 saved_model.pb
+drwxrwxrwx 1 kylechung kylechung   512 Jul 25 01:36 variables
+
+models/save_experiments/saved_model/assets:
+total 0
+
+models/save_experiments/saved_model/variables:
+total 52192
+-rwxrwxrwx 1 kylechung kylechung     3752 Jul 25 01:36 variables.data-00000-of-00002
+-rwxrwxrwx 1 kylechung kylechung 53434688 Jul 25 01:36 variables.data-00001-of-00002
+-rwxrwxrwx 1 kylechung kylechung     1368 Jul 25 01:36 variables.index
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can also use <code>tf.keras.Model.save</code> with <code>save_format="tf"</code> to save a model in <code>SavedModel</code> format.
+So the following line</p>
+<div class="highlight"><pre><span></span><span class="n">model_test</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;save_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;saved_model&quot;</span><span class="p">),</span> <span class="n">save_format</span><span class="o">=</span><span class="s2">&quot;tf&quot;</span><span class="p">)</span>
+</pre></div>
+<p>will result in exactly the same output model diorectory as in the previous callback function.</p>
+<h4 id="Saving-Full-Model-as-.h5-File">Saving Full Model as <code>.h5</code> File<a class="anchor-link" href="#Saving-Full-Model-as-.h5-File">&#182;</a></h4><p>Unlike <code>SavedModel</code> is a directory, we can save the model as one single file.
+This can be done by using <code>tf.keras.Model.save</code> with <code>save_format="h5"</code> option:</p>
+<div class="highlight"><pre><span></span><span class="n">model_test</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;save_experiments&quot;</span><span class="p">,</span> <span class="s2">&quot;saved_model.h5&quot;</span><span class="p">),</span> <span class="n">save_format</span><span class="o">=</span><span class="s2">&quot;h5&quot;</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Model-Deployment-and-Servicing">Model Deployment and Servicing<a class="anchor-link" href="#Model-Deployment-and-Servicing">&#182;</a></h2><p>For model deployment we will use <code>gcloud ai-platform</code> command line tool.
+We will need to package our code into a simple python modules in order to launch the model training on cloud.</p>
+<h3 id="Video-Feature-Extraction">Video Feature Extraction<a class="anchor-link" href="#Video-Feature-Extraction">&#182;</a></h3><p>Before we implement the model serving, we need to also imeplement a video processor to extract features from a raw <code>.mp4</code> file.
 This is for us to do model inference on unseen examples.
 Let's have a basic walk-through of how the video is processed in the <a href="https://github.com/google/youtube-8m/tree/master/feature_extractor">starter code</a>:</p>
 
@@ -17803,7 +18012,7 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">cv2</span>
@@ -17818,7 +18027,7 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 <span class="k">def</span> <span class="nf">frame_iterator</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">every_ms</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_num_frames</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
     <span class="n">video_capture</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">()</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">video_capture</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
-        <span class="nb">print</span> <span class="o">&gt;&gt;</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="s1">&#39;Error: Cannot open video file &#39;</span> <span class="o">+</span> <span class="n">filename</span>
+        <span class="nb">print</span> <span class="o">&gt;&gt;</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span> <span class="s2">&quot;Error: Cannot open video file &quot;</span> <span class="o">+</span> <span class="n">filename</span>
         <span class="k">return</span>
     <span class="n">last_ts</span> <span class="o">=</span> <span class="o">-</span><span class="mi">99999</span>  <span class="c1"># The timestamp of last retrieved frame.</span>
     <span class="n">num_retrieved</span> <span class="o">=</span> <span class="mi">0</span>
@@ -17842,29 +18051,10 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 </div>
 </div>
 
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>&gt;&gt; Downloading yt8m_pca.tgz 100.0%Succesfully downloaded yt8m_pca.tgz 15654272 bytes.
-&gt;&gt; Downloading inception-2015-12-05.tgz 100.0%Succesfully downloaded inception-2015-12-05.tgz 88931400 bytes.
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">video_file</span> <span class="o">=</span> <span class="s2">&quot;data/Dx_fKPBPYUI.mp4&quot;</span>  <span class="c1"># A test sample.</span>
@@ -17886,7 +18076,7 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%</span><span class="k">matplotlib</span> inline
@@ -17906,26 +18096,13 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 
 <div class="output_area">
 
-    <div class="prompt output_prompt">Out[16]:</div>
-
-
-
-
-<div class="output_text output_subarea output_execute_result">
-<pre>&lt;matplotlib.image.AxesImage at 0x2c0c57133c8&gt;</pre>
-</div>
-
-</div>
-
-<div class="output_area">
-
     <div class="prompt"></div>
 
 
 
 
 <div class="output_png output_subarea ">
-<img src="assets/output_51_1.png"
+<img src="assets/output_59_0.png"
 >
 </div>
 
@@ -17937,7 +18114,7 @@ Let's have a basic walk-through of how the video is processed in the <a href="ht
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># The embeddings generated by the pre-trained Inception model on the above frame.</span>
@@ -17985,7 +18162,7 @@ For this project for simplicity we are not going to do that.</p>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span>%%bash
@@ -18001,7 +18178,7 @@ touch src/__init__.py
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%writefile</span> src/eval_metrics.py
@@ -18092,12 +18269,13 @@ touch src/__init__.py
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%writefile</span> src/model.py
 <span class="sd">&quot;&quot;&quot;Video classification model on YouTube-8M dataset.&quot;&quot;&quot;</span>
 
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">partial</span>
 
@@ -18105,6 +18283,7 @@ touch src/__init__.py
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
 <span class="kn">from</span> <span class="nn">tensorflow</span> <span class="k">import</span> <span class="n">feature_column</span> <span class="k">as</span> <span class="n">fc</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.lib.io</span> <span class="k">import</span> <span class="n">file_io</span>
 <span class="kn">from</span> <span class="nn">tensorflow.python.ops</span> <span class="k">import</span> <span class="n">init_ops</span>
 <span class="kn">from</span> <span class="nn">.eval_metrics</span> <span class="k">import</span> <span class="n">AverageNClass</span><span class="p">,</span> <span class="n">HitAtOne</span>
 
@@ -18112,6 +18291,9 @@ touch src/__init__.py
 <span class="n">N_CLASS</span> <span class="o">=</span> <span class="mi">3862</span>
 <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1024</span>
 <span class="n">VOCAB_FILE</span> <span class="o">=</span> <span class="s2">&quot;data/vocabulary.csv&quot;</span>
+<span class="c1"># Exclude audio feature since we didn&#39;t implement audio feature extraction.</span>
+<span class="c1"># Even if the model can be trained on audio feature,</span>
+<span class="c1"># they won&#39;t be available for inference on new video.</span>
 <span class="n">FEAT_COL_VIDEO</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">fc</span><span class="o">.</span><span class="n">numeric_column</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
     <span class="c1">#fc.numeric_column(key=&quot;mean_audio&quot;, shape=(128,), dtype=tf.float32),</span>
@@ -18120,6 +18302,9 @@ touch src/__init__.py
 <span class="n">FEAT_X</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">]</span>
 <span class="n">FEAT_SPEC_VIDEO</span> <span class="o">=</span> <span class="n">fc</span><span class="o">.</span><span class="n">make_parse_example_spec</span><span class="p">(</span><span class="n">FEAT_COL_VIDEO</span><span class="p">)</span>
 <span class="n">MULTI_HOT_ENCODER</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">FEAT_COL_VIDEO</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="c1"># If we&#39;d like to use a custom serving input function, we need to use the estimator API.</span>
+<span class="c1"># There is no document on how a keras model can use a custom serving input function.</span>
+<span class="n">KERAS_TO_ESTIMATOR</span> <span class="o">=</span> <span class="kc">True</span>
 
 
 <span class="k">def</span> <span class="nf">calc_class_weight</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
@@ -18127,7 +18312,12 @@ touch src/__init__.py
 <span class="sd">    The class weight for class i (w_i) is determined by:</span>
 <span class="sd">    w_i = total no. samples / (n_class * count(class i))</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">vocab</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;Index&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">infile</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gs://&quot;</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">file_io</span><span class="o">.</span><span class="n">FileIO</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">vocab</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">vocab</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
+    <span class="n">vocab</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;Index&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">cnt</span> <span class="o">=</span> <span class="n">vocab</span><span class="p">[</span><span class="s2">&quot;TrainVideoCount&quot;</span><span class="p">]</span>
     <span class="n">w</span> <span class="o">=</span> <span class="n">cnt</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vocab</span><span class="p">)</span> <span class="o">*</span> <span class="n">cnt</span><span class="p">)</span>
     <span class="n">w</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -18138,8 +18328,6 @@ touch src/__init__.py
     <span class="n">features</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">parse_example</span><span class="p">(</span><span class="n">examples</span><span class="p">,</span> <span class="n">features</span><span class="o">=</span><span class="n">spec</span><span class="p">)</span>
     <span class="n">labels</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>
     <span class="n">labels</span> <span class="o">=</span> <span class="n">MULTI_HOT_ENCODER</span><span class="p">({</span><span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">labels</span><span class="p">})</span>
-    <span class="c1"># Keras to estimator bug workaround.</span>
-    <span class="n">features</span><span class="p">[</span><span class="s2">&quot;input_1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">features</span><span class="p">,</span> <span class="n">labels</span>
 
 
@@ -18161,8 +18349,6 @@ touch src/__init__.py
     <span class="c1"># Parse them into feature tensors.</span>
     <span class="n">features</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">parse_example</span><span class="p">(</span><span class="n">example_bytestring</span><span class="p">,</span> <span class="n">FEAT_SPEC_VIDEO</span><span class="p">)</span>
     <span class="n">features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>  <span class="c1"># Dummy label. Not important at all.</span>
-    <span class="c1"># Keras to estimator bug workaround.</span>
-    <span class="n">features</span><span class="p">[</span><span class="s2">&quot;input_1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">export</span><span class="o">.</span><span class="n">ServingInputReceiver</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;examples_bytes&quot;</span><span class="p">:</span> <span class="n">example_bytestring</span><span class="p">})</span>
 
 
@@ -18177,7 +18363,10 @@ touch src/__init__.py
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">class_weights</span> <span class="o">=</span> <span class="n">calc_class_weight</span><span class="p">(</span><span class="n">VOCAB_FILE</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">serving_input_receiver_fn</span> <span class="o">=</span> <span class="n">serving_input_receiver_fn</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">model_to_estimator</span><span class="p">(</span><span class="n">keras_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_fn</span><span class="p">(),</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">KERAS_TO_ESTIMATOR</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">model_to_estimator</span><span class="p">(</span><span class="n">keras_model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_fn</span><span class="p">(),</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_fn</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">model_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 
@@ -18189,14 +18378,14 @@ touch src/__init__.py
 
         <span class="n">FEAT_COL_X</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">FEAT_COL_VIDEO</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">FEAT_X</span><span class="p">]</span>
         <span class="n">l2_reg</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">regularizers</span><span class="o">.</span><span class="n">l2</span><span class="p">(</span><span class="mf">1e-8</span><span class="p">)</span>
-        <span class="n">fix</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Keras model to estimator bug workaround.</span>
-        <span class="k">if</span> <span class="n">fix</span><span class="p">:</span>
-            <span class="n">inputs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="n">KERAS_TO_ESTIMATOR</span><span class="p">:</span>
+            <span class="c1"># DenseFeatures doesn&#39;t play well with Estimator.</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">)</span>
             <span class="n">predictions</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">N_CLASS</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="n">kernel_regularizer</span><span class="o">=</span><span class="n">l2_reg</span><span class="p">)(</span><span class="n">inputs</span><span class="p">)</span>
-            <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">predictions</span><span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;baseline&quot;</span><span class="p">)</span>
         <span class="k">else</span> <span class="p">:</span>
             <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;baseline&quot;</span><span class="p">)</span>
-            <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">FEAT_COL_X</span><span class="p">))</span>
+            <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">DenseFeatures</span><span class="p">(</span><span class="n">FEAT_COL_X</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;mean_rgb&quot;</span><span class="p">))</span>
             <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">N_CLASS</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="n">kernel_regularizer</span><span class="o">=</span><span class="n">l2_reg</span><span class="p">))</span>
         <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
             <span class="n">optimizer</span><span class="o">=</span><span class="s2">&quot;adam&quot;</span><span class="p">,</span>
@@ -18211,26 +18400,40 @@ touch src/__init__.py
         <span class="k">return</span> <span class="n">model</span>
 
     <span class="k">def</span> <span class="nf">train_and_evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
-        <span class="n">train_spec</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">TrainSpec</span><span class="p">(</span>
-            <span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">),</span>
-            <span class="n">max_steps</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_steps&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
-        <span class="n">exporter</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">FinalExporter</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;exporter&quot;</span><span class="p">,</span> <span class="n">serving_input_receiver_fn</span><span class="o">=</span><span class="n">serving_input_receiver_fn</span><span class="p">)</span>
-        <span class="n">eval_spec</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">EvalSpec</span><span class="p">(</span>
-            <span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;eval_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">,</span>
-                                      <span class="n">mode</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">ModeKeys</span><span class="o">.</span><span class="n">EVAL</span><span class="p">),</span>
-            <span class="n">steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-            <span class="n">start_delay_secs</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-            <span class="n">throttle_secs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">exporters</span><span class="o">=</span><span class="n">exporter</span>
-        <span class="p">)</span>
-        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tensorflow&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-        <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">train_and_evaluate</span><span class="p">(</span>
-            <span class="n">estimator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span>
-            <span class="n">train_spec</span><span class="o">=</span><span class="n">train_spec</span><span class="p">,</span>
-            <span class="n">eval_spec</span><span class="o">=</span><span class="n">eval_spec</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">KERAS_TO_ESTIMATOR</span><span class="p">:</span>
+            <span class="c1"># This is much slower than the native keras model fit under TF 2.0.</span>
+            <span class="n">train_spec</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">TrainSpec</span><span class="p">(</span>
+                <span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">),</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_steps&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">exporter</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">FinalExporter</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;exporter&quot;</span><span class="p">,</span> <span class="n">serving_input_receiver_fn</span><span class="o">=</span><span class="n">serving_input_receiver_fn</span><span class="p">)</span>
+            <span class="n">eval_spec</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">EvalSpec</span><span class="p">(</span>
+                <span class="n">input_fn</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;eval_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">,</span>
+                                          <span class="n">mode</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">ModeKeys</span><span class="o">.</span><span class="n">EVAL</span><span class="p">),</span>
+                <span class="n">steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+                <span class="n">start_delay_secs</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+                <span class="n">throttle_secs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">exporters</span><span class="o">=</span><span class="n">exporter</span>
+            <span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tensorflow&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">train_and_evaluate</span><span class="p">(</span>
+                <span class="n">estimator</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span>
+                <span class="n">train_spec</span><span class="o">=</span><span class="n">train_spec</span><span class="p">,</span>
+                <span class="n">eval_spec</span><span class="o">=</span><span class="n">eval_spec</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;model_dir&quot;</span><span class="p">])</span>
+            <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">)</span>
+            <span class="n">valid_dataset</span> <span class="o">=</span> <span class="n">input_fn</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;eval_data_path&quot;</span><span class="p">],</span> <span class="n">spec</span><span class="o">=</span><span class="n">FEAT_SPEC_VIDEO</span><span class="p">,</span>
+                                     <span class="n">mode</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">ModeKeys</span><span class="o">.</span><span class="n">EVAL</span><span class="p">)</span>
+            <span class="n">tb_callback</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">callbacks</span><span class="o">.</span><span class="n">TensorBoard</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="n">model_dir</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                <span class="n">train_dataset</span><span class="p">,</span> <span class="n">validation_data</span><span class="o">=</span><span class="n">valid_dataset</span><span class="p">,</span>
+                <span class="n">epochs</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_epochs&quot;</span><span class="p">],</span> <span class="n">steps_per_epoch</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;train_steps&quot;</span><span class="p">],</span>
+                <span class="n">validation_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+                <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">tb_callback</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_dir</span><span class="p">,</span> <span class="n">save_format</span><span class="o">=</span><span class="s2">&quot;tf&quot;</span><span class="p">)</span>
 </pre></div>
 
     </div>
@@ -18258,7 +18461,7 @@ touch src/__init__.py
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%writefile</span> src/task.py
@@ -18282,6 +18485,12 @@ touch src/__init__.py
         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Steps to run the training job for (default: 1000)&quot;</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="mi">1000</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--train_epochs&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Epochss to run the training job for (default: 1)&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
         <span class="s2">&quot;--eval_data_path&quot;</span><span class="p">,</span>
@@ -18346,17 +18555,17 @@ touch src/__init__.py
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>After we modualize our model, a local trainning job can be triggered by using <code>gcloud ai-platform</code> command line:
 For example:</p>
-<div class="highlight"><pre><span></span>gcloud ai-platform <span class="nb">local</span> train <span class="se">\</span>
+<div class="highlight"><pre><span></span>rm -r local_debug_model
+gcloud ai-platform <span class="nb">local</span> train <span class="se">\</span>
     --package-path<span class="o">=</span>src <span class="se">\</span>
     --module-name<span class="o">=</span>src.task <span class="se">\</span>
     -- <span class="se">\</span>
     --train_data_path<span class="o">=</span>data/video/train* <span class="se">\</span>
     --eval_data_path<span class="o">=</span>data/video/valid* <span class="se">\</span>
-    --train_steps<span class="o">=</span><span class="m">30000</span> <span class="se">\</span>
-    --model_dir<span class="o">=</span>local_debug_model
+    --train_steps<span class="o">=</span><span class="m">3000</span> <span class="se">\</span>
+    --train_epochs<span class="o">=</span><span class="m">10</span> <span class="se">\</span>
+    --model_dir<span class="o">=</span>models/baseline
 </pre></div>
-<p>One thing to note is that the training speed is much slower than directly using Keras model API.
-There seems to be a huge overhead after converting a Keras model to TF estimator.</p>
 <p>To train the model on cloud, we can upload the training data to GCS then run instead something like:</p>
 <div class="highlight"><pre><span></span>gcloud ai-platform <span class="nb">jobs</span> submit training yt8m_<span class="k">$(</span>date -u +%y%m%d_%H%M%S<span class="k">)</span> <span class="se">\</span>
     --package-path<span class="o">=</span>src <span class="se">\</span>
@@ -18435,7 +18644,7 @@ There seems to be a huge overhead after converting a Keras model to TF estimator
 <div class="text_cell_render border-box-sizing rendered_html">
 <h3 id="AI-Platform-Prediction-Service">AI Platform Prediction Service<a class="anchor-link" href="#AI-Platform-Prediction-Service">&#182;</a></h3><p>To deploy a pre-trained model we first need to upload the model directory to GCS.
 This can be done by for example:</p>
-<div class="highlight"><pre><span></span><span class="nv">MODEL_DIR</span><span class="o">=</span><span class="s2">&quot;local_debug_model&quot;</span>
+<div class="highlight"><pre><span></span><span class="nv">MODEL_DIR</span><span class="o">=</span><span class="s2">&quot;models/baseline&quot;</span>
 
 gsutil -m rm -rf gs://<span class="si">${</span><span class="nv">BUCKET</span><span class="si">}</span>/yt8m/models
 gsutil -m cp -r <span class="si">${</span><span class="nv">MODEL_DIR</span><span class="si">}</span> gs://<span class="si">${</span><span class="nv">BUCKET</span><span class="si">}</span>/yt8m/models
@@ -18482,7 +18691,7 @@ For video feature extraction we directly utilize the open source <a href="https:
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span>%%bash
@@ -18517,7 +18726,7 @@ But since we utilize the starter code in feature extractor without changing anyt
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%%writefile</span> app/main.py
