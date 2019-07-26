@@ -197,9 +197,16 @@ Another approach is to run BPE with a sufficient number of merges.
 SentencePiece is a powerful and efficient open-sourced unsupervised langugae tokenizer that can help build vocabulary for neural networks.
 In this section we will deep-dive into this model from both its theoretical stands and practical usage.
 
+## Language Agnostic
+
 SentencePiece is langauge independent becuase under the hood it simply treats a given sentence as a sequence of Unicode characters.
 And most langauge in the world we speak can be encoded in Unicode.
 This is particualrly useful for non-whitespace-segmented languages such as Chinese, Korean and Japanese.
+
+Technically speaking,
+whitespace is also handled as a normal symbol in SentencePiece.
+To achieve this,
+a meta symbol "▁" (U+2581) is used to replace the whitespace
 
 The entire vocabulary is built from subwords so there is also no need to do pre-processing to provide a fullword initial vocabulary.
 This bypasses the need for any language-specific preprocessing logic,
@@ -207,7 +214,19 @@ resulting in a unified framework for natural langauge segmentation.
 
 ```{python spm}
 import sentencepiece as spm
-spm.SentencePieceTrainer.Train('--input=shakespeare.txt --model_prefix=m --vocab_size=1000')
+spm_args = "--input=shakespeare.txt"
+spm_args += " --model_prefix=m"
+spm_args += " --vocab_size=1000"
+spm_args += " --model_type=unigram"
+spm.SentencePieceTrainer.Train(spm_args)
+```
+
+
+```{r}
+library(data.table)
+vv <- fread("m.vocab", header=FALSE)
+setnames(vv, c("subword", "logp"))
+vv[, p:=exp(logp)]
 ```
 
 
@@ -228,6 +247,10 @@ print(sp.DecodeIds(subword_ids))
 for i in range(3):
   print(sp.IdToPiece(i))
 print(sp.PieceToId('</s>'))
+
+
+# Recover the whitespace.
+print("".join(subword_pieces).replace("\u2581", " "))
 ```
 
 ```{python}
