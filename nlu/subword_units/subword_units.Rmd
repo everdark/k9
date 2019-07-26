@@ -52,14 +52,27 @@ BPE is a data compression algorithm that iteratively replaces the most frequent 
 By maintaining a mapping table of the new byte and the replaced old bytes,
 we can recover the original message from a compressed representation by reversing the encoding process.
 
-The same idea can be applied on charater-level instead of byte-level.
+The same idea can be applied at charater-level instead of byte-level on a given corpus.
 
-Do not consider paris across word boundaries.
-Number of merge operations is the only hyperparameter for the algorithm.
+The procedure to apply BPE to obtain subwords can be summarized as the followings:
 
-The final symbol vocabulary size is equal to the size of the initial vocabulary,
-plus the number of merge operations.
+1. Extract word-level vocabulary as the initial vocabulary
+2. Represent the initial vocabulary at character-level for each word, served as the working vocabulary
+3. [Pairing] For each word in the working vocabulary, do character-level BPE and extract the most frequent pair concatenated as a new subword added into the subword vocabulary
+4. [Merging] Replace the most frequent pair with its single concatenated version in the working vocabulary
+5. Repeat step 3-4 for a given number of times
+6. The final vocabulary is the initial fullword vocabulary + the subword vocabulary
 
+Based on the procedure,
+essentially we do not consider paris across word boundaries to be a potential subword.
+Number of merge operations is the only hyperparameter for the algorithm,
+usually determined by the desired final vocabulary size given a modeling problem.
+
+Since the most frequent subwords will be merged early,
+common words will remain as one unique symbol in the vocabulary,
+leaving out rare words splitted into smaller units (subwords).
+
+Here is a toy implementation of BPE applied on a given corpus:
 
 ```{python bpe}
 import re
@@ -105,14 +118,14 @@ class BPE:
 Let's use Shakespeare as the input text example to run the BPE algorithm.
 First we download the data from Google's public hosting service:
 
-```{python}
+```{python bpe_dl_shakespeare}
 import tensorflow as tf
 
 shakes_file = tf.keras.utils.get_file(
   "shakespeare.txt",
   "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt")
 shakespeare = open(shakes_file, "rb").read().decode(encoding="utf-8")
-shakespeare = text.lower().split("\n")
+shakespeare = shakespeare.lower().split("\n")
 
 for sent in shakespeare[:20]:
   print(sent)
@@ -128,23 +141,114 @@ for subw in bpe.subword_vocab:
   print(subw)
 ```
 
+##  Probablistic Subword Segmentation
+
+Note that BPE is *deterministic*,
+while the actual subword segmentation is potentially ambiguous.
+A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by subwords.
+@kudo2018subword propose an approach called "subword regularization" to handle this issue in a probablistic fashion.
+A new subword segmentation under this approach uses a unigram language model for generating subword segmentation with attached probability.
+
+Denote $X$ as a subword sequence of length $n$
+
+$$
+X = \begin{pmatrix} x_1 & x_2 & \dots & x_n\end{pmatrix},
+$$
+
+with *independent* subword probability $P(x_i)$.
+The probability of the sequence hence is
+
+$$
+P(X) = \prod_{i=1}^n P(x_i),
+$$
+
+with
+
+$$
+\sum_{x \in V}P(x) = 1,
+$$
+
+where $V$ is a pre-determined vocabulary set.
+
+The most probable sequence (from all possible segmentation candidates) can be found by applying the [Viterbi algorithm](https://en.wikipedia.org/wiki/Viterbi_algorithm) which is a dynamic programming algorithm designed for finding the most likely sequence of hidden states.
+
+The vocabulary set $V$ is indeed undertermined at the very beginning and cannot be solved simultaneously with the maximization task.
+A workaround is to provide a seed vocabulary as the initial (reasonably big enough) vocabulary,
+and shrink the seed vocabulary during training until a desired vocabulary size is reached.
+
+#### Expectation-Maximization {-}
+
+[A brief review on EM algorithm here?]
+
+#### Seed Vocabulary {-}
+
+The natural choice is to use the union of all characters and the most frequent substrings in the corpus.
+Another approach is to run BPE with a sufficient number of merges.
+
 
 
 ```{python}
 
 ```
 
+# SentencePiece: Unsupervised Segmentation
 
-# Subword Regularization
+@kudo2018sentencepiece propose a language-agnostic subword segmentation model called [SentencePiece](https://github.com/google/sentencepiece).
+SentencePiece is a powerful and efficient open-sourced unsupervised langugae tokenizer that can help build vocabulary for neural networks.
+In this section we will deep-dive into this model from both its theoretical stands and practical usage.
 
-@kudo2018subword proposes a method called subword regularization.
+SentencePiece is langauge independent becuase under the hood it simply treats a given sentence as a sequence of Unicode characters.
+And most langauge in the world we speak can be encoded in Unicode.
+This is particualrly useful for non-whitespace-segmented languages such as Chinese, Korean and Japanese.
+
+The entire vocabulary is built from subwords so there is also no need to do pre-processing to provide a fullword initial vocabulary.
+This bypasses the need for any language-specific preprocessing logic,
+resulting in a unified framework for natural langauge segmentation.
+
+```{python spm}
+import sentencepiece as spm
+spm.SentencePieceTrainer.Train('--input=shakespeare.txt --model_prefix=m --vocab_size=1000')
+```
 
 
-# SentencePiece
+```{python}
+sp = spm.SentencePieceProcessor()
+sp.Load("m.model")
+```
 
-@kudo2018sentencepiece
+```{python}
+subword_pieces = sp.EncodeAsPieces("This is a test.")
+print(subword_pieces)
+subword_ids = sp.EncodeAsIds("This is a test.")
+print(subword_ids)
 
-BPE encodes a sentence into a unique subword sequences.
-A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by subwords.
+print(sp.DecodePieces(subword_pieces))
+print(sp.DecodeIds(subword_ids))
+
+for i in range(3):
+  print(sp.IdToPiece(i))
+print(sp.PieceToId('</s>'))
+```
+
+```{python}
+for seg in sp.NBestEncodeAsPieces("This is a test", 5):
+  print(seg)
+```
+
+
+```{python}
+# Special start of word symbol.
+print(u"\u2581".encode("utf-8"))
+```
+
+```{python}
+# Segment sampling.
+print(sp.SampleEncodeAsPieces("This is a test", nbest_size=-1, alpha=0.1))
+```
+
+
+
 
 # References
+
+
