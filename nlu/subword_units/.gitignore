@@ -1,1 +1,3 @@
 data
+*.model
+*.vocab
