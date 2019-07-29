@@ -11,12 +11,12 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 4
+    toc_depth: 3
     toc_float: yes
   code_download: true
 bibliography: subword_units.bib
 abstract: |
-  TBC.
+  Langauge segmentation or tokenization is the very first step toward a natural language understanding (NLU) task. The state-of-the-art NLU model usually involves neural networks with word embeddings as the workhorse to encode raw text onto vector space. A fixed vocabulary is pre-determined in order to facilitate such setup. With the challenge of out-of-vocabulary issue and non-whitespace-delimited language, we use subword units to further decompose raw texts into substrings. In this notebook we summarize the technique of subword segmentation in details with Python coding examples. We also provide a general usage walk-through for Google's open source library *SentencePiece*, a powerful language-agnostic unsupervised subword segmentation tool.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -50,116 +50,453 @@ or BPE in short.
 
 BPE is a data compression algorithm that iteratively replaces the most frequent pair of bytes in a sequence with single unused byte.
 By maintaining a mapping table of the new byte and the replaced old bytes,
-we can recover the original message from a compressed representation.
+we can recover the original message from a compressed representation by reversing the encoding process.
 
-The same idea can be applied on charater-level instead of byte-level.
+The same idea can be applied at charater-level instead of byte-level on a given corpus.
 
-Do not consider paris across word boundaries.
-Number of merge operations is the only hyperparameter for the algorithm.
+The procedure to apply BPE to obtain subwords can be summarized as the followings:
 
-The final symbol vocabulary size is equal to the size of the initial vocabulary,
-plus the number of merge operations.
+1. Extract word-level vocabulary as the initial vocabulary
+2. Represent the initial vocabulary at character-level for each word, served as the working vocabulary
+3. [Pairing] For each word in the working vocabulary, do character-level BPE and extract the most frequent pair concatenated as a new subword added into the subword vocabulary
+4. [Merging] Replace the most frequent pair with its single concatenated version in the working vocabulary
+5. Repeat step 3-4 for a given number of times
+6. The final vocabulary is the initial fullword vocabulary + the subword vocabulary
 
+Based on the procedure,
+essentially we do not consider paris across word boundaries to be a potential subword.
+Number of merge operations is the only hyperparameter for the algorithm,
+usually determined by the desired final vocabulary size given a modeling problem.
+
+Since the most frequent subwords will be merged early,
+common words will remain as one unique symbol in the vocabulary,
+leaving out rare words splitted into smaller units (subwords).
+
+Here is a toy implementation of BPE applied on a given corpus:
 
 ```{python bpe}
 import re
 from collections import defaultdict
 
+
 class BPE:
-  def __init__(self):
-    self.pairs = defaultdict(int)
-    
-  def count_pair_chars_on_word(self, w):
-    """Count and update the frequency of each 2 consecutive characters in a word."""
-    for i in range(len(w) - 1):
-      self.pairs[w[i], w[i+1]] += 1
 
-  def count_pair_chars(self, sent):
-    words = re.split(r"\W+", sent)
-    for w in words:
-      self.count_pair_chars_on_word(w)
-      
-  best = max(self.pairs, key=self.pairs.get)
+  def __init__(self, sents, min_cnt=3, verbose=False):
+    self.verbose = verbose
+    init_vocab = defaultdict(int)
+    for sent in sents:
+      words = re.split(r"\W+", sent)
+      for w in words:
+        if w != "":
+          init_vocab[w] += 1
+    # Create fullword vocabulary.
+    self.word_vocab = {k: v for k, v in init_vocab.items() if v >= min_cnt}
+    # Insert space between each char in a word for latter ease of merge operation.
+    # We directly borrow the idea from https://www.aclweb.org/anthology/P16-1162.
+    self.working_vocab = {" ".join(k): v for k, v in self.word_vocab.items()}
+    self.subword_vocab = defaultdict(int)
+    # Also build a character-level vocabulary as the base subwords.
+    self.char_vocab = defaultdict(int)
+    for sent in sents:
+      for char in list(sent):
+        self.char_vocab[char] += 1
+
+  def _find_top_subword(self):
+    subword_pairs = defaultdict(int)
+    for w, cnt in self.working_vocab.items():
+      subw = w.split()
+      for i in range(len(subw) - 1):
+        # Count bigrams.
+        subword_pairs[subw[i], subw[i+1]] += cnt
+    top_subw_pair = max(subword_pairs, key=subword_pairs.get)
+    top_subw = "".join(top_subw_pair)
+    self.subword_vocab[top_subw] = subword_pairs[top_subw_pair]
+    if self.verbose:
+      print("New subword added: {}".format(top_subw))
+    return top_subw_pair
+
+  def _merge(self, subw_pair):
+    bigram = re.escape(" ".join(subw_pair))
+    p = re.compile(r"(?<!\S)" + bigram + r"(?!\S)")
+    self.working_vocab = {p.sub("".join(subw_pair), w): cnt for w, cnt in self.working_vocab.items()}
+  
+  def update_subword(self, n_merge=1):
+    for n in range(n_merge):
+      top_subw_pair = self._find_top_subword()
+      self._merge(top_subw_pair)
 ```
 
-Let's use the site [`README.md`](https://github.com/everdark/k9/blob/master/README.md) file as the input example to run the BPE algorithm:
+Let's use Shakespeare as the input text example to run the BPE algorithm.
+First we download the data from Google's public hosting service:
 
-```{python bpe_try}
-with open("../../README.md", "rt") as f:
-  readme = [line.strip("\n").lower().strip() for line in f.readlines()]
-
-bpe = BPE()
-for sent in readme:
-  bpe.count_pair_chars(sent)
-print(bpe.pairs)
+```{bash mkdir}
+# bash
+mkdir -p data
 ```
 
+```{python bpe_dl_shakespeare}
+import os
+import shutil
+import tensorflow as tf
 
-```{python bpe_vocab_example}
-vocab = {"low": 5, "lowest": 2, "newer": 6, "wider": 3}
+shakes_file = "data/shakespeare.txt"
+if not os.path.exists(shakes_file):
+  shakes_dl_path = tf.keras.utils.get_file(
+    "shakespeare.txt",
+    "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt")
+  shutil.move(shakes_dl_path, shakes_file)
+shakespeare = open(shakes_file, "rb").read().decode(encoding="utf-8")
+shakespeare = shakespeare.lower().split("\n")
 
-bpe = BPE()
-for sent in vocab.items:
-  bpe.count_pair_chars(sent)
-print(bpe.pairs)
+for sent in shakespeare[:20]:
+  print(sent)
 ```
 
+```{python bpe_shakespeare}
+bpe = BPE(shakespeare, min_cnt=10)
+print(len(bpe.word_vocab))
+
+# Print some from fullword vocabulary.
+print(list(bpe.word_vocab.items())[:5])
+
+# (For debug) Print some from the working vocab that we are going to perform the merge.
+print(list(bpe.working_vocab.items())[:5])
+
+# Do merge update.
+bpe.update_subword(n_merge=100)
+print(len(bpe.subword_vocab))
+
+# Check the working vocabulary after merge.
+print(list(bpe.working_vocab.items())[:5])
+
+# Print some subwords generated by the first 100 merge operations.
+print(list(bpe.subword_vocab.items())[:5])
+```
+
+Each learned subword itself doesn't need to have explicit meaning.
+It is their potential combinations with other subwords that reveal the actual context,
+which can be hopefully learned by neural network embeddings.
+
+A modification of the above BPE segmentation is to expand subword vocabulary by likelihood instead of the most frequent pair.
+That is,
+in each merge operation we choose the new subword that increases the likelihood of the training data the most.
+
+##  Probablistic Subword Segmentation
+
+Note that BPE is *deterministic* by a greedy replacement of adjacent symbols,
+while the actual subword segmentation is potentially ambiguous.
+A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by different subwords.
+@kudo2018subword propose an approach called "subword regularization" to handle this issue in a probablistic fashion.
+A new subword segmentation under this approach uses a *unigram language model* for generating subword segmentation with attached probability.
+
+Denote $X$ as a subword sequence of length $n$
+
+$$
+X = \begin{pmatrix} x_1 & x_2 & \dots & x_n\end{pmatrix},
+$$
+
+with *independent* subword probability $P(x_i)$.
+The probability of the sequence hence is
+
+$$
+P(X) = \prod_{i=1}^n P(x_i),
+$$
+
+with
+
+$$
+\sum_{x \in V}P(x) = 1,
+$$
+
+where $V$ is a pre-determined vocabulary set.
+
+The most probable sequence (from all possible segmentation candidates) can be found by applying [expectation-maximization](https://en.wikipedia.org/wiki/Expectation%E2%80%93maximization_algorithm) with the [Viterbi algorithm](https://en.wikipedia.org/wiki/Viterbi_algorithm),
+which is designed for finding the most likely sequence of hidden states.
+Here the hidden states are subwords used in a sequence.
+
+The vocabulary set $V$ is indeed undertermined at the very beginning and cannot be solved simultaneously with the maximization task.
+A workaround is to provide a seed vocabulary as the initial (reasonably big enough) vocabulary,
+and shrink the seed vocabulary during training until a desired vocabulary size is reached.
+
+### Expectation-Maximization
+
+For completeness let's briefly review the EM algorithm.
+
+#### Working Example: A Gaussian Mixture {-}
+
+The Hello-World example of EM is usually a Gaussian Mixture model.
+In its simplest illustration,
+assume we observe a set of data resulting from either one of two different Gaussians,
+how can we estimate parameters of these two Gaussians without knowing which Gaussian they came from?^[We borrow the example from [this stack-overflow thread](https://stackoverflow.com/questions/11808074/what-is-an-intuitive-explanation-of-the-expectation-maximization-technique/43561339#43561339), with modification to use a general initial guess by randomizing the hidden state weights.]
+
+```{python em_toy_data}
+import numpy as np
+
+np.random.seed(777)
+size = 100
+
+g1_mean = 3
+g2_mean = 7
+g1_std = 1
+g2_std = 2
+
+g1_data = np.random.normal(g1_mean, g1_std, size=size)
+g2_data = np.random.normal(g2_mean, g2_std, size=size)
+mixture_data = np.concatenate([g1_data, g2_data])
+```
+
+```{r em_toy_data_hist}
+# R
+x <- py$mixture_data
+hist(x, xlab="Data", main="Sample Data from a Gaussian Mixture",
+     probability=TRUE, ylim=c(0, .45))
+curve(dnorm(x, mean=py$g1_mean, sd=py$g1_std),
+      col="blue", lty="dotted", add=TRUE, yaxt="n")
+curve(dnorm(x, mean=py$g2_mean, sd=py$g2_std),
+      col="red", lty="dotted", add=TRUE, yaxt="n")
+```
+
+```{python em}
+from scipy import stats
+
+
+class GaussianMixtureEM:
+
+  def __init__(self, data):
+    self.data = data
+    # Initialize hidden state weight.
+    # Note that there is no guarantee that g1 will correspond to the first half of the data.
+    # The actual estimated assignment is determined by the final weights.
+    self.g1_weights = np.random.uniform(size=len(data))
+    self.g2_weights = 1 - self.g1_weights
+    # Initialize parameter guessings.
+    self.update_estimates()
+
+  def update_estimates(self):
+    self.g1_mean = self.estimate_mean(self.g1_weights)
+    self.g2_mean = self.estimate_mean(self.g2_weights)
+    self.g1_std = self.estimate_std(self.g1_mean, self.g1_weights)
+    self.g2_std = self.estimate_std(self.g2_mean, self.g2_weights)
+
+  def estimate_mean(self, weights):
+      return np.sum(self.data * weights) / np.sum(weights)
+
+  def estimate_std(self, mean, weights):
+      variance = np.sum(weights * (self.data - mean)**2) / np.sum(weights)
+      return np.sqrt(variance)
+
+  def em(self, n_iter=10):
+    for n in range(n_iter):
+      g1_lik = stats.norm(self.g1_mean, self.g1_std).pdf(self.data)
+      g2_lik = stats.norm(self.g2_mean, self.g2_std).pdf(self.data)
+      self.g1_weights = g1_lik / (g1_lik + g2_lik)
+      self.g2_weights = g2_lik / (g1_lik + g2_lik)
+      self.update_estimates()
+
+
+mix_model = GaussianMixtureEM(mixture_data)
+mix_model.em(30)
+```
+
+```{python em_result}
+true_params = (g1_mean, g2_mean, g1_std, g2_std)
+mle_params = (
+  np.mean(mixture_data[:size]),
+  np.mean(mixture_data[size:]),
+  np.std(mixture_data[:size]),
+  np.std(mixture_data[size:])
+)
+# To ensure the ordering so we can have a nicely printed comparison.
+em_params = np.concatenate([
+  np.sort([mix_model.g1_mean, mix_model.g2_mean]),
+  np.sort([mix_model.g1_std, mix_model.g2_std])
+])
+
+print("True Value | MLE (Known Hidden States) | EM (Unknown Hidden States)")
+for t, m, e in zip(true_params, mle_params, em_params):
+  print("{:^11}|{:^27}|{:^27}".format(t, np.round(m, 4), np.round(e, 4)))
+```
+
+### Viterbi Algorithm
+
+Let's use the Shakespeare to illustrate the Viterbi algorithm.
+
+For a given text line we'd like to calculate the most probable subwords that can recover the text line.
+In order to achieve that we need to have a vocabulary for subwords that can attribute each subword to a probability.
+We can use BPE to build such vocabulary.
+For complete coverage we will also include character-level subwords into the vocabulary.
+
+```{python viterbi_seed}
+# Build a seeding subword vocabulary using BPE.
+bpe = BPE(shakespeare, min_cnt=10)
+bpe.update_subword(n_merge=1000)
+subword_cnt = {**bpe.char_vocab, **bpe.subword_vocab}
+tot_cnt = np.sum(list(subword_cnt.values()))
+subword_logp = {k: np.log(v / tot_cnt) for k, v in subword_cnt.items()}
+```
+
+Now we can implement the forward step of Viterbi:
+
+```{python viterbi_forward}
+def viterbi_forward(word):
+  """Forward step of Viterbi given a single word."""
+  # Create storage array for best substring at each character position.
+  best_subw_slices =  [None] * (len(word) + 1)
+  neg_loglik = np.zeros(len(word) + 1)
+  # Search the best substring given every possible end of position along the word.
+  for eow in range(1, len(word) + 1):
+    # For every end-of-word position:
+    neg_loglik[eow] = np.inf
+    for bow in range(eow):
+      # For every possible beginning-of-word position:
+      subw = line[bow:eow]
+      if subw in subword_logp:
+        logp = subword_logp[subw]
+        s = neg_loglik[bow] - logp
+        if s < neg_loglik[eow]:
+          neg_loglik[eow] = s
+          best_subw_slices[eow] = (bow, eow)
+  return neg_loglik, best_subw_slices
+
+
+# Take a text line from Shakespeare.
+line = shakespeare[213]
+words = line.split()
+
+w = words[0]
+subw_scores, subw_slices = viterbi_forward(w)
+print(subw_slices)
+```
+
+backward -> track the path that generates the highest likelihood
+
+```{python viterbi_backward}
+def viterbi_backward(word, subw_slices):
+  """Backward step of Viterbi to return the best path."""
+  subwords = []
+  next_slices = subw_slices[-1]
+  while next_slices is not None:
+    subw = word[next_slices[0]:next_slices[1]]
+    subwords.append(subw)
+    next_slices = subw_slices[next_slices[0]]
+  subwords.reverse()
+  return subwords
+
+
+# Test with a single word.
+print(viterbi_backward(w, subw_slices))
+```
+
+```{python viterbi}
+def viterbi(line):
+  out = []
+  words = line.split()
+  for w in words:
+    subw_scores, subw_slices = viterbi_forward(w)
+    subw = viterbi_backward(w, subw_slices)
+    out.extend(subw)
+  return out
+
+print(line)  # Input sentence.
+print(viterbi(line))  # Output subword sequence.
+```
+
+#### On the Seed Vocabulary {-}
+
+The natural choice is to use the union of all characters and the most frequent substrings in the corpus.
+This can be done efficiently by the [suffix array](https://en.wikipedia.org/wiki/Suffix_array) algorithm.
+
+Another approach is to run BPE with a sufficient number of merges to gather a large enough number of initial subwords,
+as what we did in our previous toy illustration.
+
+# SentencePiece: Unsupervised Segmentation
+
+@kudo2018sentencepiece propose a language-agnostic subword segmentation algorithm called [SentencePiece](https://github.com/google/sentencepiece).
+SentencePiece is a powerful and efficient open-sourced unsupervised langugae tokenizer that can help build vocabulary for neural networks.
+In this section we will deep-dive into this model from both its theoretical stands and practical usage.
+
+## Language Agnostic
+
+SentencePiece is langauge independent becuase under the hood it simply treats a given sentence as a sequence of *Unicode* characters.
+And most langauge in the world we speak can be encoded in Unicode.
+This is particualrly useful for non-whitespace-segmented languages such as Chinese,
+Korean and Japanese.
+
+Technically speaking,
+whitespace is also handled as a normal symbol in SentencePiece.
+To achieve this,
+a meta symbol "▁" (U+2581) is used to replace the whitespace.
+
+The entire vocabulary is built from subwords so there is also no need to do pre-processing to provide a fullword initial vocabulary.
+This bypasses the need for any language-specific preprocessing logic,
+resulting in a unified framework for natural langauge segmentation.
+
+```{python spm_unigram, results="hide"}
+import sentencepiece as spm
+spm_args = "--input=data/shakespeare.txt"
+spm_args += " --model_prefix=m"
+spm_args += " --vocab_size=1000"
+spm_args += " --model_type=unigram"
+spm.SentencePieceTrainer.Train(spm_args)
+```
+
+```{r}
+library(data.table)
+vv <- fread("m.vocab", header=FALSE, encoding="UTF-8")
+setnames(vv, c("subword", "logp"))
+vv[, p:=exp(logp)]
+head(vv, 10)
+```
 
 
 ```{python}
-# This is the original example from https://www.aclweb.org/anthology/P16-1162.
-import re
-import collections
-
-def get_stats(vocab):
-  pairs = collections.defaultdict(int)
-  for word, freq in vocab.items():
-    symbols = word.split()
-    for i in range(len(symbols)-1):
-      pairs[symbols[i],symbols[i+1]] += freq
-  return pairs
-
-def merge_vocab(pair, v_in):
-  v_out = {}
-  bigram = re.escape(' '.join(pair))
-  p = re.compile(r'(?<!\S)' + bigram + r'(?!\S)')
-  for word in v_in:
-    w_out = p.sub(''.join(pair), word)
-    v_out[w_out] = v_in[word]
-  return v_out
-
-vocab = {'l o w </w>': 5, 'l o w e r </w>': 2, 'n e w e s t </w>': 6, 'w i d e s t </w>': 3}
-num_merges = 10
-for i in range(num_merges):
-  pairs = get_stats(vocab)
-  best = max(pairs, key=pairs.get)
-  vocab = merge_vocab(best, vocab)
-  print(best)
+sp = spm.SentencePieceProcessor()
+sp.Load("m.model")
 ```
 
 ```{python}
-vocab = {'l o w </w>': 5, 'l o w e r </w>': 2, 'n e w e s t </w>': 6, 'w i d e s t </w>': 3}
-for word, freq in vocab.items():
-  print(word)
-  print(freq)
+subword_pieces = sp.EncodeAsPieces("This is a test.")
+print(subword_pieces)
+subword_ids = sp.EncodeAsIds("This is a test.")
+print(subword_ids)
+
+print(sp.DecodePieces(subword_pieces))
+print(sp.DecodeIds(subword_ids))
+
+# By default the first 3 ids are token for unknown, bos and eos.
+for i in range(3):
+  print(sp.IdToPiece(i))
+
+# The word "test" is not common in Shakespeare.
+print(sp.PieceToId("test"))
+
+# Recover the whitespace.
+print("".join(subword_pieces).replace("\u2581", " "))
+```
+
+Subword segmentation sampling:
+
+```{python}
+for seg in sp.NBestEncodeAsPieces("This is a test", 5):
+  print(seg)
 ```
 
 
 ```{python}
-
+# Special start of word symbol.
+print(u"\u2581".encode("utf-8"))
 ```
 
+We can also use SentencePiece with BPE segmentation:
 
-# Subword Regularization
+```{python spm_bpe, results="hide"}
+import sentencepiece as spm
+spm_args = "--input=data/shakespeare.txt"
+spm_args += " --model_prefix=m"
+spm_args += " --vocab_size=100"
+spm_args += " --model_type=bpe"
+spm.SentencePieceTrainer.Train(spm_args)
+```
 
-@kudo2018subword proposes a method called subword regularization.
-
-
-# SentencePiece
-
-@kudo2018sentencepiece
-
-BPE encodes a sentence into a unique subword sequences.
-A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by subwords.
 
 # References
