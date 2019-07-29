@@ -11,7 +11,7 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 4
+    toc_depth: 3
     toc_float: yes
   code_download: true
 bibliography: subword_units.bib
@@ -319,18 +319,95 @@ for t, m, e in zip(true_params, mle_params, em_params):
 
 ### Viterbi Algorithm
 
-forward -> calculate highest likelihood
+Let's use the Shakespeare to illustrate the Viterbi algorithm.
+
+For a given text line we'd like to calculate the most probable subwords that can recover the text line.
+In order to achieve that we need to have a vocabulary for subwords that can attribute each subword to a probability.
+We can use BPE to build such vocabulary.
+For complete coverage we will also include character-level subwords into the vocabulary.
+
+```{python viterbi_seed}
+# Build a seeding subword vocabulary using BPE.
+bpe = BPE(shakespeare, min_cnt=10)
+bpe.update_subword(n_merge=1000)
+subword_cnt = {**bpe.char_vocab, **bpe.subword_vocab}
+tot_cnt = np.sum(list(subword_cnt.values()))
+subword_logp = {k: np.log(v / tot_cnt) for k, v in subword_cnt.items()}
+```
+
+Now we can implement the forward step of Viterbi:
+
+```{python viterbi_forward}
+def viterbi_forward(word):
+  """Forward step of Viterbi given a single word."""
+  # Create storage array for best substring at each character position.
+  best_subw_slices =  [None] * (len(word) + 1)
+  neg_loglik = np.zeros(len(word) + 1)
+  # Search the best substring given every possible end of position along the word.
+  for eow in range(1, len(word) + 1):
+    # For every end-of-word position:
+    neg_loglik[eow] = np.inf
+    for bow in range(eow):
+      # For every possible beginning-of-word position:
+      subw = line[bow:eow]
+      if subw in subword_logp:
+        logp = subword_logp[subw]
+        s = neg_loglik[bow] - logp
+        if s < neg_loglik[eow]:
+          neg_loglik[eow] = s
+          best_subw_slices[eow] = (bow, eow)
+  return neg_loglik, best_subw_slices
+
+
+# Take a text line from Shakespeare.
+line = shakespeare[213]
+words = line.split()
+
+w = words[0]
+subw_scores, subw_slices = viterbi_forward(w)
+print(subw_slices)
+```
+
 backward -> track the path that generates the highest likelihood
 
+```{python viterbi_backward}
+def viterbi_backward(word, subw_slices):
+  """Backward step of Viterbi to return the best path."""
+  subwords = []
+  next_slices = subw_slices[-1]
+  while next_slices is not None:
+    subw = word[next_slices[0]:next_slices[1]]
+    subwords.append(subw)
+    next_slices = subw_slices[next_slices[0]]
+  subwords.reverse()
+  return subwords
 
 
+# Test with a single word.
+print(viterbi_backward(w, subw_slices))
+```
 
-### Seed Vocabulary
+```{python viterbi}
+def viterbi(line):
+  out = []
+  words = line.split()
+  for w in words:
+    subw_scores, subw_slices = viterbi_forward(w)
+    subw = viterbi_backward(w, subw_slices)
+    out.extend(subw)
+  return out
+
+print(line)  # Input sentence.
+print(viterbi(line))  # Output subword sequence.
+```
+
+#### On the Seed Vocabulary {-}
 
 The natural choice is to use the union of all characters and the most frequent substrings in the corpus.
 This can be done efficiently by the [suffix array](https://en.wikipedia.org/wiki/Suffix_array) algorithm.
 
-Another approach is to run BPE with a sufficient number of merges to gather a large enough number of initial subwords.
+Another approach is to run BPE with a sufficient number of merges to gather a large enough number of initial subwords,
+as what we did in our previous toy illustration.
 
 # SentencePiece: Unsupervised Segmentation
 
