@@ -164,7 +164,7 @@ Note that BPE is *deterministic* by a greedy replacement of adjacent symbols,
 while the actual subword segmentation is potentially ambiguous.
 A sequence can be represented in multiple subword sequences since even the same word can be segmented differently by different subwords.
 @kudo2018subword propose an approach called "subword regularization" to handle this issue in a probablistic fashion.
-A new subword segmentation under this approach uses a unigram language model for generating subword segmentation with attached probability.
+A new subword segmentation under this approach uses a *unigram language model* for generating subword segmentation with attached probability.
 
 Denote $X$ as a subword sequence of length $n$
 
@@ -187,15 +187,116 @@ $$
 
 where $V$ is a pre-determined vocabulary set.
 
-The most probable sequence (from all possible segmentation candidates) can be found by applying the [Viterbi algorithm](https://en.wikipedia.org/wiki/Viterbi_algorithm) which is a dynamic programming algorithm designed for finding the most likely sequence of hidden states.
+The most probable sequence (from all possible segmentation candidates) can be found by applying [expectation-maximization](https://en.wikipedia.org/wiki/Expectation%E2%80%93maximization_algorithm) with the [Viterbi algorithm](https://en.wikipedia.org/wiki/Viterbi_algorithm),
+which is designed for finding the most likely sequence of hidden states.
+Here the hidden states are subwords used in a sequence.
 
 The vocabulary set $V$ is indeed undertermined at the very beginning and cannot be solved simultaneously with the maximization task.
 A workaround is to provide a seed vocabulary as the initial (reasonably big enough) vocabulary,
 and shrink the seed vocabulary during training until a desired vocabulary size is reached.
 
-#### Expectation-Maximization {-}
+### Expectation-Maximization
 
-[A brief review on EM algorithm here?]
+For completeness let's briefly review the EM algorithm.
+
+#### A Gaussian Mixture {-}
+
+The Hello-World example of EM is usually a Gaussian Mixture model.
+In its simplest illustration,
+assume we observe a set of data resulting from either one of two different Gaussians,
+how can we estimate parameters of these two Gaussians without knowing which Gaussian they came from?^[We borrow the example from [this stack-overflow thread](https://stackoverflow.com/questions/11808074/what-is-an-intuitive-explanation-of-the-expectation-maximization-technique/43561339#43561339), with modification to use a general initial guess by randomizing the hidden state weights.]
+
+```{python em_toy_data}
+import numpy as np
+
+np.random.seed(777)
+size = 100
+
+g1_mean = 3
+g2_mean = 7
+g1_std = 1
+g2_std = 2
+
+g1_data = np.random.normal(g1_mean, g1_std, size=size)
+g2_data = np.random.normal(g2_mean, g2_std, size=size)
+mixture_data = np.concatenate([g1_data, g2_data])
+```
+
+```{r em_toy_data_hist}
+# R
+x <- py$mixture_data
+hist(x, xlab="Data", main="Sample Data from a Gaussian Mixture",
+     probability=TRUE, ylim=c(0, .45))
+curve(dnorm(x, mean=py$g1_mean, sd=py$g1_std),
+      col="blue", lty="dotted", add=TRUE, yaxt="n")
+curve(dnorm(x, mean=py$g2_mean, sd=py$g2_std),
+      col="red", lty="dotted", add=TRUE, yaxt="n")
+```
+
+```{python em}
+from scipy import stats
+
+
+class GaussianMixtureEM:
+
+  def __init__(self, data):
+    self.data = data
+    # Initialize hidden state weight.
+    # Note that there is no guarantee that g1 will correspond to the first half of the data.
+    # The actual estimated assignment is determined by the final weights.
+    self.g1_weights = np.random.uniform(size=len(data))
+    self.g2_weights = 1 - self.g1_weights
+    # Initialize parameter guessings.
+    self.update_estimates()
+
+  def update_estimates(self):
+    self.g1_mean = self.estimate_mean(self.g1_weights)
+    self.g2_mean = self.estimate_mean(self.g2_weights)
+    self.g1_std = self.estimate_std(self.g1_mean, self.g1_weights)
+    self.g2_std = self.estimate_std(self.g2_mean, self.g2_weights)
+
+  def estimate_mean(self, weights):
+      return np.sum(self.data * weights) / np.sum(weights)
+
+  def estimate_std(self, mean, weights):
+      variance = np.sum(weights * (self.data - mean)**2) / np.sum(weights)
+      return np.sqrt(variance)
+
+  def em(self, n_iter=10):
+    for n in range(n_iter):
+      g1_lik = stats.norm(self.g1_mean, self.g1_std).pdf(self.data)
+      g2_lik = stats.norm(self.g2_mean, self.g2_std).pdf(self.data)
+      self.g1_weights = g1_lik / (g1_lik + g2_lik)
+      self.g2_weights = g2_lik / (g1_lik + g2_lik)
+      self.update_estimates()
+
+
+mix_model = GaussianMixtureEM(mixture_data)
+mix_model.em(30)
+```
+
+```{python em_result}
+true_params = (g1_mean, g2_mean, g1_std, g2_std)
+mle_params = (
+  np.mean(mixture_data[:size]),
+  np.mean(mixture_data[size:]),
+  np.std(mixture_data[:size]),
+  np.std(mixture_data[size:])
+)
+# To ensure the ordering so we can have a nicely printed comparison.
+em_params = np.concatenate([
+  np.sort([mix_model.g1_mean, mix_model.g2_mean]),
+  np.sort([mix_model.g1_std, mix_model.g2_std])
+])
+
+print("True Value | MLE (Known Hidden States) | EM (Unknown Hidden States)")
+for t, m, e in zip(true_params, mle_params, em_params):
+  print("{:^11}|{:^27}|{:^27}".format(t, np.round(m, 4), np.round(e, 4)))
+```
+
+#### Viterbi
+
+[Toy example of viterbi?]
 
 #### Seed Vocabulary {-}
 
