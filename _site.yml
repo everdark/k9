@@ -18,6 +18,10 @@ navbar:
           href: matrix_factorization/matrix_factorization.nb.html
         - text: "Introduction to Learning-to-Rank"
           href: learning_to_rank/learning_to_rank.html
+    - text: "Natural Language Understanding"
+      menu:
+        - text: "On Subword Units"
+          href: natural_language_understanding/subword_units/subword_units.nb.html
   right:
     - text: "Projects"
       menu:
