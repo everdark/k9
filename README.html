@@ -11,7 +11,7 @@
 
 
 
-<title>Yet Another Data Scientist</title>
+<title>README.utf8.md</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -22,9 +22,6 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
-<link href="site_libs/font-awesome-5.0.13/css/fa-svg-with-js.css" rel="stylesheet" />
-<script src="site_libs/font-awesome-5.0.13/js/fontawesome-all.min.js"></script>
-<script src="site_libs/font-awesome-5.0.13/js/fa-v4-shims.min.js"></script>
 
 <style type="text/css">code{white-space: pre;}</style>
 <style type="text/css">
@@ -269,20 +266,77 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Yet Another Data Scientist</h1>
 
 </div>
 
 
-<style type="text/css">
-h1.title {
-  text-align: center;
-}
-</style>
-<center>
-<p><img src="assets/avatar.jpg" /></p>
-<a href="https://www.linkedin.com/in/kylechung/">LinkedIn</a> | <a href="https://medium.com/@knine">Medium</a>
-</center>
+<div id="self-taught-data-science-playground" class="section level1">
+<h1>Self-Taught Data Science Playground</h1>
+<p>The repository is a collection of my self-taught notebooks for data science theories and practices. A notebook is written in either <a href="https://jupyter.org/">Jupyter</a> or <a href="https://rmarkdown.rstudio.com/">R markdown</a>. The major programming languages used for most of the notebooks are <a href="https://www.python.org/">Python</a> and/or <a href="https://www.r-project.org/">R</a>. You may find me sometimes interoperate the two langauges in a single notebook.</p>
+<div id="notebooks" class="section level2">
+<h2>Notebooks</h2>
+<ul>
+<li>Statistics
+<ul>
+<li><a href="https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html">Bayesian Modeling Explained</a></li>
+</ul></li>
+<li>Machine Learning
+<ul>
+<li><a href="https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html">Neural Networks Fundamentals</a></li>
+<li><a href="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html">Matrix Factorization for Recommender Systems</a></li>
+<li><a href="https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html">Introduction to Learning-to-Rank</a></li>
+</ul></li>
+<li>Natural Language Understanding
+<ul>
+<li>[On Subword Units]</li>
+</ul></li>
+<li>Projects
+<ul>
+<li><a href="https://everdark.github.io/k9/projects/yt8m/yt8m.html">YouTube-8M Multi-Label Video Classification</a></li>
+<li>[A General-Purpose Neural Ranking Model]</li>
+</ul></li>
+</ul>
+</div>
+<div id="optional-setup-python-environment" class="section level2">
+<h2>[Optional] Setup Python Environment</h2>
+<p>To ensure reproducibility it is recommended to use <a href="https://github.com/pyenv/pyenv"><code>pyenv</code></a> along with <a href="https://github.com/pyenv/pyenv-virtualenv"><code>pyenv-virtualenv</code></a> to control both Python and package version.</p>
+<p>To use <code>virtualenv</code> with <code>reticulate</code> in Rmd, the involved Python must be installed with shared library:</p>
+<pre class="sh"><code>PYTHON_CONFIGURE_OPTS=&quot;--enable-shared&quot; pyenv install 3.7.0</code></pre>
+<p><code>pyenv</code> support only Linux and macOS. For Windows user it is recommended to use <a href="https://github.com/conda/conda"><code>conda</code></a> instead.</p>
+</div>
+<div id="todo" class="section level2">
+<h2>TODO</h2>
+<div id="topics" class="section level3">
+<h3>Topics</h3>
+<ul>
+<li>Linear and Logistic Models: Econometrics v.s. Machine Learning</li>
+<li>Factorization Machines</li>
+<li>Gradient Boosting Machines</li>
+<li>TensorFlow 2.0 Hands-On</li>
+<li>Basics about Reinforcement Learning</li>
+<li>Recurrent Neural Nets</li>
+<li>Deep Neural Nets
+<ul>
+<li>Sequence-to-Sequence Models
+<ul>
+<li>Neural Machine Translation</li>
+</ul></li>
+<li>GANs</li>
+</ul></li>
+<li>Natural Language Understanding
+<ul>
+<li>RASA Chatbots</li>
+</ul></li>
+</ul>
+</div>
+<div id="site" class="section level3">
+<h3>Site</h3>
+<ul>
+<li>Dockerize each notebook (for complete reproducibility)?</li>
+</ul>
+</div>
+</div>
+</div>
 
 
 

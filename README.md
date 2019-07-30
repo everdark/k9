@@ -1,9 +1,9 @@
-# Self-Taught Data Science
+# Self-Taught Data Science Playground
 
-The repository is a collection of self-taught notebooks for data science practices.
+The repository is a collection of my self-taught notebooks for data science theories and practices.
 A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
-
-The major programming language used for most of the notebooks is either [Python](https://www.python.org/) or [R](https://www.r-project.org/).
+The major programming languages used for most of the notebooks are [Python](https://www.python.org/) and/or [R](https://www.r-project.org/).
+You may find me sometimes interoperate the two langauges in a single notebook.
 
 ## Notebooks
 
@@ -36,6 +36,7 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
 ## TODO
 
 ### Topics
+
 + Linear and Logistic Models: Econometrics v.s. Machine Learning
 + Factorization Machines
 + Gradient Boosting Machines
@@ -50,4 +51,5 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + RASA Chatbots
 
 ### Site
+
 + Dockerize each notebook (for complete reproducibility)?

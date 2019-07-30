@@ -4,8 +4,12 @@ navbar:
   type: default
   title: "k9"
   left:
-    - text: "About Me"
-      href: about.html
+    - text: "About"
+      menu:
+        - text: "Me"
+          href: about.html
+        - text: "Here"
+          href: README.html
     - text: "Statistics"
       menu:
         - text: "Bayesian Modeling Explained"
