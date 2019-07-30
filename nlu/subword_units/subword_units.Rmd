@@ -298,7 +298,7 @@ mix_model = GaussianMixtureEM(mixture_data)
 mix_model.em(30)
 ```
 
-```{python em_result}
+```{python em_result, results="hide"}
 true_params = (g1_mean, g2_mean, g1_std, g2_std)
 mle_params = (
   np.mean(mixture_data[:size]),
@@ -453,6 +453,7 @@ This is easily understandable if we also visualize the backward step:
 
 ```{r vitewrbi_backward_plot}
 # R
+library(data.table)
 seg <- rbindlist(py$best_slices)
 setnames(seg, c("yend", "y"))
 seg[, x:=match(rev(py$best_subw), rev(subw_demo$subw))]
