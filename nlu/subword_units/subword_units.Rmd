@@ -473,8 +473,8 @@ def viterbi(line):
   out = []
   words = line.split()
   for w in words:
-    subw_scores, subw_slices = viterbi_forward(w)
-    subw = viterbi_backward(w, subw_slices)
+    subw_scores, subw_slices = viterbi_forward(w, subword_logp)
+    subw, subw_idx = viterbi_backward(w, subw_slices)
     out.extend(subw)
   return out
 
