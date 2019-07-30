@@ -385,6 +385,8 @@ Numbers beneath the subword are the corresponding negative log-likelihood for th
 ```{r viterbi_segment_plot}
 # R
 library(ggplot2)
+library(data.table)
+
 subw_demo <- rbindlist(py$subw_slices)
 setnames(subw_demo, c("start", "end"))
 subw_demo[, subw:=py$subw]
@@ -453,7 +455,6 @@ This is easily understandable if we also visualize the backward step:
 
 ```{r vitewrbi_backward_plot}
 # R
-library(data.table)
 seg <- rbindlist(py$best_slices)
 setnames(seg, c("yend", "y"))
 seg[, x:=match(rev(py$best_subw), rev(subw_demo$subw))]
