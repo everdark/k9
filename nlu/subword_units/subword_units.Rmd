@@ -340,9 +340,9 @@ subword_logp = {k: np.log(v / tot_cnt) for k, v in subword_cnt.items()}
 Now we can implement the *forward* step of Viterbi:
 
 ```{python viterbi_forward}
-def viterbi_forward(word):
+def viterbi_forward(word, subword_logp):
   """Forward step of Viterbi given a single word."""
-  # Create storage array for best substring at each character position.
+  # Create storage array for best substring recorded at each character position.
   best_subw_slices =  [None] * (len(word) + 1)
   neg_loglik = np.zeros(len(word) + 1)
   # Search the best substring given every possible end of position along the word.
@@ -350,10 +350,12 @@ def viterbi_forward(word):
     # For every end-of-word position:
     neg_loglik[eow] = np.inf
     for bow in range(eow):
-      # For every possible beginning-of-word position:
+      # For every possible beginning-of-word position given the end-of-word position:
       subw = line[bow:eow]
       if subw in subword_logp:
         logp = subword_logp[subw]
+        # Compute subword probability:
+        # P(current segment) + P(the best segment just before the current segment).
         s = neg_loglik[bow] - logp
         if s < neg_loglik[eow]:
           neg_loglik[eow] = s
@@ -369,7 +371,7 @@ words = line.split()
 w = words[0]
 print(w)  # Word for segmentation demo.
 
-subw_scores, subw_slices = viterbi_forward(w)
+subw_scores, subw_slices = viterbi_forward(w, subword_logp)
 print(subw_slices)  # Best segment indices at each subword end.
 
 subw = [w[idx[0]:idx[1]] for idx in subw_slices if idx is not None]
@@ -377,6 +379,8 @@ print(subw)  # Best segmented subword at each subword end.
 ```
 
 Let's visualize the segmentation.
+Numbers beneath the subword are the corresponding negative log-likelihood for that subword.
+(The lower the better.)
 
 ```{r viterbi_segment_plot}
 # R
@@ -387,26 +391,38 @@ subw_demo[, subw:=py$subw]
 subw_demo <- rbind(list(0, 0, ""), subw_demo)  # To plot one more block at the top.
 subw_demo <- rbind(subw_demo, list(0, 0, "_"))  # To plot one more block at the bottom.
 subw_demo[, subw:=factor(subw, levels=rev(subw))]
-subw_demo[, score:=py$subw_scores]
+subw_demo[, score:=c(py$subw_scores, 0)]
 
 # To also plot the entire word by character.
 w_df <- data.table(x=rep("", 7), y=0:(nrow(subw_demo)-3) + .5,
                    label=unlist(strsplit(py$w, NULL)))
 
-ggplot(subw_demo, aes(x=subw, y=(start + end) / 2, label=subw)) +
+viterbi_demo_p <- ggplot(subw_demo, aes(x=subw, y=(start + end) / 2, label=subw)) +
   geom_linerange(aes(x=subw, ymin=start, ymax=end), size=1.1) +
   geom_text(vjust=1, size=7) +
   geom_text(data=subw_demo[2:(nrow(subw_demo) - 1)],
             aes(label=sprintf("(%.2f)", score)), vjust=3.5, size=3, color="darkgrey") +
   geom_text(data=w_df, aes(x=x, y=y, label=label), size=14) +
+  geom_point(aes(x=subw, y=end), data=subw_demo[2:(nrow(subw_demo) - 1)], size=3) +
   scale_y_continuous("", breaks=0:(nrow(subw_demo)-2), sec.axis=dup_axis()) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        panel.grid.minor = element_blank()) +
+        panel.grid.minor=element_blank()) +
   coord_flip()
+
+viterbi_demo_p
 ```
 
+We iterate over every position in a given word.
+At each position,
+we determine the best segment by finding the one with highest likelihood given the vocabulary.
+For example,
+when we are at position 2,
+we compare the log-liklihood of `(wh)` and `(w, h)`,
+the former is more likely so we record its negative log-likelihood along with the segment indices and then move onto the next position.
+Now at position 3 we compare `(whe)` with `(w, he)` and `(wh, e)` and again return the best segment.
+Notice that we don't compare `(w, h, e)` since in the previous position we already rule `(w, h)` out due to its being inferior to `(wh)`.
 
 #### Backward Step {-}
 
@@ -417,17 +433,35 @@ we can track backward the path of segments that generates the highest likelihood
 def viterbi_backward(word, subw_slices):
   """Backward step of Viterbi to return the best path."""
   subwords = []
+  subword_slices = []
   next_slices = subw_slices[-1]
   while next_slices is not None:
     subw = word[next_slices[0]:next_slices[1]]
     subwords.append(subw)
+    subword_slices.append(next_slices)
     next_slices = subw_slices[next_slices[0]]
   subwords.reverse()
-  return subwords
+  return subwords, subword_slices
 
 
 # Test with a single word.
-print(viterbi_backward(w, subw_slices))
+best_subw, best_slices = viterbi_backward(w, subw_slices)
+print(best_subw)
+```
+
+This is easily understandable if we also visualize the backward step:
+
+```{r vitewrbi_backward_plot}
+# R
+seg <- rbindlist(py$best_slices)
+setnames(seg, c("yend", "y"))
+seg[, x:=match(rev(py$best_subw), rev(subw_demo$subw))]
+seg[, xend:=x]
+seg[, subw:=""]  # Required to bypass ggplot data checking.
+
+viterbi_demo_p +
+  geom_segment(aes(x=x, xend=xend, y=y, yend=yend), data=seg,
+               col="red", arrow=arrow(length=unit(0.03, "npc")), size=1.5)
 ```
 
 Now combining forward and backward for a complete segmentation of a text line:
