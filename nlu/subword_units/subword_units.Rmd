@@ -335,7 +335,9 @@ tot_cnt = np.sum(list(subword_cnt.values()))
 subword_logp = {k: np.log(v / tot_cnt) for k, v in subword_cnt.items()}
 ```
 
-Now we can implement the forward step of Viterbi:
+#### Forward Step {-}
+
+Now we can implement the *forward* step of Viterbi:
 
 ```{python viterbi_forward}
 def viterbi_forward(word):
@@ -357,18 +359,59 @@ def viterbi_forward(word):
           neg_loglik[eow] = s
           best_subw_slices[eow] = (bow, eow)
   return neg_loglik, best_subw_slices
+```
 
-
+```{python viterbi_forward_demo}
 # Take a text line from Shakespeare.
 line = shakespeare[213]
 words = line.split()
 
 w = words[0]
+print(w)  # Word for segmentation demo.
+
 subw_scores, subw_slices = viterbi_forward(w)
-print(subw_slices)
+print(subw_slices)  # Best segment indices at each subword end.
+
+subw = [w[idx[0]:idx[1]] for idx in subw_slices if idx is not None]
+print(subw)  # Best segmented subword at each subword end.
 ```
 
-backward -> track the path that generates the highest likelihood
+Let's visualize the segmentation.
+
+```{r viterbi_segment_plot}
+# R
+library(ggplot2)
+subw_demo <- rbindlist(py$subw_slices)
+setnames(subw_demo, c("start", "end"))
+subw_demo[, subw:=py$subw]
+subw_demo <- rbind(list(0, 0, ""), subw_demo)  # To plot one more block at the top.
+subw_demo <- rbind(subw_demo, list(0, 0, "_"))  # To plot one more block at the bottom.
+subw_demo[, subw:=factor(subw, levels=rev(subw))]
+subw_demo[, score:=py$subw_scores]
+
+# To also plot the entire word by character.
+w_df <- data.table(x=rep("", 7), y=0:(nrow(subw_demo)-3) + .5,
+                   label=unlist(strsplit(py$w, NULL)))
+
+ggplot(subw_demo, aes(x=subw, y=(start + end) / 2, label=subw)) +
+  geom_linerange(aes(x=subw, ymin=start, ymax=end), size=1.1) +
+  geom_text(vjust=1, size=7) +
+  geom_text(data=subw_demo[2:(nrow(subw_demo) - 1)],
+            aes(label=sprintf("(%.2f)", score)), vjust=3.5, size=3, color="darkgrey") +
+  geom_text(data=w_df, aes(x=x, y=y, label=label), size=14) +
+  scale_y_continuous("", breaks=0:(nrow(subw_demo)-2), sec.axis=dup_axis()) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor = element_blank()) +
+  coord_flip()
+```
+
+
+#### Backward Step {-}
+
+After the forward step is finished,
+we can track backward the path of segments that generates the highest likelihood.
 
 ```{python viterbi_backward}
 def viterbi_backward(word, subw_slices):
@@ -386,6 +429,8 @@ def viterbi_backward(word, subw_slices):
 # Test with a single word.
 print(viterbi_backward(w, subw_slices))
 ```
+
+Now combining forward and backward for a complete segmentation of a text line:
 
 ```{python viterbi}
 def viterbi(line):
