@@ -1,6 +1,6 @@
 ---
-title: "Understand Subword Units for Natural Language Modeling"
-subtitle: ""
+title: "On Subword Units"
+subtitle: "Segmentation for Natural Language Modeling"
 author:
 - name: Kyle Chung
   affiliation:
@@ -240,7 +240,7 @@ g2_data = np.random.normal(g2_mean, g2_std, size=size)
 mixture_data = np.concatenate([g1_data, g2_data])
 ```
 
-```{r em_toy_data_hist}
+```{r em_toy_data_hist, results="hold"}
 # R
 x <- py$mixture_data
 hist(x, xlab="Data", main="Sample Data from a Gaussian Mixture",
@@ -293,7 +293,7 @@ mix_model = GaussianMixtureEM(mixture_data)
 mix_model.em(30)
 ```
 
-```{python em_result, results="hide"}
+```{python em_result}
 true_params = (g1_mean, g2_mean, g1_std, g2_std)
 mle_params = (
   np.mean(mixture_data[:size]),
@@ -307,8 +307,10 @@ em_params = np.concatenate([
   np.sort([mix_model.g1_std, mix_model.g2_std])
 ])
 
-print("True Value | MLE (Known Hidden States) | EM (Unknown Hidden States)")
-for t, m, e in zip(true_params, mle_params, em_params):
+
+for i, (t, m, e) in enumerate(zip(true_params, mle_params, em_params)):
+  if i == 0:
+    print("True Value | MLE (Known Hidden States) | EM (Unknown Hidden States)")
   print("{:^11}|{:^27}|{:^27}".format(t, np.round(m, 4), np.round(e, 4)))
 ```
 
