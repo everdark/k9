@@ -1,0 +1,167 @@
+---
+title: "On Word Embeddings"
+subtitle: "Vector Representation for Language Modeling"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook: 
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  code_download: true
+bibliography: word_embeddings.bib
+abstract: |
+  TBC.
+---
+<!--For equation reference in Rmd.-->
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+# The Motivation for Embeddings
+
+# Word2vec
+
+@mikolov2013distributed
+
+## Skip-Gram
+
+predicts source context-words from the target words.
+
+The idea is to maximize the likelihood of the context word given a target word.
+The probability is expressed as the softmax over the entire vocabulary.
+Think of it as a multi-class classification where number of classes equals to number of words in the vocabulary.
+
+
+examples from https://www.tensorflow.org/tutorials/representation/word2vec
+context window length = 1 for both left and right hand side
+
+```
+the quick brown fox jumped over the lazy dog
+```
+
+```
+([the, brown], quick), ([quick, fox], brown), ([brown, jumped], fox), ...
+```
+
+
+## Continuous Bag-of-Words (CBOW)
+
+predicts target words (e.g. 'mat') from source context words ('the cat sits on the')
+better for smaller dataset
+
+
+## Negative Sampling
+
+Since the vocabulary size is usually fairly large,
+to overcome the computational complexity,
+negative sampling is used to approximate the softmax probability.
+
+In negative sampling,
+we turn the task into a binary one where a logistic regression is performed on positive pairs of context-target words and samples of negative (wrong) context-target pairs.
+The model is to learn to score positive pairs higher and (sampled) negative pairs lower.
+
+To draw the negative samples we need a distribution,
+referred to as the noise distribution.
+For natural language a classical choice is the unigram distribution which can be estimated simply by vocabulary frequency counts.
+
+Mathematically the gradient update is asymptotically the same to the update when a softmax probability is used.
+
+## Noise-Contrastive Estimation Loss
+
+@mnih2013learning
+
+# GloVe
+
+@pennington2014glove
+
+collect word co-occurrence within a window, forming a matrix $X$ where $X_{ij}$ is the co-occurence of word $i$ and word $j$.
+
+$$
+W_i^TW_j + b_i + b_j = \ln X_{ij},
+$$
+
+where $W_i$ is the embedding for word $i$,
+$b_i$ is a bias term.
+Similarly for word $j$.
+
+
+## Efficient Implementation
+
+Beside GloVe's [original implementation](https://github.com/stanfordnlp/GloVe),
+in this section we also discuss some other efficient implementation but with a higher-level API at our disposal.
+
+### `text2vec`
+
+[`text2vec`](https://github.com/dselivanov/text2vec)
+
+```{r}
+library(text2vec)
+
+text8_file = "~/text8"
+if (!file.exists(text8_file)) {
+  download.file("http://mattmahoney.net/dc/text8.zip", "~/text8.zip")
+  unzip ("~/text8.zip", files = "text8", exdir = "~/")
+}
+wiki = readLines(text8_file, n = 1, warn = FALSE)
+
+# Create iterator over tokens
+tokens = space_tokenizer(wiki)
+# Create vocabulary. Terms will be unigrams (simple words).
+it = itoken(tokens, progressbar = FALSE)
+vocab = create_vocabulary(it)
+
+vocab = prune_vocabulary(vocab, term_count_min = 5L)
+
+# Use our filtered vocabulary
+vectorizer = vocab_vectorizer(vocab)
+# use window of 5 for context words
+tcm = create_tcm(it, vectorizer, skip_grams_window = 5L)
+dim(tcm)
+
+glove = GlobalVectors$new(word_vectors_size = 50, vocabulary = vocab, x_max = 10)
+wv_main = glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01)
+
+dim(wv_main)
+```
+
+
+### `gensim`
+
+# FastText
+
+@bojanowski2017enriching
+
+Using subword emgeddings to overcome out-of-vocabulary issue.
+
+# Context-Aware Embeddings
+
+## BERT
+
+@devlin2018bert
+
+https://github.com/google-research/bert
+
+## XLNet
+
+@yang2019xlnet
+
+https://github.com/zihangdai/xlnet
+
+# References

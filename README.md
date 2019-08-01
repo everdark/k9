@@ -15,6 +15,7 @@ You may find me sometimes interoperate the two langauges in a single notebook.
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
 + Natural Language Understanding
     + [On Subword Units]
+    + [On Word Embeddings]
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model]
