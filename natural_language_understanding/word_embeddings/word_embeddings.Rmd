@@ -13,6 +13,8 @@ output:
     toc: yes
     toc_depth: 3
     toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
   code_download: true
 bibliography: word_embeddings.bib
 abstract: |
@@ -24,6 +26,19 @@ MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="On Word Embeddings: Vector Representation for Language Modeling">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
+```
 
 ```{r setup, include=FALSE}
 library(reticulate)
