@@ -12,6 +12,8 @@ output:
     toc: yes
     toc_float: true
     toc_depth: 3
+    includes:
+      in_header: /tmp/meta_header.html
   code_download: true
 bibliography: bayesian_modeling_explained.bib
 nocite: | 
@@ -27,6 +29,19 @@ MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="Bayesian Modeling Explained">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A data science notebook about Bayesian modeling with examples using R and Stan.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
+```
   
 # Basics
 
