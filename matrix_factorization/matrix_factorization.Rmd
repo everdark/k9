@@ -33,7 +33,7 @@ MathJax.Hub.Config({
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
-    '<meta name="author" content="kyle chung">',
+    '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="Matrix Factorization for Recommender Systems">',
     '<meta property="og:url" content="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
