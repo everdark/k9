@@ -234,7 +234,7 @@ We use a working example of a Gaussian Mixture to illustrate the core idea of EM
 A Gaussian Mixture model is more of a Hello-World example of EM.
 In its simplest illustration,
 assume we observe a set of data resulting from either one of two different Gaussians,
-how can we estimate parameters of these two Gaussians without knowing which Gaussian they came from?^[We borrow the example from [this stack-overflow thread](https://stackoverflow.com/questions/11808074/what-is-an-intuitive-explanation-of-the-expectation-maximization-technique/43561339#43561339), with modification to use a general initial guess by randomizing the hidden state weights.]
+how can we estimate parameters of these two Gaussians without knowing which Gaussian they came from?^[We borrow the example from [this stack-overflow thread](https://stackoverflow.com/questions/11808074/what-is-an-intuitive-explanation-of-the-expectation-maximization-technique/43561339#43561339), with a modification to use a general initial guess by randomizing the hidden state weights.]
 
 First create some toy data:
 
@@ -658,7 +658,7 @@ The `.vocab` file contains all final subwords sorted in descending order for its
 vocab <- fread("m.vocab", header=FALSE, encoding="UTF-8")
 setnames(vocab, c("subword", "logp"))
 vocab <- vocab[, p:=round(exp(logp), 5)]
-print(vocab)
+vocab
 ```
 
 ```{r spm_check_p}
