@@ -13,8 +13,11 @@ output:
     toc: yes
     toc_depth: 3
     toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
   code_download: true
 bibliography: subword_units.bib
+description: test
 abstract: |
   Langauge segmentation or tokenization is the very first step toward a natural language understanding (NLU) task. The state-of-the-art NLU model usually involves neural networks with word embeddings as the workhorse to encode raw text onto vector space. A fixed vocabulary is pre-determined in order to facilitate such setup. With the challenge of out-of-vocabulary issue and non-whitespace-delimited language, we use subword units to further decompose raw texts into substrings. In this notebook we summarize the technique of subword segmentation in details with Python coding examples. We also provide a general usage walk-through for Google's open source library *SentencePiece*, a powerful language-agnostic unsupervised subword segmentation tool.
 ---
@@ -27,6 +30,19 @@ MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="On Subword Units: Segmentation for Natural Language Modeling">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A data science notebook about natural language understanding.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
+```
 
 ```{r setup, include=FALSE}
 library(reticulate)
