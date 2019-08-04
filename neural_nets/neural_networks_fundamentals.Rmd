@@ -12,6 +12,8 @@ output:
     toc: yes
     toc_float: true
     highlight: pygments
+    includes:
+      in_header: /tmp/meta_header.html
   code_download: true
 bibliography: neural_networks_fundamentals.bib
 abstract: |
@@ -64,6 +66,19 @@ MathJax.Hub.Config({
 pre.plot {
   background-color: white !important;
 }
+```
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="Neural Networks Fundamentals">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A data science notebook about foundations of neural network modeling with built-from-scratch Python examples.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
 ```
 
 ```{r setup, include=FALSE}
