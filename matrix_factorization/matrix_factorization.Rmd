@@ -14,7 +14,7 @@ output:
     toc_depth: 4
     toc_float: yes
     includes:
-      in_header: /tmp/og_header.html
+      in_header: /tmp/meta_header.html
   code_download: true
 bibliography: matrix_factorization.bib
 abstract: |
@@ -30,14 +30,17 @@ MathJax.Hub.Config({
 });
 </script>
 
-```{r og_meta, include=FALSE}
-og_header_file <- file("/tmp/og_header.html")
-og_meta <- c('<meta property="og:title" content="Matrix Factorization for Recommender Systems" />',
-             '<meta property="og:type" content="article" />',
-             '<meta property="og:url" content="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html" />',
-             '<meta property="og:image" content="" />')
-writeLines(og_meta, og_header_file)
-close(og_header_file)
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="kyle chung">',
+    '<meta property="og:title" content="matrix factorization for recommender systems">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="a data science notebook about matrix factorization for recommender systems.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
 ```
 
 ```{r setup, include=FALSE}
