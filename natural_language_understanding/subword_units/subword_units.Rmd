@@ -553,27 +553,91 @@ Another common choice is to the [suffix array](https://en.wikipedia.org/wiki/Suf
 # SentencePiece
 
 @kudo2018sentencepiece propose a language-agnostic subword segmentation algorithm called [SentencePiece](https://github.com/google/sentencepiece).
-SentencePiece is a powerful and efficient open-sourced unsupervised langugae tokenizer that can help build vocabulary for neural networks.
-In this section we will deep-dive into this model from both its theoretical stands and practical usage.
+SentencePiece is a powerful and efficient open-sourced unsupervised langugae tokenizer that can help build end-to-end vocabulary for neural networks.
+In this section we will walk-through the idea of SentencePiece along with demo examples.
 
-## Language Agnostic
+## Model Characteristics
+
+In this section we briefly summarize several useful characteristics about the segmentation model.
+
+### Language-Agnostic Handle
 
 SentencePiece is langauge independent becuase under the hood it simply treats a given sentence as a sequence of *Unicode* characters.
-And most langauge in the world we speak can be encoded in Unicode.
+And most written langauge in the world we speak can be encoded in Unicode.
 This is particualrly useful for non-whitespace-segmented languages such as Chinese,
 Korean and Japanese.
 
 Technically speaking,
-whitespace is also handled as a normal symbol in SentencePiece.
+in SentencePiece whitespace is also treated as just another normal symbol.
 To achieve this,
-a meta symbol "▁" (U+2581) is used to replace the whitespace.
+a meta symbol `▁` (U+2581) is used to replace the whitespace at the very beginning.
 
-The entire vocabulary is built from subwords so there is also no need to do pre-processing to provide a fullword initial vocabulary.
+The entire vocabulary is built from subwords directly based on raw text input so there is also no need to do pre-processing to provide a fullword initial vocabulary.
 This bypasses the need for any language-specific preprocessing logic,
 resulting in a unified framework for natural langauge segmentation.
 
+### Lossless Tokenization
+
+Because of the special (or rather, non-special) treatment of whitespace as a normal symbol,
+SentencePiece is able to acheive lossless tokenization.
+That is,
+the entire raw text can be recovered from its segmented tokens with zero ambiguity.
+
+The reason why mosty of the other tokenization algorithm won't be able to achieve this is because of the pre-tokenization stage that use whitespace to pre-process the corpus into a working vocabulary.
+The subword segmentation is then operating on the working vocabulary instead of the raw text lines in the corpus.
+
+Notice that in our toy example in the previous section we also relies on a pre-tokenization before the subword segmentation kicks in.
+
+### Self-Contained Integer Mapping
+
+Yet another goodness about SentencePiece is its flexible cabapility to generate the integer mappings that is required for neural network modeling in the embedding lookup subtask.
+It can handle all the following meta symbols:
+
++ `bos`: beginning of word
++ `eos`: ending of word
++ `unk`: out-of-vocabulary word
++ `pad`: padding for fixed-length output, especially useful in recurrent neural network modeling
+
+Once the model is trained,
+the mappings are self-contained in the model file and can be used to encode/decode raw text/integer sequence on the fly.
+
+## Command Line Usage
+
+```{bash spm_version}
+spm_train --version
+```
+
+SentencePiece is written in C++ with both a command line tool and a Python wrapper.
+There are a handful of options that can be used to setup the model configuration.
+
+```{bash spm_usage}
+# bash
+spm_train --help
+```
+
+SentencePiece supports not only the unigram langauge model we just discussed in the previous section,
+it also supports BPE algorithm,
+and two naive tokenizer one for word-level the other for character-level.
+
+Several options are relevant to the unigram model:
+
++ `--seed_sentencepiece_size=1000000`: This is the initial seeding vocabulary for the EM-Viterbi algorithm to start with
++ `--shrinking_factor=0.75`: This is by how much the seeding vocabulary is reduced based on the loss-ranking dropout procedure
++ `--num_sub_iterations=2`: This is the hyperparameter for the EM-Viterbi algorithm
+
+## Python Usage
+
+The command line tool is very concise.
+But since we usually train the model for a downstream neural network model that is developed in Python,
+we will turn our focus into SentencePiece's Python wrapper.
+It turns out that it is not much different.
+We will still use the command line option style to control the behavior of the tool.
+
+Let's train a small vocabulary using the Shakespeare:
+
 ```{python spm_unigram, results="hide"}
 import sentencepiece as spm
+
 spm_args = "--input=data/shakespeare.txt"
 spm_args += " --model_prefix=m"
 spm_args += " --vocab_size=1000"
@@ -581,63 +645,85 @@ spm_args += " --model_type=unigram"
 spm.SentencePieceTrainer.Train(spm_args)
 ```
 
-```{r}
-library(data.table)
-vv <- fread("m.vocab", header=FALSE, encoding="UTF-8")
-setnames(vv, c("subword", "logp"))
-vv[, p:=exp(logp)]
-head(vv, 10)
+### Vocabulary Inspection
+
+The resulting `.model` file comes with a vocabulary file `.vocab` that can be used for investigation.
+(It is not required for segmentation since the vocab is self-contained in the model file already.)
+
+The `.vocab` file contains all final subwords sorted in descending order for its log-likelihood.
+
+```{r spm_vocab}
+# R
+# We use R here for the sake of a nicely formatted table done by Rmd notebook. :)
+vocab <- fread("m.vocab", header=FALSE, encoding="UTF-8")
+setnames(vocab, c("subword", "logp"))
+vocab <- vocab[, p:=round(exp(logp), 5)]
+print(vocab)
 ```
 
+```{r spm_check_p}
+# The summation of all subwords should approximate unity.
+sum(exp(vocab$logp)[-(1:3)])
+```
 
-```{python}
+Note the common presence of the special symbol (U+2581) that is used to encode the original whitespace.
+Usually a subword with this symbol means it is a legitimate fullword,
+or at least a subword that is the prefix rather than the suffix part of a fullword.
+
+### Encoding-Decoding
+
+Once trained,
+we can load the model with a single line:
+
+```{python spm_load_model, results="hide"}
 sp = spm.SentencePieceProcessor()
 sp.Load("m.model")
 ```
 
-```{python}
+Here are the general usage of the encoding/decoding APIs:
+
+```{python spm_test_encode_decode}
 subword_pieces = sp.EncodeAsPieces("This is a test.")
 print(subword_pieces)
+
+print("".join(subword_pieces).replace("\u2581", " "))  # Recover the whitespace.
+
 subword_ids = sp.EncodeAsIds("This is a test.")
-print(subword_ids)
+print(subword_ids)  # Convert sentence to integer sequence.
 
-print(sp.DecodePieces(subword_pieces))
-print(sp.DecodeIds(subword_ids))
+print(sp.DecodePieces(subword_pieces))  # Lossless Detokenization from subwords.
+print(sp.DecodeIds(subword_ids))  # Lossless Detokenization from subword ids.
+```
 
+```{python spm_meta_symbol}
 # By default the first 3 ids are token for unknown, bos and eos.
 for i in range(3):
   print(sp.IdToPiece(i))
-
-# The word "test" is not common in Shakespeare.
-print(sp.PieceToId("test"))
-
-# Recover the whitespace.
-print("".join(subword_pieces).replace("\u2581", " "))
 ```
 
-Subword segmentation sampling:
+```{python spm_test_oov}
+# The word "test" is not common enough in Shakespeare.
+# So it is not part of our small vocabulary.
+print(sp.PieceToId("test"))  # Map to integer representing unknown.
+```
 
-```{python}
+### Subword Sampling
+
+Remember that the unigram model for segmentation is probabilistic,
+which means that one sentence can be represented by more than one sequence of segments (or subwords).
+By default the most probable segmentation is used when we are doing encoding-decoding task with SentencePiece.
+But we can also generate segments using sampling based on the subword probability in our vocabulary:
+
+```{python spm_subword_sampling}
+for _ in range(5):
+  print(sp.SampleEncodeAsPieces("This is a test", nbest_size=-1, alpha=.1))
+```
+
+Or we can simply generate the top 5 most probable segmentations:
+
+```{python spm_subword_topn}
 for seg in sp.NBestEncodeAsPieces("This is a test", 5):
   print(seg)
 ```
-
-
-```{python}
-# Special start of word symbol.
-print(u"\u2581".encode("utf-8"))
-```
-
-We can also use SentencePiece with BPE segmentation:
-
-```{python spm_bpe, results="hide"}
-import sentencepiece as spm
-spm_args = "--input=data/shakespeare.txt"
-spm_args += " --model_prefix=m"
-spm_args += " --vocab_size=100"
-spm_args += " --model_type=bpe"
-spm.SentencePieceTrainer.Train(spm_args)
-```
-
 
 # References
