@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output: 
   html_notebook:
     number_sections: yes
-    theme: flatly
+    theme: paper
     toc: yes
     toc_float: true
     toc_depth: 3
