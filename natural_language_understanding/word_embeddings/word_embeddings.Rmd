@@ -249,6 +249,7 @@ Since the normalized word frequency is more likely to be around zero,
 we can zoom in a bit:
 
 ```{r word2vec_dropout_func_zoom}
+# R
 options(scipen=999)
 curve(p, from=0, to=1e-4, ylab="P(w)", xlab="f(w)",
       main="Dropout Probability based on Word Frequency")
