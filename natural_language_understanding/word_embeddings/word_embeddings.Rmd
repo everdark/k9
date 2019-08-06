@@ -11,7 +11,7 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 3
+    toc_depth: 4
     toc_float: yes
     includes:
       in_header: /tmp/meta_header.html
