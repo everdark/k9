@@ -219,6 +219,51 @@ The negative sampling loss is indeed a simplifed version of a more general loss 
 proposed by @mnih2013learning for also learning a word embedding model.
 Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings of the entire vocabulary.]
 
+### Dropout for Frequent Words
+
+To counter the effect of imbalanced distribution among popular (and usually less informative) words.
+@mikolov2013distributed also propose the idea of randomly discard training example based on a heuristic dropout probability:
+
+$$
+P(w_i) = 1 - \sqrt{\frac{t}{f(w_i)}},
+$$
+
+where $f(w_i) \in [0, 1]$ is the normalized frequency of word $w_i$ and $t$ is a hyperparameter around $10^{-5}$.
+The idea is to drop in higher probability when a word is more frequent.
+
+We can plot the function to see its property:
+
+```{r word2vec_dropout_func}
+# R
+p <- function(fw, t=1e-5) {
+  1 - sqrt(t / fw)
+}
+
+curve(p, from=0, to=1, ylab="P(w)", xlab="f(w)",
+      main="Dropout Probability based on Word Frequency")
+```
+
+If a word is dominant it is highly possible to be discarded.
+But this is unlikely to happen for a meaningful corpus with a fair size.
+Since the normalized word frequency is more likely to be around zero,
+we can zoom in a bit:
+
+```{r word2vec_dropout_func_zoom}
+options(scipen=999)
+curve(p, from=0, to=1e-4, ylab="P(w)", xlab="f(w)",
+      main="Dropout Probability based on Word Frequency")
+abline(v=1e-5, col="red")
+text(1e-5, -1, pos=4, col="red", bquote(t == 10^-5))
+```
+
+Note that the function does not return a valid probability in smaller $f(w_i)$.
+Indeed $\lim_{f(w_i) \to 0} P(w_i) = -\infty$.
+In case of a negative values we simply replace it with a zero:
+no dropout.
+
+The hyperparameter $t$ is chosen such that for words with frequency larger than $t$ the dropout start to apply,
+increasing in frequency.
+
 ### Pre-trained `word2vec`
 
 ### Train from Scratch
