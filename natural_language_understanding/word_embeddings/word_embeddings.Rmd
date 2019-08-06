@@ -178,8 +178,6 @@ where $\sigma$ is a standard sigmoid function,
 $P_n(W)$ is a noise distribution and $k$ is the number of negative samples drawn from that distribution,
 $Y$ is simply a dummy indicator of the correctness of the prediction.^[We use the fact that $\sigma(t) = \frac{1}{1 + e^{-t}} = \frac{e^t}{1 + e^t}$ and hence $1 - \sigma(t) = \frac{1}{1 + e^t} = \sigma(-t)$.]
 
-Mathematically the gradient update from the negative sampling loss is asymptotically the same to the update when a softmax probability is used.
-
 Let's use our toy example to illustrate the idea of negative sampling further.
 Assuming the text line
 
@@ -219,7 +217,7 @@ For natural language modeling a classical choice of the noise distribution is th
 
 The negative sampling loss is indeed a simplifed version of a more general loss called the Noise-Contrastive Estimation (NCE) loss,
 proposed by @mnih2013learning for also learning a word embedding model.
-Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.
+Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings of the entire vocabulary.]
 
 ### Pre-trained `word2vec`
 
