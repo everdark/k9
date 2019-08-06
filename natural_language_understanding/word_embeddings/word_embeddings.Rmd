@@ -265,9 +265,9 @@ no dropout.
 The hyperparameter $t$ is chosen such that for words with frequency larger than $t$ the dropout start to apply,
 increasing in frequency.
 
-### Pre-trained `word2vec`
+### Efficient Implementations
 
-### Train from Scratch
+The original implementation of `word2vec` is written in C and can be found [here](https://github.com/tmikolov/word2vec).^[macOS won't compile. The source code can be compiled only under Linux.]
 
 [tf.keras implementation here]
 
@@ -323,19 +323,20 @@ tcm <- create_tcm(it, vectorizer, skip_grams_window=5L)
 dim(tcm)
 
 glove <- GlobalVectors$new(word_vectors_size=50, vocabulary=vocab, x_max=10)
-wv_main <- glove$fit_transform(tcm, n_iter=10, convergence_tol=.01)
+wv_main <- glove$fit_transform(tcm, n_iter=5, convergence_tol=.01)
 
 dim(wv_main)
 ```
 
 
-#### `gensim`
+
 
 ## FastText
 
 @bojanowski2017enriching
 
 Using subword emgeddings to overcome out-of-vocabulary issue.
+
 
 # Context-Aware Word Embeddings
 
@@ -354,5 +355,20 @@ https://github.com/google-research/bert
 @yang2019xlnet
 
 https://github.com/zihangdai/xlnet
+
+# Transfer Learning
+
+## Pre-Trained Embeddings
+
+### TensorFlow Hub
+
+[TensorFlow Hub](https://www.tensorflow.org/hub) is a reository for sharing modules of pre-trained neural network embeddings not limited to natural language.
+Both word2vec and BERT pre-trained embeddings are available under the [text embedding module](https://tfhub.dev/s?module-type=text-embedding).
+
+[coding example of using tensorhub]
+
+### Gensim
+
+[coding example here]
 
 # References
