@@ -258,7 +258,7 @@ text(1e-5, -1, pos=4, col="red", bquote(t == 10^-5))
 
 Note that the function does not return a valid probability in smaller $f(w_i)$.
 Indeed $\lim_{f(w_i) \to 0} P(w_i) = -\infty$.
-In case of a negative values we simply replace it with a zero:
+In case of a negative value we simply replace it with a zero:
 no dropout.
 
 The hyperparameter $t$ is chosen such that for words with frequency larger than $t$ the dropout start to apply,
