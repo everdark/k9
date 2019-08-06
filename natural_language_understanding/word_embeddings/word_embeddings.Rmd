@@ -239,7 +239,7 @@ p <- function(fw, t=1e-5) {
   1 - sqrt(t / fw)
 }
 
-curve(p, from=0, to=1, ylab="P(w)", xlab="f(w)",
+curve(p, from=0, to=1, n=5000, ylab="P(w)", xlab="f(w)",
       main="Dropout Probability based on Word Frequency")
 ```
 
@@ -251,7 +251,8 @@ we can zoom in a bit:
 ```{r word2vec_dropout_func_zoom}
 # R
 options(scipen=999)
-curve(p, from=0, to=1e-4, ylab="P(w)", xlab="f(w)",
+curve(p, from=1e-6, to=3e-4, n=5000,
+      ylab="P(w)", xlab="f(w)",
       main="Dropout Probability based on Word Frequency")
 abline(v=1e-5, col="red")
 text(1e-5, -1, pos=4, col="red", bquote(t == 10^-5))
@@ -265,11 +266,23 @@ no dropout.
 The hyperparameter $t$ is chosen such that for words with frequency larger than $t$ the dropout start to apply,
 increasing in frequency.
 
-### Efficient Implementations
+### A Tensorflow Implementation
 
 The original implementation of `word2vec` is written in C and can be found [here](https://github.com/tmikolov/word2vec).^[macOS won't compile. The source code can be compiled only under Linux.]
 
-[tf.keras implementation here]
+In this section we will try to use `tensorflow` (@tensorflow2015-whitepaper) to implement a `word2vec` model.
+
+```{python import_tf}
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+
+import tensorflow as tf
+print(tf.__version__)
+```
+
+```{python}
+
+```
 
 ## GloVe
 
@@ -363,7 +376,7 @@ https://github.com/zihangdai/xlnet
 ### TensorFlow Hub
 
 [TensorFlow Hub](https://www.tensorflow.org/hub) is a reository for sharing modules of pre-trained neural network embeddings not limited to natural language.
-Both word2vec and BERT pre-trained embeddings are available under the [text embedding module](https://tfhub.dev/s?module-type=text-embedding).
+Both `word2vec` and `BERT` pre-trained embeddings are available under the [text embedding module](https://tfhub.dev/s?module-type=text-embedding).
 
 [coding example of using tensorhub]
 
