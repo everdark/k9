@@ -51,58 +51,183 @@ if ( is(r, "try-error") ) {
 
 # The Motivation for Embeddings
 
-# Word2vec
+# Context-Free Word Embeddings
 
-@mikolov2013distributed
+## Word2vec
 
-## Skip-Gram
+@mikolov2013distributed propose the famous `word2vec` model,
+followed by a subsequent massive researches on how word embeddings can be learned with a variety of different algorithms.
 
-predicts source context-words from the target words.
+`Word2vec` is considered a context-free embedding model since the embedding for a word (after learned) is the same no matter where the word appears.
+There is a universal embedding lookup tables for each word in a pre-determined vocabulary.
 
-The idea is to maximize the likelihood of the context word given a target word.
-The probability is expressed as the softmax over the entire vocabulary.
-Think of it as a multi-class classification where number of classes equals to number of words in the vocabulary.
+### The Learning Objective
 
+The core idea of learning `word2vec` is extremely simple:
+to *train a predictive model that can predict the surrounding context of a word.*
+There are two ways of construct such a predictive learning task:
+the continous bag-of-words model and the skip-gram model.
 
-examples from https://www.tensorflow.org/tutorials/representation/word2vec
-context window length = 1 for both left and right hand side
+#### Continuous Bag-of-Words {-}
+
+CBOW predicts the target word from its context words.
+Take the following text line for example:
 
 ```
-the quick brown fox jumped over the lazy dog
+all models are wrong but some are useful
 ```
 
+Given a window size of 4,
+we may like to predict the target word `wrong` by its context words `all models are`,
+and also predict `useful` by `but same are`.
+
+Indeed,
+a moving window of size 4 will give us the following training examples:
+
 ```
-([the, brown], quick), ([quick, fox], brown), ([brown, jumped], fox), ...
+[context] -> [target]
+
+all models are -> wrong
+models are wrong -> but
+are wrong but -> some
+wrong but some -> are
+but some are -> useful
 ```
 
+CBOW is known to have better results for smaller training corpus.
+For large corpus the skip-gram model performs better.
 
-## Continuous Bag-of-Words (CBOW)
+#### Skip-Gram {-}
 
-predicts target words (e.g. 'mat') from source context words ('the cat sits on the')
-better for smaller dataset
+A skip-gram model does exactly the opposite of a CBOW.
+It learns to predict the surrounding context words from a given target word.
+So for the same example above,
+assuming instead a window size of 1,
+we will have the following training examples:
 
+```
+(window)
+[target] -> [context]
 
-## Negative Sampling
+(all models are)
+  models -> all
+  models -> are
+(models are wrong)
+  are -> models
+  are -> wrong
+(are wrong but)
+  wrong -> are
+  wrong -> but
+(wrong but some)
+  but -> wrong
+  but -> some
+(but some are)
+  some -> but
+  some -> are
+(some are useful)
+  are -> some
+  are -> useful
+```
 
-Since the vocabulary size is usually fairly large,
-to overcome the computational complexity,
-negative sampling is used to approximate the softmax probability.
+In mathametical notation,
+the objectvie function to maximize is:
 
-In negative sampling,
-we turn the task into a binary one where a logistic regression is performed on positive pairs of context-target words and samples of negative (wrong) context-target pairs.
-The model is to learn to score positive pairs higher and (sampled) negative pairs lower.
+$$
+\frac{1}{T}\sum_{t=1}^T\sum_{-c\le j \le c; j \ne 0}\ln P(w_{t+j} \vert w_t),
+$$
 
-To draw the negative samples we need a distribution,
-referred to as the noise distribution.
-For natural language a classical choice is the unigram distribution which can be estimated simply by vocabulary frequency counts.
+where $c$ is the skip-gram window size,
+$T$ is the total number of words in the training corpus,
+and $w_t$ ius the $t$-th word in the corpus.
 
-Mathematically the gradient update is asymptotically the same to the update when a softmax probability is used.
+Assuming the word embedding for $w_t$ is $v_t$,
+the natural choice of estimator for $P(w_{t+j} \vert w_t)$ is the softmax using embedding dot-product:
 
-## Noise-Contrastive Estimation Loss
+$$
+P(w_{t+j} \vert w_t) = \frac{\exp({v_{t+j}^Tv_t})}{\sum_{w \in W}\exp(v_w^Tv_t)},
+$$
 
-@mnih2013learning
+where $W$ is the vocabulary set.
 
-# GloVe
+### Negative Sampling
+
+Essentially the learner is a supervised multi-class estimator,
+even though we don't need to explicitly label our data.
+The labels come directly from the training corpus once the context window is determined,
+which is considered a hyperparameter of the model.
+
+The model is learned by maximizing the likelihood of all the surrounding words within a context window.
+Theoretically,
+the loss function will be a softmax with number of class equal to vocabulary size.
+In practice this is prohibitively costly to compute due to usually the fairly large size of vocabulary.
+
+To overcome the issue,
+a technique called negative sampling is used to approximate the original softmax probability over the entire vocabulary.
+The idea is to *replace one softmax training example with multiple logistic regression training examples.*
+The log-likelihood of a training pair hence becomes:
+
+$$
+\ln P(w_{t+j} \vert w_t) \approx
+\underbrace{\ln\sigma(v_{t+j}^Tv_t) \vphantom{\sum_{i=1;w_i \sim P_n(W)}}}
+_{\log P(Y = 1 \vert w_{t+j}, w_t)} +
+\underbrace{\sum_{i=1;w_i \sim P_n(W)}^k\ln\sigma(-v_i^Tv_t)}
+_{\sum_i \log P(Y = 0 \vert w_i, w_t)},
+$$
+
+where $\sigma$ is a standard sigmoid function,
+$P_n(W)$ is a noise distribution and $k$ is the number of negative samples drawn from that distribution,
+$Y$ is simply a dummy indicator of the correctness of the prediction.^[We use the fact that $\sigma(t) = \frac{1}{1 + e^{-t}} = \frac{e^t}{1 + e^t}$ and hence $1 - \sigma(t) = \frac{1}{1 + e^t} = \sigma(-t)$.]
+
+Mathematically the gradient update from the negative sampling loss is asymptotically the same to the update when a softmax probability is used.
+
+Let's use our toy example to illustrate the idea of negative sampling further.
+Assuming the text line
+
+```
+all models are wrong but some are useful
+```
+
+is our entire corpus and also our vocabulary set.
+Now consider the following one training example in a skip-gram model:
+
+```
+are -> wrong
+```
+
+In a softmax setup,
+our label is a one-hot encoded vector of the length equal to vocabulary size:
+
+| target / context | all | models | are | wrong | but | some | are | useful |
+|:----------------:|:---:|:------:|:---:|:-----:|:---:|:----:|:---:|:------:|
+| are              | 0   | 0      | 0   |  1    | 0   | 0    | 0   | 0      |
+
+For this single training example the model needs to learn that `wrong` is the right word to predict.
+
+Now if we use a negative sampling with sample size $k = 2$,
+the single softmax training example effectively expands into multiple binary training examples:
+
+| target | context | y  |
+|:------:|:-------:|:--:|
+| are    | wrong   | 1  |
+| are    | but     | 0  |
+| are    | some    | 0  |
+
+And the model now is going to learn that given the word `are` the probasbility of `wrong` should be high and the probability of `but` and `some` should be low.
+(We assume `but` and `some` are the random draws from a noise distribution.)
+
+For natural language modeling a classical choice of the noise distribution is the unigram distribution which can be estimated simply by vocabulary frequency counts.
+
+The negative sampling loss is indeed a simplifed version of a more general loss called the Noise-Contrastive Estimation (NCE) loss,
+proposed by @mnih2013learning for also learning a word embedding model.
+Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.
+
+### Pre-trained `word2vec`
+
+### Train from Scratch
+
+[tf.keras implementation here]
+
+## GloVe
 
 @pennington2014glove
 
@@ -117,61 +242,68 @@ $b_i$ is a bias term.
 Similarly for word $j$.
 
 
-## Efficient Implementation
+### Efficient Implementation
 
 Beside GloVe's [original implementation](https://github.com/stanfordnlp/GloVe),
 in this section we also discuss some other efficient implementation but with a higher-level API at our disposal.
 
-### `text2vec`
+#### `text2vec`
 
 [`text2vec`](https://github.com/dselivanov/text2vec)
 
-```{r}
+```{r, text2vec_import, results="hide"}
 library(text2vec)
+```
 
+
+```{r text2vec_demo}
 text8_file = "~/text8"
 if (!file.exists(text8_file)) {
   download.file("http://mattmahoney.net/dc/text8.zip", "~/text8.zip")
-  unzip ("~/text8.zip", files = "text8", exdir = "~/")
+  unzip ("~/text8.zip", files = "text8", exdir = "~")
 }
-wiki = readLines(text8_file, n = 1, warn = FALSE)
+wiki <- readLines(text8_file, n=1, warn=FALSE)
 
 # Create iterator over tokens
-tokens = space_tokenizer(wiki)
+tokens <- space_tokenizer(wiki)
 # Create vocabulary. Terms will be unigrams (simple words).
-it = itoken(tokens, progressbar = FALSE)
-vocab = create_vocabulary(it)
+it <- itoken(tokens, progressbar = FALSE)
+vocab <- create_vocabulary(it)
 
-vocab = prune_vocabulary(vocab, term_count_min = 5L)
+vocab <- prune_vocabulary(vocab, term_count_min=5L)
 
 # Use our filtered vocabulary
-vectorizer = vocab_vectorizer(vocab)
+vectorizer <- vocab_vectorizer(vocab)
 # use window of 5 for context words
-tcm = create_tcm(it, vectorizer, skip_grams_window = 5L)
+tcm <- create_tcm(it, vectorizer, skip_grams_window=5L)
 dim(tcm)
 
-glove = GlobalVectors$new(word_vectors_size = 50, vocabulary = vocab, x_max = 10)
-wv_main = glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01)
+glove <- GlobalVectors$new(word_vectors_size=50, vocabulary=vocab, x_max=10)
+wv_main <- glove$fit_transform(tcm, n_iter=10, convergence_tol=.01)
 
 dim(wv_main)
 ```
 
 
-### `gensim`
+#### `gensim`
 
-# FastText
+## FastText
 
 @bojanowski2017enriching
 
 Using subword emgeddings to overcome out-of-vocabulary issue.
 
-# Context-Aware Embeddings
+# Context-Aware Word Embeddings
 
 ## BERT
 
 @devlin2018bert
 
 https://github.com/google-research/bert
+
+### Attention
+
+### Positional Encoding
 
 ## XLNet
 
