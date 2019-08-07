@@ -440,7 +440,7 @@ here instead we demonstrate a more production-ready approach with a data iterato
 
 ```{python word2vec_tf_data_pipeline}
 vocab_size = len(sp)
-batch_size = 16
+batch_size = 128
 sampling_table = make_sampling_table(vocab_size, sampling_factor=5e-3)  # Adjust dropout.
 
 
@@ -490,8 +490,7 @@ The main difference lies in how we prepare the training examples.^[For more on t
 
 ```{python word2vec_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
-# For our toy example we choose a smaller number.
-k = 32
+k = 128
 
 # We separate target and context word indices as two input layers.
 input_targets = tf.keras.layers.Input(shape=(1,), name="targets")
@@ -514,13 +513,38 @@ print(model.summary())
 ```
 
 ```{python word2vec_tf_model_train}
-model.fit(dataset, epochs=10, steps_per_epoch=10000, verbose=0)
+model.fit(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
 ```
 
 ```{r word2vec_tf_model_loss}
 # R
 plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
      xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
+```
+
+As one can see,
+for such a the small corpus the model quickly converge.
+
+```{python word2vec_tf_trained_vectors}
+word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
+print(word_vectors)
+```
+
+```{python word2vec_cosine_sim}
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+ws_meta = "\u2581"
+i = sp.PieceToId(ws_meta + "love")
+
+scores = cosine_similarity(word_vectors[i,np.newaxis], word_vectors)
+scores = np.squeeze(scores)
+
+top_k = 10
+sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
+
+for i, s in zip(sim_indices, scores[sim_ind]):
+  print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 ```
 
 ## Word2bits
