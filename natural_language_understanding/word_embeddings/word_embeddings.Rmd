@@ -51,17 +51,64 @@ if ( is(r, "try-error") ) {
 
 # The Motivation for Embeddings
 
-TBC.
+Generally speaking,
+machine learning models handle only numerics.
+Every piece of information must be represented by numbers,
+in one way or another.
+This is especially true for neural network models.
+
+But not all features have their numerical representation by nature.
+One notable example is natural language.
+Words are not numbers and do not have a numerical interpretation on their own.
+A classical way of converting words into numbers is through one-hot encoding.
+So a word can be represented by a numerical row from a term-document sparse matrix given a corpus.
+
+One-hot encoding has its limitation though.
+As a baseline approach it works surprisingly well in lots of traditional machine learning tasks.
+But it fails to deliver usable results when it comes to more complicated task such as machine translation,
+question answering,
+or other advanced natural language understanding (NLU) tasks.
+
+Embeddings are vector representation of features that are otherwise non-numerical.
+All weights in the vector are trainable parameters given a machine learning task.
+Depending on the task itself,
+the resulting learned embeddings can be informative in the vector space.
+
+For example,
+in factorization model for recommender systems,
+users and items are represented by embeddings and their similarity can be calculated by calculating the dot-product or the cosine distance of the underlying vectors.
+
+The same idea can be applies to natural language,
+where each word is represented by its embeddings.
+Word embeddings are the building blocks for modern neural network models that can successfully handle a variety of NLU tasks.
+In this notebook we are going to review thoroughly several most popular unsupervised approaches for learning word embeddings.
+The learned embeddings can then be used by a downstream machine learning model to solve further problems at an application level.
+This is referred to as *transfer learning*.
 
 # Context-Free Word Embeddings
+
+If the embedding for the same word remain the same no matter where the word appears,
+it is a context-free word embedding.
+There will be a universal embedding lookup tables for each word in a pre-determined vocabulary.
+
+There are 3 popular models to learn context-free word embeddings:
+
++ Word2vec
++ GloVe
++ FastText
+
+All three approaches are unsupervised in the sense that the labels come directly from the training corpus so there is no extra effort for data labeling.
+But inherently they all apply supuervised learning algorithms,
+which we will see clearly in the following sections one by one.
 
 ## Word2vec
 
 @mikolov2013distributed propose the famous `word2vec` model,
 followed by a subsequent massive researches on how word embeddings can be learned with a variety of different algorithms.
 
-`Word2vec` is considered a context-free embedding model since the embedding for a word (after learned) is the same no matter where the word appears.
-There is a universal embedding lookup tables for each word in a pre-determined vocabulary.
+Though it is no longer the most popular choice of pre-trained word embeddings after years of evolution,
+its concept remain solid and it is very helpful to understand what the model is trying to learn,
+so we can lay down the foundation for natural language modeling.
 
 ### The Learning Objective
 
