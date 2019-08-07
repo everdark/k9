@@ -479,8 +479,9 @@ plot(freq_to_drop(rank_to_freq(1:5000)), type="l",
 ```
 
 How about the specification for the noise distribution for negative sampling?
-Based on the [source code](https://github.com/keras-team/keras-preprocessing/blob/master/keras_preprocessing/sequence.py) of `keras.preprocessing.sequence.skipgrams`,
+Based on the [source code](https://github.com/keras-team/keras-preprocessing/blob/master/keras_preprocessing/sequence.py) of `sequence.skipgrams` in the `keras.preprocessing` module,
 it only performs a uniform distribution random draw from the vocabulary as the negative sample.
+For simplicity we will keep it as-is.
 
 #### Data Pipeline {-}
 
