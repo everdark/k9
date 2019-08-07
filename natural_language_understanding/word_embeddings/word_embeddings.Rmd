@@ -366,9 +366,9 @@ pairs, labels = skipgrams(
 sep = "\n----------------------------"
 for i, (x, y) in enumerate(zip(pairs, labels)):
   if i == 0:
-    print("{:6} -> {:10} | {}{}".format("target", "context", "label", sep))
+    print("{:6} -> {:12} | {}{}".format("target", "context", "label", sep))
   target, context = [sp.IdToPiece(i).replace("\u2581", "") for i in x]
-  print("{:6} -> {:10} | {}".format(target, context, y))
+  print("{:6} -> {:12} | {}".format(target, context, y))
 ```
 
 The `sampling_table` argumwent can be used to implement the dropout for frequent words.
