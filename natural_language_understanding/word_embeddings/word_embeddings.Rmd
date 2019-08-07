@@ -465,8 +465,9 @@ def parse_line_map_fn(text_tensor):
     ({"targets": targets, "contexts": contexts}, labels))
 
 
+# For simplicity we drop text lines that are too short.
 dataset = tf.data.TextLineDataset(shakes_file)
-dataset = dataset.filter(lambda line: tf.not_equal(tf.strings.length(line), 0))
+dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 10))
 dataset = dataset.flat_map(parse_line_map_fn)
 dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
@@ -514,6 +515,12 @@ print(model.summary())
 
 ```{python word2vec_tf_model_train}
 model.fit(dataset, epochs=10, steps_per_epoch=10000, verbose=0)
+```
+
+```{r word2vec_tf_model_loss}
+# R
+plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
+     xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
 ```
 
 ## Word2bits
