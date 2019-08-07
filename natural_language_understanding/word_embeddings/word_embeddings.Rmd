@@ -543,7 +543,7 @@ scores = np.squeeze(scores)
 top_k = 10
 sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
 
-for i, s in zip(sim_indices, scores[sim_ind]):
+for i, s in zip(sim_ind, scores[sim_ind]):
   print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 ```
 
