@@ -1,12 +1,12 @@
 ---
 title: "On Word Embeddings"
-subtitle: "Vector Representation for Language Modeling"
+subtitle: "Vector Representation for Natural Language"
 author:
 - name: Kyle Chung
   affiliation:
 date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
-  html_notebook: 
+  html_notebook:
     highlight: pygments
     number_sections: yes
     theme: paper
@@ -50,6 +50,8 @@ if ( is(r, "try-error") ) {
 ```
 
 # The Motivation for Embeddings
+
+TBC.
 
 # Context-Free Word Embeddings
 
@@ -214,10 +216,12 @@ And the model now is going to learn that given the word `are` the probasbility o
 (We assume `but` and `some` are the random draws from a noise distribution.)
 
 For natural language modeling a classical choice of the noise distribution is the unigram distribution which can be estimated simply by vocabulary frequency counts.
+In the original paper of `word2vec` the unigram distribution raised to the 3/4rd power seems to perform better in their evaluation setup.
+It is actually also common in practice to use a simple uniform distribution from the vocabulary.
 
 The negative sampling loss is indeed a simplifed version of a more general loss called the Noise-Contrastive Estimation (NCE) loss,
 proposed by @mnih2013learning for also learning a word embedding model.
-Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings of the entire vocabulary.]
+Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. $Q(\cdot)$ is the noise distribution. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings of the entire vocabulary.]
 
 ### Dropout for Frequent Words
 
@@ -225,7 +229,9 @@ To counter the effect of imbalanced distribution among popular (and usually less
 @mikolov2013distributed also propose the idea of randomly discard training example based on a heuristic dropout probability:
 
 $$
+\begin{equation} \label{eq:dropout}
 P(w_i) = 1 - \sqrt{\frac{t}{f(w_i)}},
+\end{equation}
 $$
 
 where $f(w_i) \in [0, 1]$ is the normalized frequency of word $w_i$ and $t$ is a hyperparameter around $10^{-5}$.
@@ -266,11 +272,15 @@ no dropout.
 The hyperparameter $t$ is chosen such that for words with frequency larger than $t$ the dropout start to apply,
 increasing in frequency.
 
-### A Tensorflow Implementation
+### A TensorFlow Implementation
 
-The original implementation of `word2vec` is written in C and can be found [here](https://github.com/tmikolov/word2vec).^[macOS won't compile. The source code can be compiled only under Linux.]
+The original implementation of `word2vec` is written in C and can be found [here](https://github.com/tmikolov/word2vec).
+Though the program is highly efficient,
+it is not very flexible to use and has platform compatibility issue.^[Specifically, as of August 2019, the source code can be compiled only under Linux. macOS won't compile.]
 
-In this section we will try to use `tensorflow` (@tensorflow2015-whitepaper) to implement a `word2vec` model.
+In this section,
+instead,
+we will try to use `tensorflow` (@tensorflow2015-whitepaper) to implement an end-to-end example of a skip-gram `word2vec` model.
 
 ```{python import_tf}
 import logging
@@ -280,9 +290,237 @@ import tensorflow as tf
 print(tf.__version__)
 ```
 
-```{python}
+#### Subword Segmentation {-}
 
+Lets' use Shakespeare as our corpus.
+
+```{python word2vec_dl_shakespeare}
+import os
+import shutil
+
+shakes_file = "data/shakespeare.txt"
+if not os.path.exists(shakes_file):
+  shakes_dl_path = tf.keras.utils.get_file(
+    "shakespeare.txt",
+    "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt")
+  shutil.move(shakes_dl_path, shakes_file)
+shakespeare = open(shakes_file, "rb").read().decode(encoding="utf-8")
+shakespeare = shakespeare.split("\n")
+
+# Print the first few lines.
+for sent in shakespeare[:20]:
+  print(sent)
 ```
+
+To prepare our vocabulary,
+we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook of subword units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
+
+```{python word2vec_spm}
+import sentencepiece as spm
+
+spm_args = "--input=data/shakespeare.txt"
+spm_args += " --model_prefix=m"
+spm_args += " --vocab_size=5000"
+spm_args += " --model_type=unigram"
+spm.SentencePieceTrainer.Train(spm_args)
+
+sp = spm.SentencePieceProcessor()
+sp.Load("m.model")
+```
+
+With the pre-trained vocabulary we can easily encode our entire corpus into sequence of integers:
+
+```{python word2vec_encode_subword}
+shakespeare_wids = [sp.EncodeAsIds(line) for line in shakespeare]
+
+# Test a line.
+test_ids = shakespeare_wids[213]
+print(test_ids)
+print(sp.DecodeIds(test_ids))
+```
+
+```{python word2vec_check_spm}
+# Double check.
+for i in test_ids:
+  print("{:5} -> {}".format(i, sp.IdToPiece(i)))
+```
+
+#### Skip-Gram Conversion {-}
+
+In the `keras` module we have a convenience function `skipgrams` to generate our training data from word indices.
+Here is its usage:
+
+```{python word2vec_keras_skipgrams}
+from tensorflow.keras.preprocessing.sequence import skipgrams
+
+# We don't shuffle the result here in order to easily observe the parsing result.
+# Fro acutal application shuffle is a must since otherwise it will bias the SGD optimizer.
+pairs, labels = skipgrams(
+  test_ids, vocabulary_size=len(sp),
+  window_size=1, negative_samples=1,
+  shuffle=False, seed=777,
+  sampling_table=None)
+
+# Inspect the parsed training examples.
+# We discard the meta char <U+2581> for a cleaner output.
+sep = "\n----------------------------"
+for i, (x, y) in enumerate(zip(pairs, labels)):
+  if i == 0:
+    print("{:6} -> {:10} | {}{}".format("target", "context", "label", sep))
+  target, context = [sp.IdToPiece(i).replace("\u2581", "") for i in x]
+  print("{:6} -> {:10} | {}".format(target, context, y))
+```
+
+The `sampling_table` argumwent can be used to implement the dropout for frequent words.
+Indeed `keras.preprocessing.sequence` module also comes with a convenience function exactly for this purpose:
+
+```{python word2vec_keras_droput}
+from tensorflow.keras.preprocessing.sequence import make_sampling_table
+
+# To use this function we need to make sure our vocabulary is indexed by frequency.
+# That is, more frequent words come first.
+# SentencePiece does exactly this so we don't need to do any further post-processing.
+
+# We set a higher threshold for dropput since our vocabulary size is rather small.
+sampling_table = make_sampling_table(len(sp), sampling_factor=2e-4)
+```
+
+The formula follows exactly equqtion $\eqref{eq:dropout}$,
+with the word frequency approximated by a [Zipf's law](https://en.wikipedia.org/wiki/Zipf%27s_law) using the frequency rank.
+
+$$
+f(w_r) \sim \bigg(w_r \cdot (\log w_r + \gamma) + \frac{1}{2} - \frac{1}{12w_r}\bigg)^{-1},
+$$
+
+where $w_r$ is the frequency rank of word $w$,
+$\gamma$ is the [Euler-Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant).
+
+In this manner the frequency only depends on the ranks but not the exact counts of words in vocabulary.
+
+Let's examine the resulting dropout probabilities given our threshold (`sampling_factor`):
+
+```{r woprd2vec_keras_dropout_plot}
+# R
+plot(1 - py$sampling_table, type="l",
+     xlab="Subword Index", ylab="Dropout Probability",
+     main="Zipf's Law Dropout Probabilities (Keras API)",
+     sub=bquote(sampling_factor == 2e-4))
+```
+
+We can verify the word-rank-frequency conversion by manually compute the approximation:
+
+```{r wrod2vec_zipflaw_freq}
+# R
+g <- 0.5772156649  # Euler-Mascheroni constant.
+
+# Zipf's Law approximation from rank to frequency.
+rank_to_freq <- function(r) {
+  1/(r * (log(r) + g) + .5 - 1/(12 * r))
+}
+
+freq_to_drop <- function(fw, t=2e-4) {
+  pmax(0, 1 - sqrt(t / fw))
+}
+
+plot(freq_to_drop(rank_to_freq(1:5000)), type="l",
+     main="Zipf's Law Dropout Probabilities (Verification)",
+     sub=bquote(sampling_factor == 2e-4))
+```
+
+How about the specification for the noise distribution for negative sampling?
+Based on the [source code](https://github.com/keras-team/keras-preprocessing/blob/master/keras_preprocessing/sequence.py) of `keras.preprocessing.sequence.skipgrams`,
+it only performs a uniform distribution random draw from the vocabulary as the negative sample.
+
+#### Data Pipeline {-}
+
+Now let's implement the end-to-end data pipeline from raw text to trainable skip-gram pairs.
+Even though previously we already encode the entire corpus into list of sequence of subword indices,
+we can simply fit the entire training data in memory,
+here instead we demonstrate a more production-ready approach with a data iterator via `tf.data.Dataset` module.
+
+```{python word2vec_tf_data_pipeline}
+vocab_size = len(sp)
+batch_size = 16
+sampling_table = make_sampling_table(vocab_size, sampling_factor=5e-3)  # Adjust dropout.
+
+
+def parse_line(text_tensor):
+  """Convert a raw text line (in tensor) into skp-gram training examples."""
+  ids = sp.EncodeAsIds(text_tensor.numpy())
+  pairs, labels = skipgrams(
+    ids, vocabulary_size=vocab_size,
+    window_size=2, negative_samples=5,
+    shuffle=True, sampling_table=sampling_table
+  )
+  targets, contexts = list(zip(*pairs))
+  return targets, contexts, labels
+
+
+# Since each text line can result in different number of training pairs,
+# we need to use flat_map to flatten the parsed results before batching.
+def parse_line_map_fn(text_tensor):
+  targets, contexts, labels = tf.py_function(
+    parse_line, inp=[text_tensor], Tout=[tf.int64, tf.int64, tf.int64])
+  return tf.data.Dataset.from_tensor_slices(
+    ({"targets": targets, "contexts": contexts}, labels))
+
+
+dataset = tf.data.TextLineDataset(shakes_file)
+dataset = dataset.filter(lambda line: tf.not_equal(tf.strings.length(line), 0))
+dataset = dataset.flat_map(parse_line_map_fn)
+dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
+dataset = dataset.batch(batch_size, drop_remainder=True)
+dataset = dataset.prefetch(batch_size)
+
+
+# Test.
+for x, y in dataset:
+  tf.print(x)
+  tf.print(y)
+  break
+```
+
+#### Model Architecture {-}
+
+The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
+dot-products and cross entropy loss.
+It is highly similar to a matrix factorization problem with a log-loss.
+The main difference lies in how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook of Matrix Factorization](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
+
+```{python word2vec_tf_model}
+# Dimension of embeddings. Typically 128 to 512.
+# For our toy example we choose a smaller number.
+k = 32
+
+# We separate target and context word indices as two input layers.
+input_targets = tf.keras.layers.Input(shape=(1,), name="targets")
+input_contexts = tf.keras.layers.Input(shape=(1,), name="contexts")
+
+# Word embeddings are looked up separately for target and context words.
+embeddings = tf.keras.layers.Embedding(vocab_size, k, name="word_embeddings")
+target_embeddings = embeddings(input_targets)
+context_embeddings = embeddings(input_contexts)
+
+# Dot-product of the target and context word embeddings with sigmoid activation.
+dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
+sigmoid = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
+outputs = sigmoid(dots)
+
+model = tf.keras.Model(inputs=[input_targets, input_contexts], outputs=outputs, name="word2vec")
+model.compile(loss="binary_crossentropy", optimizer="sgd")
+
+print(model.summary())
+```
+
+```{python word2vec_tf_model_train}
+model.fit(dataset, epochs=10, steps_per_epoch=10000, verbose=0)
+```
+
+## Word2bits
+
+Based on the `word2vec` approach,
+1@lam2018word2bits propose an enhancement to considerably reduce the amount of vector space required for the embeddings while retain the same or even improve the quality in terms of several evaluation tests.
+The enhanced model is referred to as `word2bits`.
 
 ## GloVe
 
