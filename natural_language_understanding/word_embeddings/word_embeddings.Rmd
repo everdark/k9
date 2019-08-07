@@ -294,6 +294,11 @@ print(tf.__version__)
 
 Lets' use Shakespeare as our corpus.
 
+
+```{bash mkdir}
+mkdir -p data
+```
+
 ```{python word2vec_dl_shakespeare}
 import os
 import shutil
