@@ -281,10 +281,10 @@ P(w_i) = 1 - \sqrt{\frac{t}{f(w_i)}},
 \end{equation}
 $$
 
-where $f(w_i) \in [0, 1]$ is the normalized frequency of word $w_i$ and $t$ is a hyperparameter around $10^{-5}$.
+where $f(w_i)$ can be any scaled frequency of word $w_i$ and $t$ is a hyperparameter around $10^{-5}$.
 The idea is to drop in higher probability when a word is more frequent.
 
-We can plot the function to see its property:
+We can plot the function to see its property (Assuming a normalized frequency $f(w_i) \in [0, 1]$):
 
 ```{r word2vec_dropout_func}
 # R
@@ -340,7 +340,6 @@ print(tf.__version__)
 #### Subword Segmentation {-}
 
 Lets' use Shakespeare as our corpus.
-
 
 ```{bash mkdir}
 mkdir -p data
@@ -437,7 +436,7 @@ from tensorflow.keras.preprocessing.sequence import make_sampling_table
 sampling_table = make_sampling_table(len(sp), sampling_factor=2e-4)
 ```
 
-The formula follows exactly equqtion $\eqref{eq:dropout}$,
+The formula follows exactly equation $\eqref{eq:dropout}$,
 with the word frequency approximated by a [Zipf's law](https://en.wikipedia.org/wiki/Zipf%27s_law) using the frequency rank.
 
 $$
