@@ -315,7 +315,7 @@ for sent in shakespeare[:20]:
 To prepare our vocabulary,
 we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook of subword units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
 
-```{python word2vec_spm}
+```{python word2vec_spm, results="hide"}
 import sentencepiece as spm
 
 spm_args = "--input=data/shakespeare.txt"
@@ -547,11 +547,11 @@ for i, s in zip(sim_ind, scores[sim_ind]):
   print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 ```
 
-## Word2bits
+## Word2Bits
 
 Based on the `word2vec` approach,
 1@lam2018word2bits propose an enhancement to considerably reduce the amount of vector space required for the embeddings while retain the same or even improve the quality in terms of several evaluation tests.
-The enhanced model is referred to as `word2bits`.
+The enhanced model is referred to as `Word2Bits`.
 
 ## GloVe
 
