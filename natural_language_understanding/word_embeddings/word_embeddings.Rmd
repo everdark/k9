@@ -18,7 +18,7 @@ output:
   code_download: true
 bibliography: word_embeddings.bib
 abstract: |
-  TBC.
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review several influential models that are designed to learn word embeddings for other downstream machine learning application, a.k.a. transfer learning. We will cover both context-free embeddings (word2vec, GloVe, and fastText) and context-aware embeddings (BERT and XLNet). Especially the latter recently has become the state-of-the-art methodology for several important NLU applications.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -364,7 +364,7 @@ for sent in shakespeare[:20]:
 ```
 
 To prepare our vocabulary,
-we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook of subword units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
+we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook: On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
 
 ```{python word2vec_spm, results="hide"}
 import sentencepiece as spm
@@ -538,7 +538,7 @@ for x, y in dataset:
 The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
 dot-products and cross entropy loss.
 It is highly similar to a matrix factorization problem with a log-loss.
-The main difference lies in how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook of Matrix Factorization](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
+The main difference lies in how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
 
 ```{python word2vec_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
@@ -607,32 +607,242 @@ The enhanced model is referred to as `Word2Bits`.
 
 ## GloVe
 
-@pennington2014glove
+GloVe stands for "Global Vectors" for word representation,
+proposed by @pennington2014glove as another unsupervised approach to train word embeddings from a large corpus.
+The idea is to combine a global matrix factorization that utilize the co-occurence statistics with a local context window method that utlizes the target-context predictive relatedness.
+Based on a given context window size,
+we first establish a word-word co-occurence matrix,
+then factiorize the sparse matrix by training on only the nonzero elements.^[[Latent Semantic Analysis (LSA)](https://en.wikipedia.org/wiki/Latent_semantic_analysis) also uses matrix factorization but on a term-document matrix.]
 
-collect word co-occurrence within a window, forming a matrix $X$ where $X_{ij}$ is the co-occurence of word $i$ and word $j$.
+### The learning objective
+
+Let's denote the co-occurence matrix as $X$,
+a $N$ by $N$ square matrix for a vocabulary of size $N$.
+$X_{ij}$ is the co-occurence of word $i$ and word $j$.
+More specifically,
+$X_{ij}$ is the number of times word $j$ occurs in the context of word $i$.
+Then we have $P(j|i) = \frac{X_{ij}}{X_i}$ as the conditional probability of context word $j$ given target word $i$,
+where $X_i = \sum_{j=1}^N X_{ij}$.
+
+The log-cooccurrence is then modeled by a factorization:
 
 $$
-W_i^TW_j + b_i + b_j = \ln X_{ij},
+\ln X_{ij} = W_i^TW_j + b_i + b_j,
 $$
 
-where $W_i$ is the embedding for word $i$,
-$b_i$ is a bias term.
-Similarly for word $j$.
+where $W_i$ is the embedding and $b_i$ the bias term for word $i$.
+
+Now the task is to minimize the sum of least squares:
+
+$$
+\operatorname*{arg\,min}_{W, b} \sum_i\sum_j\big( W_i^TW_j + b_i + b_j - \ln X_{ij} \big)^2.
+$$
+
+To deal with distribution imbalance of co-occurrence,
+a weighting function is further introduced such that
+
+$$
+\operatorname*{arg\,min}_{W, b} \sum_i\sum_j f(X_{ij})\big( W_i^TW_j + b_i + b_j - \ln X_{ij} \big)^2,
+$$
+
+where
+
+$$
+f(X_{ij}) = f(x) =
+\left\{
+  \begin{array}{ll}
+    \Big(\frac{x}{x_{max}}\Big)^\alpha & \mbox{if } x < x_{max} \\
+    1 & \mbox{otherwise}.
+  \end{array}
+\right.
+$$
+
+There are two hyperparameters:
+$x_{max}$ and $alpha$.
+In the original paper the setting is $x_{max} = 100$ and $alpha = \frac{3}{4}$.
+
+Note that by explicitly introducing the above weighting function all the zero entries in the co-occurence matrix are effectively discarded during the training since we (on purpose) have $f(0) = 0$.
+
+Essentially GloVe is a factorization model on the log of context co-occurence matrix with a weighted least-squares cost function.
+The model can be trained by a stochastic gradient descent optimizer on random samples of non-zero elements in the co-occurrence matrix.
+
+The model can also be interpreted as using embedding dot-product to approximate log of co-occurrence probability:
+
+$$
+\begin{aligned}
+W_i^TW_j
+&= \ln P_{ij} \\
+&= \ln \frac{X_{ij}}{X_i} \\
+&= \ln X_{ij} - \ln X_i.
+\end{aligned}
+$$
+
+By imposing the constraint that $W_i^TW_j = W_j^TW_i$ for target-context inter-exchangability,
+however,
+we need to rewrite the above equation to be:
+
+$$
+W_i^TW_j = \ln X_{ij} - \ln X_i - \ln X_j.
+$$
+
+Now the term $\ln X_i$ and $\ln X_j$ correspond to the bias terms in the factorization model.
+
+### A TensorFlow Implementation
+
+Similar to `word2vec`,
+[GloVe's original implementation](https://github.com/stanfordnlp/GloVe) is written in C.
+Let's also try to implement the model with `tensorflow`.
+
+The code will be highly similar to that of our implementation for `word2vec`.
+The major difference is indeed how we create the data pipeline for our training triplet $(i, j, X_{ij})$.
+
+#### Data Pipeline {-}
+
+[TODO: implement generator for cooccurence matrix.]
+
+```{python glove_tf_data_pipeline}
+vocab_size = len(sp)
+batch_size = 128
 
 
-### Efficient Implementation
+def parse_line(text_tensor):
+  """Convert a raw text line (in tensor) into skp-gram training examples."""
+  ids = sp.EncodeAsIds(text_tensor.numpy())
+  pairs, labels = skipgrams(
+    ids, vocabulary_size=vocab_size,
+    window_size=2, negative_samples=5,
+    shuffle=True, sampling_table=sampling_table
+  )
+  targets, contexts = list(zip(*pairs))
+  return targets, contexts, labels
 
-Beside GloVe's [original implementation](https://github.com/stanfordnlp/GloVe),
-in this section we also discuss some other efficient implementation but with a higher-level API at our disposal.
 
-#### `text2vec`
+# Since each text line can result in different number of training pairs,
+# we need to use flat_map to flatten the parsed results before batching.
+def parse_line_map_fn(text_tensor):
+  targets, contexts, labels = tf.py_function(
+    parse_line, inp=[text_tensor], Tout=[tf.int64, tf.int64, tf.int64])
+  return tf.data.Dataset.from_tensor_slices(
+    ({"targets": targets, "contexts": contexts}, labels))
 
-[`text2vec`](https://github.com/dselivanov/text2vec)
 
-```{r, text2vec_import, results="hide"}
-library(text2vec)
+# For simplicity we drop text lines that are too short.
+dataset = tf.data.TextLineDataset(shakes_file)
+dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 10))
+dataset = dataset.flat_map(parse_line_map_fn)
+dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
+dataset = dataset.batch(batch_size, drop_remainder=True)
+dataset = dataset.prefetch(batch_size)
+
+
+# Test.
+for x, y in dataset:
+  tf.print(x)
+  tf.print(y)
+  break
 ```
 
+#### Model Architecture {-}
+
+```{python glove_tf_model}
+# Dimension of embeddings. Typically 128 to 512.
+k = 64
+
+# We separate target and context word indices as two input layers.
+input_targets = tf.keras.layers.Input(shape=(1,), name="targets")
+input_contexts = tf.keras.layers.Input(shape=(1,), name="contexts")
+
+# Two set of embeddings are leared: target and context word embeddings.
+# Theoretically they are the same thing since the problem is symmetric.
+# But empirically by learning two separate sets of embeddings the results are better.
+embeddings_targets = tf.keras.layers.Embedding(vocab_size, k, name="target_embeddings")
+embeddings_contexts = tf.keras.layers.Embedding(vocab_size, k, name="context_embeddings")
+target_embed = embeddings_targets(input_targets)
+context_embed = embeddings_contexts(input_contexts)
+
+# Dot-product of the target and context word embeddings with sigmoid activation.
+dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
+sigmoid = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
+outputs = sigmoid(dots)
+
+model = tf.keras.Model(inputs=[input_targets, input_contexts], outputs=outputs, name="word2vec")
+model.compile(loss="binary_crossentropy", optimizer="sgd")
+
+print(model.summary())
+```
+
+
+### `text2vec`
+
+[`text2vec`](https://github.com/dselivanov/text2vec) (@dmitriy2018text2vec) is a high-level R package with efficient C++ implementation of GloVe.
+The APIs are elegantly designed and easy to use.
+In this section we will spend some time exploring its [GloVe-related APIs](http://text2vec.org/glove.html).
+
+Do note that all code chunks in this section is in the R language.
+
+```{r, text2vec_import}
+library(text2vec)
+packageVersion("text2vec")
+```
+
+#### Create Co-Occurrence Matrix {-}
+
+Here is a toy example of how we can use `text2vec::create_tcm` to generate a co-occurrence matrix from raw text:
+
+```{r glove_text2vec_tcm}
+text_line <- "all models are wrong but some are useful"
+
+# Tokenize.
+tokens <- space_tokenizer(text_line)
+it <- itoken(tokens, progressbar=FALSE)  # A memory-efficient iterator.
+
+# Build vocabulary.
+vocab <- create_vocabulary(it)
+
+# Build vectorizer based on vocabulary
+vectorizer <- vocab_vectorizer(vocab)
+
+# Create co-occurrence matrix using vectorizer and token iterator.
+tcm <- create_tcm(it, vectorizer, skip_grams_window=1)
+
+# A sparse matrix.
+print(tcm)
+```
+
+Note that when using `skip_grams_window_context="symmetry"` (the default option) the matrix is established such that co-occurrence of $(i, j)$ equals co-occurrence of $(j, i)$,
+but with the later entry masked to save space in the sparse matrix.
+That is,
+for example,
+the entry `tcm["models", "all"]` can be interpreted as `tcm["all", "model"]` (if you are my context word then I'm also your context word) but the actual position in the latter entry holds zero count.
+Technically,
+the resulting matrix are always zero in the lower triangle,
+and theoretically symmetric to its upper triangle if the corresponding values are not masked.
+
+Without the storage saving trick,
+the co-occurrence matrix would look like:
+
+```{r glove_text2vec_tcm_check}
+dtcm <- as.matrix(tcm)
+tcm[lower.tri(tcm)] <- t(dtcm)[lower.tri(t(dtcm))]
+print(tcm)
+```
+
+This reflects what the original GloVe paper mentioned:
+
+>...for word-word co-occurrence matrices,
+the distinction between a word and a context word is arbitrary and that we are free to exchange the two roles.
+
+#### Decayed Context {-}
+
+Note that for context window size > 1,
+the GloVe model assign a decaying weight $\frac{1}{\mbox{distance}}$ to context word farer from the target word in the co-occurence matrix.
+Here is an example of window size = 2:
+
+```{r glove_text2vec_decayed_context}
+(create_tcm(it, vectorizer, skip_grams_window=2))
+```
+
+#### Train GloVe {-}
 
 ```{r text2vec_demo}
 text8_file = "~/text8"
@@ -642,28 +852,20 @@ if (!file.exists(text8_file)) {
 }
 wiki <- readLines(text8_file, n=1, warn=FALSE)
 
-# Create iterator over tokens
 tokens <- space_tokenizer(wiki)
-# Create vocabulary. Terms will be unigrams (simple words).
-it <- itoken(tokens, progressbar = FALSE)
+it <- itoken(tokens, progressbar=FALSE)
 vocab <- create_vocabulary(it)
-
-vocab <- prune_vocabulary(vocab, term_count_min=5L)
-
-# Use our filtered vocabulary
+vocab <- prune_vocabulary(vocab, term_count_min=5)
 vectorizer <- vocab_vectorizer(vocab)
-# use window of 5 for context words
-tcm <- create_tcm(it, vectorizer, skip_grams_window=5L)
+tcm <- create_tcm(it, vectorizer, skip_grams_window=2)
 dim(tcm)
 
-glove <- GlobalVectors$new(word_vectors_size=50, vocabulary=vocab, x_max=10)
-wv_main <- glove$fit_transform(tcm, n_iter=5, convergence_tol=.01)
+glove <- GlobalVectors$new(word_vectors_size=64, vocabulary=vocab, x_max=100, alpha=3/4)
+target_embeddings <- glove$fit_transform(tcm, n_iter=5)
 
-dim(wv_main)
+# Merge target and context embeddings as the final embeddings.
+glove_embeddings <- target_embeddings + t(glove$components)
 ```
-
-
-
 
 ## FastText
 
