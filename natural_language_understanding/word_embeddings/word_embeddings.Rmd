@@ -869,9 +869,18 @@ glove_embeddings <- target_embeddings + t(glove$components)
 
 ## FastText
 
-@bojanowski2017enriching
+@bojanowski2017enriching extend the skip-gram `word2vec` model with subword units to improve the quality of word embeddings.
+The model is called `fastText`.
+In `fastText` each word is represented by a bag of character n-grams.
+Embeddings are learned on the n-gram level instead of a fullword level.
+The final word embeddings of a word is the sum of its bag of n-gram embeddings.
+One particular benefit of this is the ability to overcome out-of-vocabulary issue for very large application or langauge with rich internal structure of words.
 
-Using subword emgeddings to overcome out-of-vocabulary issue.
+n=3
+where
+<wh, whe, her, ere, re>, <where>
+
+> In practice, we extract all the n-grams for n greater or equal to 3 and smaller or equal to 6
 
 
 # Context-Aware Word Embeddings
