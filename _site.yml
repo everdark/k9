@@ -29,6 +29,9 @@ navbar:
       menu:
         - text: "On Subword Units"
           href: natural_language_understanding/subword_units/subword_units.nb.html
+        - text: "---"
+        - text: "On Word Embeddings"
+          href: natural_language_understanding/subword_units/word_embeddings.nb.html
   right:
     - text: "Projects"
       menu:
