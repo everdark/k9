@@ -902,10 +902,7 @@ This reflects what the original GloVe paper mentioned:
 >...for word-word co-occurrence matrices,
 the distinction between a word and a context word is arbitrary and that we are free to exchange the two roles.
 
-#### Decayed Context {-}
-
-Note that for context window size > 1,
-the GloVe model assign a decaying weight $\frac{1}{\mbox{distance}}$ to context word farer from the target word in the co-occurence matrix.
+`text2vec` also by default implement the decayed co-occurence by distance to the target word.
 Here is an example of window size = 2:
 
 ```{r glove_text2vec_decayed_context}
@@ -918,7 +915,7 @@ Here is an example of window size = 2:
 text8_file = "data/text8"
 if (!file.exists(text8_file)) {
   download.file("http://mattmahoney.net/dc/text8.zip", "data/text8.zip")
-  unzip ("~/text8.zip", files = "text8", exdir = "~")
+  unzip ("data/text8.zip", files="text8", exdir="data")
 }
 wiki <- readLines(text8_file, n=1, warn=FALSE)
 
