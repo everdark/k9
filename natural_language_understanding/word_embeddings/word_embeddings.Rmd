@@ -713,13 +713,14 @@ from collections import defaultdict
 def count_cooccurrence(seq_list, window_size):
   cooccur_dict = defaultdict(int)
   for seq in seq_list:
+    seq_len = len(seq)
     for i, wi in enumerate(seq):
       window_start = max(0, i - window_size)
-      window_end = min(len(ids), i + window_size + 1)
+      window_end = min(seq_len, i + window_size + 1)
       for j in range(window_start, window_end):
         if j != i:
           dist = abs(i - j)
-          wj = ids[j]
+          wj = seq[j]
           cooccur_dict[(wi, wj)] += 1 / dist
   return cooccur_dict
 
