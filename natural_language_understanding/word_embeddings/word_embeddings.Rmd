@@ -944,12 +944,23 @@ Embeddings are learned on the n-gram level instead of a fullword level.
 The final word embeddings of a word is the sum of its bag of n-gram embeddings.
 One particular benefit of this is the ability to overcome out-of-vocabulary issue for very large application or langauge with rich internal structure of words.
 
-n=3
-where
+To take into account word boundaries,
+beginning and end of word position is coded specially.
+For example,
+the world "where" with a tri-gram encoding will have the following result:
+
+```
 <wh, whe, her, ere, re>, <where>
+```
 
-> In practice, we extract all the n-grams for n greater or equal to 3 and smaller or equal to 6
+In the original paper n-grams for n greater or equal to 3 and smaller or equal to 6 are used.
 
+Comparing to `word2vec` and `GloVe`,
+`fastText`'s [original implementation](https://github.com/facebookresearch/fastText.git)(written in C++) has a rather rich command line API and also a Python wrapper.
+
+### A TensorFlow Implementation
+
+[TF implementation here.]
 
 # Context-Aware Word Embeddings
 
@@ -971,16 +982,30 @@ https://github.com/zihangdai/xlnet
 
 # Transfer Learning
 
-## Pre-Trained Embeddings
+The use of pre-trained word embeddings is a realization of transfer learning.
+The embeddings are learned from a general language model such as those we discussed in this notebook,
+but then used by a downstream model that deal with another task.
+Transfer learning doesn't ensure a better result.
+It depends on if the downstream task has a well-connected nature with the original embedding model and the learning corpus.
 
-### TensorFlow Hub
+Transfer learning is not limited to natural language modeling.
+It is also widely used in models handling image or video data.
+For example,
+in the [Youtube-8M project](https://everdark.github.io/k9/projects/yt8m/yt8m.html) for a video classification problem,
+we use a pre-trained image net to extract per-frame image embeddings for the video classifier.
+
+Though the original embedding models usually come with a set of pre-trained embeddings for several large public corpus,
+the format is not standardized and how we load them into our model can differ case by case.
+In this section we will walk through some coding examples using well-known libraries and their APIs in a more integrated way.
+
+## TensorFlow Hub
 
 [TensorFlow Hub](https://www.tensorflow.org/hub) is a reository for sharing modules of pre-trained neural network embeddings not limited to natural language.
 Both `word2vec` and `BERT` pre-trained embeddings are available under the [text embedding module](https://tfhub.dev/s?module-type=text-embedding).
 
 [coding example of using tensorhub]
 
-### Gensim
+## Gensim
 
 [coding example here]
 
