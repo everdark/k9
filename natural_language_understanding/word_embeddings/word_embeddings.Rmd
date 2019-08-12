@@ -823,8 +823,8 @@ As one can see,
 for such a the small corpus the model quickly converge.
 
 ```{python glove_tf_trained_vectors}
-target_word_vectors = model.get_layer("target_embeddings").weights[0].numpy()
-context_word_vectors = model.get_layer("context_embeddings").weights[0].numpy()
+target_word_vectors = glove.get_layer("target_embeddings").weights[0].numpy()
+context_word_vectors = glove.get_layer("context_embeddings").weights[0].numpy()
 glove_vectors = target_word_vectors + context_word_vectors
 print(glove_vectors.shape)
 ```
