@@ -1013,6 +1013,9 @@ glove_embeddings <- target_embeddings + t(glove$components)
 
 @bojanowski2017enriching extend the skip-gram `word2vec` model with subword units to improve the quality of word embeddings.
 The model is called `fastText`.
+
+### Character N-Grams
+
 In `fastText` each word is represented by a bag of character n-grams.
 Embeddings are learned on the n-gram level instead of a fullword level.
 The final word embeddings of a word is the sum of its bag of n-gram embeddings.
@@ -1029,12 +1032,75 @@ the world "where" with a tri-gram encoding will have the following result:
 
 In the original paper n-grams for n greater or equal to 3 and smaller or equal to 6 are used.
 
-Comparing to `word2vec` and `GloVe`,
-`fastText`'s [original implementation](https://github.com/facebookresearch/fastText.git)(written in C++) has a rather rich command line API and also a Python wrapper.
+#### A `scikit-learn` Approach {-}
+
+Though we can implement our own n-gram parser,
+let's take advantage of the high-level API from `scikit-learn` for a quick experiment.
+
+```{python fasttext_ngram_sklearn}
+# TODO: change to use tf.Text (https://www.tensorflow.org/beta/tutorials/tensorflow_text/intro)
+# This is for TF 2.0 so is the go-to package for a tf implementation.
+# But the package is not avail on windows yet.
+from sklearn.feature_extraction.text import CountVectorizer
+
+vectorizer = CountVectorizer(analyzer="char_wb", ngram_range=(3, 6), lowercase=True)
+
+# X is a document-term sparse matrix. But we don't need it.
+X = vectorizer.fit_transform(["all models are wrong but some are useful"])
+
+# What we want is the resulting n-gram vocabulary: dict(ngram -> id).
+# Note that ngrams at edge are padded with space.
+ngram_vopcab = vectorizer.vocabulary_
+print(ngram_vopcab)
+
+print(vectorizer.get_feature_names())  # Already sorted by id.
+```
+
+TODO: no special full word "<wrong>". need to add manually for word with nchar >= 5 (max_ngram - 1).
+and replace space with < and >? (not necessary)
+
+```{python}
+tt = vectorizer.transform(["wrong"])
+kk = vectorizer.inverse_transform(tt)
+print(kk)
+```
+
+
+#### A `keras` Approach {-}
+
+Keras text preprocessing module does not have ngram support!
+
+```{python fasttext_ngram_keras}
+from tensorflow.keras.preprocessing.text import Tokenizer
+
+keras_vectorizer = Tokenizer(char_level=True, lower=True)
+
+keras_vectorizer.fit_on_texts(["all models are wrong but some are useful"])
+
+print(keras_vectorizer.word_index)
+```
+
+#### A `tensorflow-text` Approach {-}
+
+https://www.tensorflow.org/beta/tutorials/tensorflow_text/intro
+
+```{python fasttext_ngram_tf_text}
+```
+
+### Feature Hashing
+
+Since the number of character n-grams can be huge,
+feature hashing is used to control the final size of n-gram vocabulary.
+The hash function used in `fastText` is [FNV-1a](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function),
+and the final size of n-gram vocabulary is $2 \times 10^6$.
+
 
 ### A TensorFlow Implementation
 
-[TF implementation here.]
+[TF implementation here. Basically the same in word2vec]
+
+Comparing to `word2vec` and `GloVe`,
+`fastText`'s [original implementation](https://github.com/facebookresearch/fastText.git)(written in C++) has a rather rich command line API and also a Python wrapper.
 
 # Context-Aware Word Embeddings
 
