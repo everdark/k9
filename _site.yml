@@ -37,6 +37,8 @@ navbar:
       menu:
           - text: "YouTube-8M Multi-Label Classification: A TensorFlow 2.0 Journey"
             href: projects/yt8m/yt8m.html
+    - icon: fa-linkedin
+      href: https://www.linkedin.com/in/kylechung
     - icon: fa-github
       href: https://github.com/everdark/k9
 output:
