@@ -18,7 +18,7 @@ output:
   code_download: true
 bibliography: word_embeddings.bib
 abstract: |
-  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review several influential models that are designed to learn word embeddings for other downstream machine learning application, a.k.a. transfer learning. We will cover both context-free embeddings (word2vec, GloVe, and fastText) and context-aware embeddings (BERT and XLNet). Especially the latter recently has become the state-of-the-art methodology for several important NLU applications.
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn word embeddings for other downstream machine learning application, a.k.a. transfer learning. We will cover both context-free embeddings (word2vec, GloVe, and fastText) and context-aware embeddings (BERT and XLNet). Especially the latter recently has become the state-of-the-art methodology for several important NLU applications.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -65,7 +65,7 @@ So a word can be represented by a numerical row from a term-document sparse matr
 
 One-hot encoding has its limitation though.
 As a baseline approach it works surprisingly well in lots of traditional machine learning tasks.
-But it fails to deliver usable results when it comes to more complicated task such as machine translation,
+But it fails to deliver usable results when it comes to more complicated tasks such as machine translation,
 question answering,
 or other advanced natural language understanding (NLU) tasks.
 
@@ -78,7 +78,7 @@ For example,
 in factorization model for recommender systems,
 users and items are represented by embeddings and their similarity can be calculated by calculating the dot-product or the cosine distance of the underlying vectors.
 
-The same idea can be applies to natural language,
+The same idea can be applied to natural language,
 where each word is represented by its embeddings.
 Word embeddings are the building blocks for modern neural network models that can successfully handle a variety of NLU tasks.
 In this notebook we are going to review thoroughly several most popular unsupervised approaches for learning word embeddings.
@@ -98,14 +98,13 @@ There are 3 popular models to learn context-free word embeddings:
 + FastText
 
 All three approaches are unsupervised in the sense that the labels come directly from the training corpus so there is no extra effort for data labeling.
-But inherently they all apply supuervised learning algorithms,
+But inherently they all apply supervised learning algorithms,
 which we will see clearly in the following sections one by one.
 
 ## Word2vec
 
 @mikolov2013distributed propose the famous `word2vec` model,
-followed by a subsequent massive researches on how word embeddings can be learned with a variety of different algorithms.
-
+followed by a subsequent massive researches in the literature on how word embeddings can be learned with a variety of different algorithms.
 Though it is no longer the most popular choice of pre-trained word embeddings after years of evolution,
 its concept remain solid and it is very helpful to understand what the model is trying to learn,
 so we can lay down the foundation for natural language modeling.
@@ -126,32 +125,44 @@ Take the following text line for example:
 all models are wrong but some are useful
 ```
 
-Given a window size of 4,
-we may like to predict the target word `wrong` by its context words `all models are`,
-and also predict `useful` by `but same are`.
-
-Indeed,
-a moving window of size 4 will give us the following training examples:
+Given a window size of 2,
+we may like to predict the target word `wrong` by its context (surrounding) words `models are` and also `but some`.
+A context window of size 1 instead will give us the following training examples:
 
 ```
-[context] -> [target]
+(window)
+[target] -> [context]
 
-all models are -> wrong
-models are wrong -> but
-are wrong but -> some
-wrong but some -> are
-but some are -> useful
+(all models are)
+  all -> models
+  are -> models
+(models are wrong)
+  models -> are
+  wrong -> are
+(are wrong but)
+  are -> wrong
+  but -> wrong
+(wrong but some)
+  wrong -> but
+  some -> but
+(but some are)
+  but -> some
+  are -> some
+(some are useful)
+  some -> are
+  useful -> are
 ```
 
 CBOW is known to have better results for smaller training corpus.
 For large corpus the skip-gram model performs better.
+For this reason in the following discussion we will focus more on the skip-gram model.
 
 #### Skip-Gram {-}
 
 A skip-gram model does exactly the opposite of a CBOW.
 It learns to predict the surrounding context words from a given target word.
 So for the same example above,
-assuming instead a window size of 1,
+assuming again a window size of 1,
 we will have the following training examples:
 
 ```
