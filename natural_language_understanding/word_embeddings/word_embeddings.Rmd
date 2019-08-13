@@ -1106,11 +1106,23 @@ Comparing to `word2vec` and `GloVe`,
 
 ## BERT
 
-@devlin2018bert
+@devlin2018bert propose [BERT](https://github.com/google-research/bert): Bidirectional Encoder Representations from Transformers,
+as a deep neural network model to learn high quality word embeddings in again an unsupervised manner.
+The model is based on Transformer (@vaswani2017attention),
+a neural machine translation (NMT) network architecture that replaces traditional RNN or CNN layers with specialized self-attention layers.
 
-https://github.com/google-research/bert
+To understand BERT it is crucial to understand the underlying attention mechanism first since it is the most important element in the underlying Transformer model.
 
 ### Attention
+
+Attention is a neural network modeling technique first introduced in NMT task to handle the issue of long-distance dependencies in a recurrent neural network architecture.
+Since then its relative simplicity and effectiveness has brought it popular presence in many other applications not limited to natural language modeling.
+
+[Attention in RNN]
+
+[Generallized attention with K-V-Q configuration used in Transformer]
+
+### Multi-Head Attention
 
 ### Positional Encoding
 
