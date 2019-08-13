@@ -27,6 +27,9 @@ MathJax.Hub.Config({
 });
 </script>
 
+<!--For controling code folding by chunk.-->
+<script src="../../site_libs/utils/hide_output.js"></script>
+
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
@@ -767,6 +770,62 @@ for x, y in dataset:
 
 #### Model Architecture {-}
 
+The model architecture looks almost the same as for a matrix factorization problem.
+
+<div class="fold s">
+```{r glove_nn_graph, fig.width=8, fig.height=4}
+DiagrammeR::grViz("
+digraph subscript {
+  labelloc='t'
+  label='GloVe Model Architecture'
+
+  graph [layout = dot rankdir = LR ordering = in style=dotted]
+
+  node [shape = circle]
+
+  subgraph cluster_indicator_layer {
+    label = 'Context Window'
+    c [label = 'Context']
+    t [label = 'Target']
+  }
+
+  subgraph cluster_embedding_layer {
+    label = 'Word Embeddings'
+    C [label = 'C']
+    T [label = 'T']
+  }
+
+  subgraph cluster_bias_layer {
+    label = 'Biases'
+    Bc [label = 'B@_{C}']
+    Bt [label = 'B@_{T}']
+  }
+
+  subgraph cluster_output_layer_rv {
+    label = 'Model Score'
+    s [label = 'S']
+  }
+
+  subgraph cluster_output_layer_b {
+    label = 'Log(Co-Occurrence Count)'
+    y [label = 'y']
+  }
+
+  edge [arrowsize = .25]
+
+  c -> C [label = 'embedding lookup']
+  t -> T [label = 'embedding lookup']
+  C -> dot
+  T -> dot
+  dot -> s
+  Bc -> s
+  Bt -> s
+  s -> y [label = 'Predict']
+
+}")
+```
+</div>
+
 We need to implement a custom loss for GloVe.
 The loss function is a sum of weigted squared error between the log of co-occurence and the model prediction.
 
@@ -783,7 +842,11 @@ def weighted_sum_squared_error(y_true, y_pred):
   return K.sum(weights * squared_err, axis=-1)
 ```
 
-The model architecture looks almost the same as for a matrix factorization problem.
+Since target and context are inter-exchangable,
+theoretically we are only learning one set of embeddings.
+But instead we will learn for 2 sets separately:
+target and context embeddings.
+The final embedding of a word can be obtained by summing the two embeddings together.
 
 ```{python glove_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
