@@ -1149,4 +1149,12 @@ Both `word2vec` and `BERT` pre-trained embeddings are available under the [text 
 
 [coding example here]
 
+## BPEmb
+
+>
+[BPEmb](https://github.com/bheinzerling/bpemb) is a collection of pre-trained subword embeddings in 275 languages,
+based on Byte-Pair Encoding (BPE) and trained on Wikipedia.
+
+[coding example here]
+
 # References
