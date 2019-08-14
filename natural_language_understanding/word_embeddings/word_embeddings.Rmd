@@ -1335,9 +1335,9 @@ plot(unlist(py$fasttext$history$history["loss"]), pch="X", type="o",
 As one can see,
 for such a the small corpus the model quickly converge.
 
-```{python fastext_tf_trained_vectors}
-fasttext_vectors = fasttext.get_layer("final_embeddings").weights[0].numpy()
-print(fasttext_vectors)
+```{python fasttext_tf_trained_vectors}
+fasttext_word_vectors = fasttext.get_layer("word_embeddings").weights[0].numpy()
+fasttext_ngram_vectors = fasttext.get_layer("ngram_embeddings").weights[0].numpy()
 ```
 
 # Context-Aware Word Embeddings
