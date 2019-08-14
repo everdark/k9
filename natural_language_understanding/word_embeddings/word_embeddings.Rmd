@@ -1058,7 +1058,8 @@ init_vectorizer.fit(corpus)
 # Post-process the fitted vocabulary to exclude fullword.
 ngrams = init_vectorizer.get_feature_names()
 ngram_vocab = {}
-i = 0
+ngram_vocab["<PAD>"] = 0
+i = 1  # Start at 1 for zero-padding purpose.
 for ngram in ngrams:
   if not (ngram.startswith(" ") and ngram.endswith(" ")):
     ngram_vocab[ngram] = i
@@ -1137,37 +1138,32 @@ For educational purpose we will still try to use `tensorflow` to implement the m
 
 #### Data Pipeline {-}
 
-Extra engineering effort must be made do deal with ngram lookups since now for each word we not only need its fullword id mapping we also need the corresponding list of character ngram id mappings.
-To save computation cost we will use a cached dict to maintain the word id -> ngram list mapping for quick lookups.
+Extra engineering effort must be made do deal with ngram lookups since now for each word we not only need its fullword id mapping we also need the corresponding list of character ngram id mappings,
+which is rather tricky since it is not a fixed-length array for each training example.
 
-[TODO: handle variable length input for embedding lookup, aka sparse lookup. but keras layer does not support sparse tensor as input. need zero padding?]
+To save computation cost we will use a cached dictionary to maintain the word id -> ngram list mapping for quick lookups.
 
-ISSUES:
+```{python fasttext_ngram_cached_lookup}
+# Create id-word inverse mappings.
+id_to_word = {i: w for w, i in word_vectorizer.vocabulary_.items()}
 
-each line is parsed into variable length of training examples
-each training example now can also have two features that are of variable length (ngram id list)
-if we use flat_map due to variable length of ngrams the flat will fail unless pad with length = ngram size, which is too large
+# Create a cached word id to ngram id list mappings.
+cached_map = dict()
 
-using csr matrix not working in flat_map as well.
+def lookup_ngram_ids(word_id):
+  if word_id not in cached_map:
+    word = id_to_word[word_id]
+    ngram_ids = ngram_vectorizer.transform([word]).nonzero()[1].tolist()
+    cached_map[word_id] = ngram_ids
+  else:
+    ngram_ids = cached_map[word_id]
+  return ngram_ids
+```
 
-also, Dataset.map is lazy even under eager mode,
-so without flat_map we need to figure out how to handle string in tensor (py_function maybe?)
-
-if we use sparse tensor for ngram ids? keras embedding does not support sparse tensor,
-nor does it support ragged tensor.
-
-possible workaround:
-1. use tf.estimator instead of keras api so we can use tf.nn.embedding_lookup_sparse with sparse tensor
-2. use sparse tensor but latter use padding within batch with dense so we can still use keras api
-
-for 2, padding size will differ by batch but using keras input layer should be able to accept variable length input.
-
-NOTE:
-maybe try padded_batch?
-
-how about just pad wiwht a reasonable length?
-since it is just ngrams from a single word, cannot be really long.
-
+Also,
+we will need *zero-padding* for embedding lookups from tensors with variable length since each full word can be related to a variable number of ngrams.^[As of now, Keras doesn't support using sparse tensor to lookup embeddings. In tensorflow API we could use `tf.nn.embedding_lookup_sparse` to accomplish that.]
+To determine the padding length,
+we scan for the entire fullword vocabulary to find out the maximum possible length of ngram list for a known word.
 
 ```{python fasttext_get_padding_len}
 # Estimate the maxlen for ngram list on the corpus.
@@ -1181,34 +1177,18 @@ for w in word_vectorizer.get_feature_names():
 print(maxlen)
 ```
 
-```{python fasttext_vector_generator}
+For each text line,
+we parse it into a list of tuple of skip-gram training examples along with the corresponding ngram id list for both target and context word.
+
+```{python fasttext_text_parser}
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-
 word_vocab_size = len(word_vectorizer.vocabulary_)
-sampling_table = make_sampling_table(word_vocab_size, sampling_factor=5e-3)  # Adjust dropout.
-
-# Create id-word inverse mappings.
-id_to_word = {i: w for w, i in word_vectorizer.vocabulary_.items()}
-
-# Create a cached word id to ngram id list mappings.
-cached_map = dict()
-
-
-def lookup_ngram_ids(word_id):
-  if word_id not in cached_map:
-    word = id_to_word[word_id]
-    ngram_ids = ngram_vectorizer.transform([word]).nonzero()[1].tolist()
-    cached_map[word_id] = ngram_ids
-  else:
-    ngram_ids = cached_map[word_id]
-  return ngram_ids
-
+sampling_table = make_sampling_table(word_vocab_size, sampling_factor=5e-3)
 
 def parse_line(text_tensor):
   """Convert a raw text line (in tensor) into skp-gram training examples."""
   dtm = word_vectorizer.transform([text_tensor.numpy()])
-  tf.compat.as_text
   ids = dtm.nonzero()[1]
   pairs, labels = skipgrams(
     ids, vocabulary_size=word_vocab_size,
@@ -1217,7 +1197,7 @@ def parse_line(text_tensor):
   )
   if len(pairs):
     target_word_ids, context_word_ids = list(zip(*pairs))
-    # Parse character ngrams: A (padded) list of list of ngram ids.
+    # Parse character ngrams: A padded list of list of ngram ids.
     target_ngram_ids = []
     context_ngram_ids = []
     for pair in pairs:
@@ -1232,6 +1212,8 @@ def parse_line(text_tensor):
       target_ngram_ids, context_ngram_ids, labels)
 ```
 
+Other than the extra padded ngram tensors,
+the rest of our pipeline looks very similar as before.
 
 ```{python fasttext_tf_data_pipeline}
 batch_size = 128
@@ -1257,9 +1239,11 @@ for x, y in dataset:
   break
 ```
 
+To implement the embedding lookup from a padded tensor,
+we will need to utilize the *zero-masking* feature.
+In the following chunk we demonstrate a sparse lookup with summation as the combiner function:
 
 ```{python fasttext_test_embedding_lookup_sparse}
-# Test imeplementation of embedding sparse lookup with sum as combiner in keras.
 from tensorflow.keras import backend as K
 
 padded_input = np.array([[1,1,0], [2,0,0]])
@@ -1268,9 +1252,33 @@ embedded = embedding_layer(padded_input)
 print(embedded)
 
 mask = K.expand_dims(K.cast(embedded._keras_mask, tf.float32))
-print(K.sum(embedded * mask, axis=1))
+print(K.sum(embedded * mask, axis=1, keepdims=True))
 ```
 
+Remember that we start our ngram vocabulary indices at 1 rather than 0,
+so we can effectively mask out the embedding from 0s in the summation operation.
+
+#### Model Architecture {-}
+
+To fully implement the zero-padding embedding sparse lookup feature that is compatible with keras model API,
+we need to create a custom layer for summing the non-zero embeddings instead of directly call the backend methods.
+Here is a minimum such implementation:
+
+```{python fasttext_combiner_layer}
+class CombineEmbedding(tf.keras.layers.Layer):
+
+  def __init__(self, **kwargs):
+    super(CombineEmbedding, self).__init__(**kwargs)
+
+  def call(self, x, mask=None):
+    mask = K.expand_dims(K.cast(mask, tf.float32))
+    return K.sum(x * mask, axis=1, keepdims=True)
+
+# Check the result. Should be the same as in the previous direct backend call.
+CombineEmbedding()(embedded)
+```
+
+Now we can turn into our full model implementation:
 
 ```{python fasttext_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
@@ -1297,25 +1305,40 @@ target_ngram_embeddings = ngram_embedding_layer(input_target_ngrams)
 context_ngram_embeddings = ngram_embedding_layer(input_context_ngrams)
 
 # Combine embeddings.
-target_ngram_mask = K.expand_dims(K.cast(target_ngram_embeddings._keras_mask, tf.float32))
-context_ngram_mask = K.expand_dims(K.cast(context_ngram_embeddings._keras_mask, tf.float32))
-
-# TODO:
-# Using mask this way cause error in Dot layer...
-target_embeddings = K.sum(target_ngram_embeddings * target_ngram_mask, axis=1, keepdims=True) + target_word_embeddings
-context_embeddings = K.sum(context_ngram_embeddings * context_ngram_mask, axis=1, keepdims=True) + context_word_embeddings
+combiner = CombineEmbedding(name="ngram_combiner")
+add = tf.keras.layers.Add(name="final_embeddings")
+target_embeddings = add([combiner(target_ngram_embeddings), target_word_embeddings])
+context_embeddings = add([combiner(context_ngram_embeddings), context_word_embeddings])
 
 # Dot-product of the target and context embeddings with sigmoid activation.
 logits = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
 outputs = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")(logits)
 
+# Compile model.
 inputs = [input_target_words, input_context_words, input_target_ngrams, input_context_ngrams]
-model = tf.keras.Model(inputs=inputs, outputs=outputs, name="fastText")
-model.compile(loss="binary_crossentropy", optimizer="sgd")
+fasttext = tf.keras.Model(inputs=inputs, outputs=outputs, name="fastText")
+fasttext.compile(loss="binary_crossentropy", optimizer="sgd")
 
-print(model.summary())
+print(fasttext.summary())
 ```
 
+```{python fasttext_tf_model_train}
+fasttext.fit(dataset, epochs=10, steps_per_epoch=100, verbose=0)
+```
+
+```{r fasttext_tf_model_loss}
+# R
+plot(unlist(py$fastext$history$history["loss"]), pch="X", type="o",
+     xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
+```
+
+As one can see,
+for such a the small corpus the model quickly converge.
+
+```{python fastext_tf_trained_vectors}
+fastext_vectors = fastext.get_layer("final_embeddings").weights[0].numpy()
+print(fastext_vectors)
+```
 
 # Context-Aware Word Embeddings
 
