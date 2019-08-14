@@ -1328,7 +1328,7 @@ fasttext.fit(dataset, epochs=10, steps_per_epoch=100, verbose=0)
 
 ```{r fasttext_tf_model_loss}
 # R
-plot(unlist(py$fastext$history$history["loss"]), pch="X", type="o",
+plot(unlist(py$fasttext$history$history["loss"]), pch="X", type="o",
      xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
 ```
 
@@ -1336,8 +1336,8 @@ As one can see,
 for such a the small corpus the model quickly converge.
 
 ```{python fastext_tf_trained_vectors}
-fastext_vectors = fastext.get_layer("final_embeddings").weights[0].numpy()
-print(fastext_vectors)
+fasttext_vectors = fasttext.get_layer("final_embeddings").weights[0].numpy()
+print(fasttext_vectors)
 ```
 
 # Context-Aware Word Embeddings
