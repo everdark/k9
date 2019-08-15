@@ -1039,8 +1039,6 @@ In the original paper n-grams for n greater or equal to 3 and smaller or equal t
 Though we can implement our own n-gram parser,
 let's take advantage of the high-level API from `scikit-learn` for a quick experiment.
 
-[TODO: should ngram id start from 1? otherwise when do sparse lookup the sparse zero will be mapped to id 0.]
-
 ```{python fasttext_ngram_sklearn}
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -1067,7 +1065,7 @@ for ngram in ngrams:
 
 # Re-create ngram vectorizer with processed vocabulary.
 ngram_vectorizer = CountVectorizer(analyzer="char_wb", ngram_range=(3, 6), lowercase=True,
-                             vocabulary=ngram_vocab)
+                                   vocabulary=ngram_vocab)
 ```
 
 ```{python fasttext_ngram_sklearn_test}
@@ -1275,7 +1273,7 @@ class CombineEmbedding(tf.keras.layers.Layer):
     return K.sum(x * mask, axis=1, keepdims=True)
 
 # Check the result. Should be the same as in the previous direct backend call.
-CombineEmbedding()(embedded)
+print(CombineEmbedding()(embedded))
 ```
 
 Now we can turn into our full model implementation:
