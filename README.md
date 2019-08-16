@@ -51,6 +51,8 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + TensorFlow 2.0 Hands-On
     + MXNet Hands-On
     + RASA Chatbot Framework Hands-On
++ Projects
+    + Model Deployment with gRRC
 
 ### Site
 
