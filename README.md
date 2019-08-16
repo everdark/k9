@@ -37,20 +37,22 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
 ## TODO
 
 ### Topics
-
-+ Linear and Logistic Models: Econometrics v.s. Machine Learning
-+ Factorization Machines
-+ Gradient Boosting Machines
-+ TensorFlow 2.0 Hands-On
-+ Basics about Reinforcement Learning
-+ Recurrent Neural Nets
-+ Deep Neural Nets
++ Machine Learning
+    + Factorization Machines
+    + Gradient Boosting Trees
+    + Recurrent Neural Nets
     + Sequence-to-Sequence Models
-        + Neural Machine Translation
     + GANs
-+ Natural Language Understanding
-    + RASA Chatbots
+    + Reinforcement Learning Basics
++ Statistics
+    + Linear and Logistic Models: Econometrics v.s. Machine Learning
+    + Naive Bayes
++ Tools
+    + TensorFlow 2.0 Hands-On
+    + MXNet Hands-On
+    + RASA Chatbot Framework Hands-On
 
 ### Site
 
 + Dockerize each notebook (for complete reproducibility)?
++ Tidy up dependencies for each notebook
