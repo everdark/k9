@@ -1327,7 +1327,7 @@ fasttext.fit(dataset, epochs=10, steps_per_epoch=100, verbose=0)
 ```{r fasttext_tf_model_loss}
 # R
 plot(unlist(py$fasttext$history$history["loss"]), pch="X", type="o",
-     xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
+     xlab="Epoch", ylab="Loss", main="FastText Model Loss Trace")
 ```
 
 As one can see,
