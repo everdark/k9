@@ -1,6 +1,6 @@
 ---
-title: "On Word Embeddings"
-subtitle: "Vector Representation for Natural Language"
+title: "Context-Free Word Embeddings"
+subtitle: "From word2vec, GloVe, to fastText"
 author:
 - name: Kyle Chung
   affiliation:
@@ -18,7 +18,7 @@ output:
   code_download: true
 bibliography: word_embeddings.bib
 abstract: |
-  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn word embeddings for other downstream machine learning application, a.k.a. transfer learning. We will cover both context-free embeddings (word2vec, GloVe, and fastText) and context-aware embeddings (BERT and XLNet). Especially the latter recently has become the state-of-the-art methodology for several important NLU applications.
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -1338,35 +1338,6 @@ fasttext_word_vectors = fasttext.get_layer("word_embeddings").weights[0].numpy()
 fasttext_ngram_vectors = fasttext.get_layer("ngram_embeddings").weights[0].numpy()
 ```
 
-# Context-Aware Word Embeddings
-
-## BERT
-
-@devlin2018bert propose [BERT](https://github.com/google-research/bert): Bidirectional Encoder Representations from Transformers,
-as a deep neural network model to learn high quality word embeddings in again an unsupervised manner.
-The model is based on Transformer (@vaswani2017attention),
-a neural machine translation (NMT) network architecture that replaces traditional RNN or CNN layers with specialized self-attention layers.
-
-To understand BERT it is crucial to understand the underlying attention mechanism first since it is the most important element in the underlying Transformer model.
-
-### Attention
-
-Attention is a neural network modeling technique first introduced in NMT task to handle the issue of long-distance dependencies in a recurrent neural network architecture.
-Since then its relative simplicity and effectiveness has brought it popular presence in many other applications not limited to natural language modeling.
-
-[Attention in RNN]
-
-[Generallized attention with K-V-Q configuration used in Transformer]
-
-### Multi-Head Attention
-
-### Positional Encoding
-
-## XLNet
-
-@yang2019xlnet
-
-https://github.com/zihangdai/xlnet
 
 # Transfer Learning
 
