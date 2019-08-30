@@ -1,0 +1,90 @@
+---
+title: "Asyncrhonous Programming in R"
+output: html_notebook
+---
+
+
+```{r}
+library(future)
+library(promises)
+```
+
+
+```{r}
+plan(multiprocess)  # Without this, will fallback to single-thread.
+
+
+# f is a multi-session future.
+f <- future({Sys.sleep(30); 123})
+class(f)
+str(f)
+
+# Check if a future is resolved. Note that resolved cann't check a promise.
+# This is a non-blocking check.
+# A future is either resolved or unresolved.
+resolved(f)
+
+
+# A promise can be pending or fulfilled/rejected.
+# `then` is non-blocking and will return immediately no matter the given promise is still pending or not.
+p <- then(f, onFulfilled=function(v) v)
+class(p)
+resolved(p) # a promise is always resolved, not like a future expression.
+str(p)
+```
+
+A `future` is not, but can be a `promise`.
+Indeed, when a `future` object is called with a `then` function,
+it will be immediately converted to a `promise`-like object by attribute assignment.
+This can be easily seen in the following code chunk:
+
+```{r}
+f <- future({Sys.sleep(5); 123})
+str(f)  # A future, before called with a then function.
+
+p <- then(f, onFulfilled=function(v) v)
+str(f)  # The same future, after called with then and has been attached a promise attribute.
+```
+
+```{r}
+# Use pipe and lambda notation (~).
+# NOTE:
+# The notebook code chunk won't be able to capture the stdout from the promise.
+future(Sys.sleep(5)) %>%
+  then(~{cat("Time to awake.")})
+
+cat("This is non blocking.")
+```
+
+```{r}
+# Promise-aware pipe.
+# Note that it only supports onFulfilled operation.
+# For onRejected one can use `%...!%` instead.
+future(Sys.sleep(5)) %...>% {
+  cat("Time to awake.")
+}
+```
+
+
+To extract the value from a `promise`, super-assignment is a workaround.
+But it defeats tyhe purpose of a `promise`.
+
+```{r}
+f <- future({Sys.sleep(5); 123})
+str(f)  # A future, before called with a then function.
+
+p <- then(f, onFulfilled=function(v) k <<- v)
+
+while ( TRUE ) {
+  if ( resolved(f) ) {
+    Sys.sleep(1)  # When f is resolved we still need time for p to be fulfilled.
+    print(k)
+    break
+  }
+}
+```
+
+
+## Async and Reactive Programming
+
+[discussion about async shiny]
