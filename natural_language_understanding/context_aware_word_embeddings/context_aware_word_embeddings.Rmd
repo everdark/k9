@@ -1,0 +1,85 @@
+---
+title: "Context-Aware Word Embeddings"
+subtitle: "From BERT to XLNet"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook:
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: context_aware_word_embeddings.bib
+abstract: |
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. The learning model can be either context-free (such as word2vec, GloVe, and fastText) or context-aware (such as BERT and XLNet). Especially the latter recently has become the state-of-the-art methodology for several important NLU applications, and hence is our main focus in this notebook.
+---
+<!--For equation reference in Rmd.-->
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+<!--For controling code folding by chunk.-->
+<script src="../../site_libs/utils/hide_output.js"></script>
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="On Word Embeddings: Vector Representation for Language Modeling">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
+```
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+# Context-Aware Word Embeddings
+
+## BERT
+
+@devlin2018bert propose [BERT](https://github.com/google-research/bert): Bidirectional Encoder Representations from Transformers,
+as a deep neural network model to learn high quality word embeddings in again an unsupervised manner.
+The model is based on Transformer (@vaswani2017attention),
+a neural machine translation (NMT) network architecture that replaces traditional RNN or CNN layers with specialized self-attention layers.
+
+To understand BERT it is crucial to understand the underlying attention mechanism first since it is the most important element in the underlying Transformer model.
+
+### Attention
+
+Attention is a neural network modeling technique first introduced in NMT task to handle the issue of long-distance dependencies in a recurrent neural network architecture.
+Since then its relative simplicity and effectiveness has brought it popular presence in many other applications not limited to natural language modeling.
+
+[Attention in RNN]
+
+[Generallized attention with K-V-Q configuration used in Transformer]
+
+### Multi-Head Attention
+
+### Positional Encoding
+
+## XLNet
+
+@yang2019xlnet
+
+https://github.com/zihangdai/xlnet
+
+# References

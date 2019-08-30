@@ -30,8 +30,10 @@ navbar:
         - text: "On Subword Units"
           href: natural_language_understanding/subword_units/subword_units.nb.html
         - text: "---"
-        - text: "On Word Embeddings"
+        - text: "Context-Free Word Embeddings (WIP)"
           href: natural_language_understanding/word_embeddings/word_embeddings.nb.html
+        - text: "---"
+        - text: "Context-Aware Word Embeddings (WIP)"
   right:
     - text: "Projects"
       menu:
