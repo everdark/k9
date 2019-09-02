@@ -38,21 +38,17 @@ class MetropolisSampler():
 
     def sample(self, size):
         for _ in range(size):
-            # Propose a new sample.
-            # Let's use N(0, 1) as the proposal distribution.
-            proposed_val = ...
-            # Calculate the likelihood of the proposed sample.
-            proposed_val_lik = ...
-            # Calculate the accept probability as the likelihood ratio of the proposed to the current sample.
-            accept_prob = ...
-            # Do acception test on the proposed sample.
+            # The proposal distribution is N(0, 1).
+            proposed_val = self.current_val + stats.norm.rvs()
+            proposed_val_lik = self.lik_fun(proposed_val)
+            accept_prob = proposed_val_lik / self.current_val_lik
             if accept_prob > stats.uniform.rvs():
-            # Accept the proposed sample.
-                self.current_val = ...
-                self.current_val_lik = ...
+                self.current_val = proposed_val
+                self.current_val_lik = proposed_val_lik
                 self.n_accepted += 1
-            # If the proposed sample is rejected, the current sample is duplicated and added to the samples.
-            self.accepted_samples = ...
+            # Note that if the proposed sample is rejected, the current sample is duplicated.
+            self.accepted_samples.append(self.current_val)
+
 
 # Try Metropolis sampling for a N(10, 5) target.
 metropolis = MetropolisSampler(partial(dnorm, mean=10, sd=5), init_val=9)
