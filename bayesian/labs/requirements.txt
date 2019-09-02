@@ -1,3 +1,4 @@
 scipy>=1.2.1
 numpy>=1.16.3
+pandas>=0.24.1
 plotly>=3.10.0
