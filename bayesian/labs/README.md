@@ -22,5 +22,9 @@ One can use `create_data.R` to re-create the file.
 
 + `01_metropolis.py`: Built-from scratch Metropolis sampler.
 + `02_bayesian_logistic_reg.py`: Built-from scratch MLE and MCMC estimation for a logistic regression model.
-+ `03_pymc3_intro.py`: A quick walk-through of using [`PyMC3`](https://github.com/pymc-devs/pymc3) to do Bayesian modeling with state-of-the-art MCMC sampler.
++ `03_pymc3_intro.py`: A quick walk-through of using [`PyMC3`](https://github.com/pymc-devs/pymc3) to do Bayesian modeling.
++ `04_pystan_intro.py`: Same examples as above but using [`PyStan`](https://github.com/stan-dev/pystan) instead.
+
+Both PyMC3 and Stan implement the [No-U-Turn Sampler](https://arxiv.org/abs/1111.4246),
+the state-of-the-art MCMC sampling algorithm (a variant of Hamiltonian Monte Carlo).
 
