@@ -1444,25 +1444,43 @@ Size too small will need more time to converge and is riskier to be trapped at l
 Size too big will result in too low the acceptance rate since lots of the proposed value may not be even within the range of the target distribution.
 The sampling efficiency hence will be lower.
 
-#### Metropolis Sampler for a Uniform Target? {-}
+#### Metropolis Sampler for Other Distributions {-}
 
-In the section we do a simple Metropolis sampling exercise for a Normal distribution as the target distribution.
-It serves as a good tutorial since we can compare the actual distribution against our final samples.
-How about we make it even simpler,
-by doing Metropolis sampling for a Uniform distribution?
+For experimental purpose,
+let's also simulate MCMC sampling for some other well-known distributions.
 
-Indeed,
-it won't work.
+##### Beta Distribution {-}
 
-Or at least our simple implementation won't work.
-Let's give it a try whatever.
+```{r metro_beta, fig.height=5, fig.width=10}
+calc_lik_beta <- function(x, a=2, b=5) {
+  dbeta(x, a, b)
+}
+
+mcmc_res_beta <- metro_sample(calc_lik_beta, 0, niter=5000)
+
+par(mfrow=c(1, 2))
+hist(mcmc_res_beta$sample, main="Metropolis Samples", xlab="X ~ Beta(2, 5)",
+     sub="Does it look like a Beta distribution?")
+plot(mcmc_res_beta$sample, type="l", 
+     main="Trace",
+     xlab="Iteration", ylab="MCMC Sample Value")
+```
+
+```{r metra_beta_traceplot}
+x <- mcmc_res_beta$sample
+hist(x, prob=TRUE, xaxs="i", yaxs="i")
+density <- curve(calc_lik_beta, from=min(x), to=max(x), col="blue", add=TRUE)
+abline(v=0, col="red")
+```
+
+##### Uniform Distribution {-}
 
 ```{r metro_unif, fig.height=5, fig.width=10}
 calc_lik_unif <- function(x, a=0, b=1) {
   dunif(x, min=a, max=b)
 }
 
-mcmc_res_3 <- metro_sample(calc_lik_norm, .5, niter=500)
+mcmc_res_3 <- metro_sample(calc_lik_unif, .01, niter=5000)
 
 par(mfrow=c(1, 2))
 hist(mcmc_res_3$sample, main="Metropolis Samples", xlab="X ~ Uniform(0, 1)",
@@ -1472,17 +1490,12 @@ plot(mcmc_res_3$sample, type="l",
      xlab="Iteration", ylab="MCMC Sample Value")
 ```
 
-Obviously,
-it is not working,
-even if we start the initial value at the true mean.
-
-Why?
-Because a $\mbox{Uniform}(a, b)$ has a flat density of 1 everywhere in between the range of $[a, b]$ and a flat density of 0 everywhere else.
-The Metropolis acceptance test simply won't work since the likelihood ratio is always 1!
-Hence the shape of samples ends up follows exactly the proposal distribution which is a random walk.
-
-This is not a practical issue, though.
-Since MCMC is designed for non-trivial distribution.
+```{r metra_unif_traceplot}
+x <- mcmc_res_3$sample
+hist(x, prob=TRUE, xaxs="i", yaxs="i")
+density <- curve(calc_lik_unif, from=min(x), to=max(x), col="blue", add=TRUE)
+abline(v=0, col="red")
+```
 
 #### Key Take-Away {-}
 
