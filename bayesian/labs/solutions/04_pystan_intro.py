@@ -7,6 +7,8 @@ For more information, please refer to the official document:
 """
 
 import pystan
+import pandas as pd
+import numpy as np
 
 
 # --------------------------------------------------- #
