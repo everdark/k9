@@ -36,10 +36,10 @@ class MetropolisSampler():
         self.n_accepted = 1
         self.accepted_samples = []
 
-    def sample(self, size):
+    def sample(self, size, scale):
         for _ in range(size):
             # Propose a new sample.
-            # Let's use N(0, 1) as the proposal distribution.
+            # Let's use N(0, 1) as the proposal distribution, with a scale factor.
             proposed_val = ...
             # Calculate the likelihood of the proposed sample.
             proposed_val_lik = ...
@@ -69,7 +69,7 @@ plot([go.Scatter(y=t)])
 
 
 # Histogram of MCMC samples.
-xticks = np.linspace(min(t), max(t), num=1000)
+xticks = np.linspace(min(t), max(t), num=5000)
 plot([
     go.Histogram(x=t, histnorm="probability density"),
     go.Scatter(x=xticks, y=stats.norm.pdf(xticks, 10, 5), name="Normal(10, 5)")
@@ -79,7 +79,7 @@ plot([
 # Try a larger number of iteration.
 metropolis.sample(5000)  # Continue with the last proposed sample.
 t = metropolis.accepted_samples
-xticks = np.linspace(min(t), max(t), num=1000)
+xticks = np.linspace(min(t), max(t), num=5000)
 plot([
     go.Histogram(x=t, histnorm="probability density"),
     go.Scatter(x=xticks, y=stats.norm.pdf(xticks, 10, 5), name="Normal(10, 5)")
@@ -92,3 +92,13 @@ plot([
 # Try a different inital value.
 
 
+# Now try MCMC sampling for another target distribution following Beta(2, 5).
+# Can the sampler approximate correctly the target distribution?
+
+
+# Now try MCMC sampling for another target distribution following Uniform(0, 1).
+# Can the sampler approximate correctly the target distribution?
+
+
+# Try different proposal scale to see how it affect the approximation.
+# A very small scale? (For example scale = .01)
