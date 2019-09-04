@@ -45,17 +45,21 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + Sequence-to-Sequence Models
     + GANs
     + Reinforcement Learning Basics
+    + Model Explanation
 + Statistics
     + Linear and Logistic Models: Econometrics v.s. Machine Learning
     + Naive Bayes
-+ Tools
+    + Bootstrap Sampling
+    + Bayesian Model Diagnostic
++ Tools/Programming
     + TensorFlow 2.0 Hands-On
     + MXNet Hands-On
     + RASA Chatbot Framework Hands-On
+    + Asynchronous Programming in R
 + Projects
     + Model Deployment with gRRC
 
 ### Site
 
-+ Dockerize each notebook (for complete reproducibility)?
++ Dockerize each notebook (for complete reproducibility and portability)?
 + Tidy up dependencies for each notebook
