@@ -4,3 +4,4 @@ pandas==0.24.1
 plotly==4.1.0
 pymc3==3.7
 arviz==0.4.1
+pystan==2.18.1.0
