@@ -42,6 +42,11 @@ binom_fit = binom_model.sampling(data={"y": 6}, iter=500, chains=4)
 binom_fit.plot()
 print(binom_fit)
 
+# We can also find the MAP estimate by finding the maximum of the posterior.
+# But usually this is not the focus of Bayesian inference.
+binom_map = binom_model.optimizing(data={"y": 6}, iter=500)
+print(binom_map)  # Should be very close to the MLE estimate.
+
 
 # --------------- #
 # Logistic model. #
