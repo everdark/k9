@@ -1,5 +1,6 @@
 ---
 title: "Asyncrhonous Programming in R"
+subtitle: "From `future` to `promises` then a Scalable `shiny` App"
 author:
 - name: Kyle Chung
   affiliation:
@@ -21,8 +22,21 @@ nocite: |
   @promises
   @shiny
 abstract: |
-  TBC.
+  The notebook is a practical walk-through of implementing asynchronous programming in R using package `future` and `promises`, mainly for the purpose of developing a scalable `shiny` application. Indeed, all 3 packages come with very well-structured official tutorials already. This notebook serves more as a one-stop reference for developers to quickly hands-on on the topic and get ready for the actual application development.
 ---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="Asyncrhonous Programming in R">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/programming/async/async_r.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
+)
+writeLines(meta, meta_header_file)
+close(meta_header_file)
+```
 
 ```{r setup, include=FALSE}
 # Create a hook for code chunk execution time.
@@ -112,7 +126,7 @@ f <- future({
   "I'm from the future!"
 })  # The call will return immediately.
 
-str(f)  # A MultiprocessFuture object.
+class(f)  # A MultiprocessFuture object.
 ```
 
 Again we can use `value` to access the return value.
@@ -162,7 +176,7 @@ v %<-% {
   "I'm from the future!"
 }  # Non-blocking.
 
-str(futureOf(v))  # A Future object.
+class(futureOf(v))  # A Future object.
 ```
 
 ### Nested Futures
@@ -252,16 +266,18 @@ f2 <- future({
 Whether such pattern is useful at all depends on the actual use case.
 But in [the next section](#promises) we will learn how to control even more on a promise to arrive at a full-fletched asynchronous programming framework in R.
 
-## Error Handling
+## Error Propogation
 
 Error from a `future` expression will propogate to the actual value but not the `Future` object itself.
 
 ```{r future_error}
 fe <- future(stop("Error from the future!"))
-str(fe)  # No exception before access the value.
+class(fe)  # No exception before access the value.
 
 tryCatch(value(fe), error=function(e) print(e))
 ```
+
+For explicit error handling it is better to resort to using `promises`.
 
 # Using `promises` {#promises}
 
@@ -274,92 +290,267 @@ library(promises)
 print(installed.packages()["promises", "Version"])
 ```
 
+## From `future` to `promises`
 
+A `future` expression return a promise.
+Such promise can be converted explicitly to a `promise` object using `then`:
 
+```{r promise}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
 
-## A `promise` is forever a `promise`
-
-
-
-```{r}
-
-
-# f is a multi-session future.
-f <- future({Sys.sleep(1); 123})
-class(f)
-str(f)
-
-# Check if a future is resolved. Note that resolved cann't check a promise.
-# This is a non-blocking check.
-# A future is either resolved or unresolved.
-resolved(f)
-
-
-# A promise can be pending or fulfilled/rejected.
-# `then` is non-blocking and will return immediately no matter the given promise is still pending or not.
 p <- then(f, onFulfilled=function(v) v)
-class(p)
-resolved(p) # a promise is always resolved, not like a future expression.
+class(p)  # A promise object.
 str(p)
 ```
 
-A `future` is not, but can be a `promise`.
-Indeed, when a `future` object is called with a `then` function,
-it will be immediately converted to a `promise`-like object by attribute assignment.
-This can be easily seen in the following code chunk:
+Unlike the original return value from a `future`,
+a promise,
+even under `multiprocess`,
+is always `resolved`:
 
-```{r}
-f <- future({Sys.sleep(1); 123})
-str(f)  # A future, before called with a then function.
+```{r always_resolved_promise}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
 
 p <- then(f, onFulfilled=function(v) v)
-str(f)  # The same future, after called with then and has been attached a promise attribute.
+resolved(p)  # This is always, immediately, TRUE.
 ```
 
-```{r}
-# Use pipe and lambda notation (~).
-# NOTE:
-# The notebook code chunk won't be able to capture the stdout from the promise.
-future(Sys.sleep(1)) %>%
-  then(~{cat("Time to awake.")})
+Put it differently,
+`resolved` only works for `Future` object but not the `promise` object.
 
-cat("This is non blocking.")
+We loosely call the return value of a `future` as a promise as well since this is the common wording used in asynchronous programming.
+But here we explicitly refer to the object class `promise` implemented by the R package `promises`.
+When we refer to the general concept of promise,
+we will avoid using the syntax highlight for code for readers' ease of distinguishing the difference.
+
+A `Future` is not,
+but can be a `promise`.
+Indeed,
+when a `Future` object is fed to a `then` function,
+it will be immediately converted to a `promise`-like object by attribute assignment.
+This can be easily seen in the following code:
+
+```{r future_implicit_promise}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
+str(f)  # A Future, before called with a then function.
+
+p <- then(f, onFulfilled=function(v) v)
+str(f)  # The same Future, after called with then and has been attached promise attributes.
 ```
 
-```{r}
-# Promise-aware pipe.
-# Note that it only supports onFulfilled operation.
-# For onRejected one can use `%...!%` instead.
-future(Sys.sleep(1)) %...>% {
-  cat("Time to awake.")
-}
+A `Future` is either `resolved` or not `resolved`.
+While a `promise` is either *pending*, *fulfilled*, or *rejected* (due to error).
+
+```{r promise_status}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
+
+p <- then(f, onFulfilled=function(v) v)
+print(p)  # Still pending.
+
+Sys.sleep(1)
+
+print(p)  # Now should be fulfilled.
 ```
 
+## A `promise` is ALWAYS a `promise`
 
-To extract the value from a `promise`, super-assignment is a workaround.
-But it defeats the purpose of a `promise`.
+How do we extract the bounded value from a `promise`,
+like what we do with a `Future` by using the `value` function?
 
-```{r, eval=FALSE}
-f <- future({Sys.sleep(5); 123})
-str(f)  # A future, before called with a then function.
+It turns out that,
+**we cannot.**
 
-p <- then(f, onFulfilled=function(v) k <<- v)
+Indeed,
+**a `promise` is ALWAYS a `promise`.**
+There is simply no way back once we pipe our task into a `promise`.
+The esign philosophy is that we never know when the `promise`d value will be available,
+and hence the return value from a `promise` must always be a `promise`.
 
-while ( TRUE ) {
-  if ( resolved(f) ) {
-    Sys.sleep(1)  # When f is resolved we still need time for p to be fulfilled.
-    print(k)
-    break
+To process the return value from a `promise`,
+we simply chain it with another `promise`:
+
+```{r promise_chain}
+f <- future(1 + 1)
+p1 <- then(f, onFulfilled=function(v) v + 1)
+p2 <- then(p1, onFulfilled=function(v) v + 2)
+
+Sys.sleep(1)
+
+p1
+p2
+```
+
+If for some reason we definitely want to access the bounded value from a `promise`,
+a workaround is to use super-assignment:
+
+[TODO: This is not working under notebook calling environment.]
+
+```{r promise_super_assign}
+gv <- NULL
+
+f <- future(1 + 1)
+p1 <- then(f, onFulfilled=function(v) v + 1)
+p2 <- then(p1, onFulfilled=function(v) gv <<- v + 2)
+
+Sys.sleep(3)
+
+gv  # Actual value from the last promise.
+```
+
+Remeber that in `future` expression the calling environment is kept intact even with super-assignment.
+This is not true for `promise`.
+For the `promise` programming API we do have the ability to export any value to the calling environment.
+Such trick,
+however,
+must be used with high caution (as it is for any operation involving super-assignment).
+
+## Error Handling
+
+When a `then` job failed at its `onFulfilled` task,
+it returns a rejected `promise` with the corresponding error type.
+
+Rejection does NOT propagate, though.
+
+When a `then` job processes a rejected `promise`,
+it will go to the `onRejected` branch (by default simply propagate the error if not specified) and if that task is done without error,
+the resulting value is a fulfilled `promise`.
+
+The following example illustrates the above idea:
+
+```{r promise_error_1}
+f <- future(1 + 1)
+
+# The first promise failed at its onFuilfilled task.
+p1 <- then(
+  f,
+  onFulfilled=function(v) stop(v),
+  onRejected=function(e) e
+)
+
+# The second promise will go to the onRejected branch since the first promise failed.
+p2 <- then(
+  p1,
+  onFulfilled=function(v) print(sprintf("From onFulfilled: %s", v)),
+  onRejected=function(e) print(sprintf("From onRejected: %s", e))
+)
+
+Sys.sleep(1)
+
+p1
+p2
+```
+
+Then same logic applies to `Future` object (i.e., converted `promise`):
+
+```{r promise_error_2}
+# Error at the future expression.
+f <- future(stop("Something just went wrong at the very beginning."))
+
+# The first promise will go for the onRejected task, and return successfully.
+p1 <- then(
+  f,
+  onFulfilled=function(v) {
+    print("From onFulfilled.")
+    v
+  },
+  onRejected=function(e) {
+    print("From onRejected")
+    e
   }
+)
+
+# Since the onRejected task is successfully excecuted, p1 becomes a fulfilled promise.
+# p2 then will go for the onFulfilled task.
+p2 <- then(
+  p1,
+  onFulfilled=function(v) {
+    print("From onFulfilled.")
+    v
+  },
+  onRejected=function(e) {
+    print("From onRejected")
+    e
+  }
+)
+
+Sys.sleep(3)  # Wait longer to allow for potential backend overhead.
+
+p1
+p2
+```
+
+## Syntactic Sugars
+
+There are several syntactic sugars available when using the `then` API.
+
+### Lambda Expression {-}
+
+```{r promise_sugar_lambda}
+f <- future({
+  Sys.sleep(.1)
+  "I'm from the future!"
+})
+
+p <- then(f, ~{
+  .  # Return the Future value as-is.
+})
+
+Sys.sleep(1)
+
+p
+```
+
+### Promise-Aware Pipe {-}
+
+```{r promise_sugar_pipe}
+f <- future({
+  Sys.sleep(.1)
+  "I'm from the future!"
+}) %...>% {
+  cat(.)
 }
 ```
 
+The pipe `%...>%` only supports `onFulfilled` function.
+In such case the `onRejected` task is simply an error propagation.
+
+For `onRejected` function one can use `%...!%` instead.
+And the `onFulfilled` task is a simple `identity`.
+
+For a complete custom branch handling one should always use the `then` API explicitly.
 
 # Async with Reactive Programming
+
+Reactive programming in R is introduced by the well-known `shiny` package which facilitates the ease of web application development purely using R,
+usually for data-driven dashboard building purpose.
+
+A huge limitation about such web app is that R is a single-threaded process.
+Reactive programming itself does not provide asynchrony.
+In order for a web app to be scalable for a multi-session use case,
+reactive programming must combine with asynchronous programming.
+
+The good news is that `shiny` has come fully support for `future` and `promises` under its reactive programming framework after its major release of v1.1.
+
+## A Quick Recap: Reactive Programming
 
 ```{r import_shiny}
 library(shiny)
 print(installed.packages()["shiny", "Version"])
 ```
+
+## Promise-Aware Reactive Expression
+
 
 
