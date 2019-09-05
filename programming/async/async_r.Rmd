@@ -1,21 +1,291 @@
 ---
 title: "Asyncrhonous Programming in R"
-output: html_notebook
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook:
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: async_r.bib
+nocite: | 
+  @future
+  @promises
+  @shiny
+abstract: |
+  TBC.
 ---
 
+```{r setup, include=FALSE}
+# Create a hook for code chunk execution time.
+knitr::knit_hooks$set(timeit=local({
+  now=NULL
+  function(before, options) {
+    if ( before ) {
+      now <<- Sys.time()
+    } else {
+      d <- difftime(Sys.time(), now)
+      now <<- NULL
+      paste(sprintf("=== Execution Time: %s Sec ===", as.character(d)))
+    }
+  }})
+)
+```
 
-```{r}
+# Using `future`
+
+```{r import_future}
 library(future)
+print(installed.packages()["future", "Version"])
+```
+
+## Execution Plan
+
+### Sequential Plan
+
+The default execution plan for `future` is `sequential`:
+
+```{r future_plan}
+plan()  # Check the current execution plan.
+```
+
+It means that all function calls are executed sequentially in the current R session.
+So the following future expression will block the session for 1 second:^[In this notebook we use a custom `knit_hooks` to time the relevant code chunk to showcase the blocking/non-blocking execution time.]
+
+```{r sequential_future, timeit=TRUE}
+plan(sequential)  # Set explicitly to a sequential plan.
+
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
+
+str(f)  # A SequentialFuture object.
+```
+
+The return value from a `future` is refered to as a *promise* in the async programming terminology.
+To access the return value from a `future` expression (i.e., a promise):
+
+```{r future_value}
+value(f)
+```
+
+Or a syntactic sugar can be used for returning the bounded value from `future` expression:
+
+```{r future_sugar, timeit=TRUE}
+v %<-% {
+  Sys.sleep(1)
+  "I'm from the future!"
+}
+
+v
+```
+
+### Multi-Processing Plan
+
+A `SequentialFuture` is of course not very useful at all.
+The advantage of asynchgronous programming is to have multi-processing execution plan such that our function calls become non-blocking.
+To enable such setting:
+
+```{r future_plan_multiprocess}
+plan(multiprocess)
+plan()
+```
+
+Depending on the running platform,
+the actual execution plan will be either `multicore` using fork (for Linux and macOS) or `multisession` using multiple R sessions (for Windows).
+So `multiprocess` is just a platform-independent convenience plan for multi-threading.
+
+Now our `future` expression becomes non-blocking:
+
+```{r multiprocess_future, timeit=TRUE}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})  # The call will return immediately.
+
+str(f)  # A MultiprocessFuture object.
+```
+
+Again we can use `value` to access the return value.
+But keep in mind that *`value` is a blocking call.*
+If the promised value is not yet `resolved`,
+it will wait until `resolved`:
+
+```{r value_blocking, timeit=TRUE}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})  # The call will return immediately.
+
+value(f)  # This is blocking since `value` is waiting for `f` to be resolved.
+```
+
+One interesting fact about the pipe sugar `%<-%` in a `multiprocess` plan is that it is still non-blocking even if it seems to contain the `value` call implicitly.
+
+```{r future_sugar_nonblocking, timeit=TRUE}
+v %<-% {
+  Sys.sleep(1)
+  "I'm from the future!"
+}
+```
+
+This is because `%<-%` is *lazy* in its implicit `value` call.^[Readers should not confuse the laziness here with the `lazy` function argument in a `future` call. By setting `lazy=FALSE` (which is the default) in a `future` call it enables the expression to start execution immediately, otherwise not.]
+Only when the value is actually used will the call to `value` be executed.
+
+To see this in action:
+
+```{r future_sugar_blocking, timeit=TRUE}
+v %<-% {
+  Sys.sleep(1)
+  "I'm from the future!"
+}  # Non-blocking.
+
+v  # Blocking.
+```
+
+When using the future pipe operator,
+one can still access the promise object without `value`.
+This is done by `futureOf`:
+
+```{r future_sugar_get_future}
+v %<-% {
+  Sys.sleep(1)
+  "I'm from the future!"
+}  # Non-blocking.
+
+str(futureOf(v))  # A Future object.
+```
+
+### Nested Futures
+
+`future` expression can be nested and the corresponding plan can be configured accordingly.
+By default the second layer `future` will be sequential no matter what plan the first layer uses.
+
+To specify the so-called future topology,
+for example a `sequential` for the first layer and a `multiprocess` for the second layer:
+
+```r
+plan(list(sequential, multiprocess))
+```
+
+## Scope of a `future`
+
+The environment for a `future` expression is always a `local` environment.
+That is,
+the calling environment is intact:
+
+```{r future_scope_local}
+x <- 0
+f <- future({x <- 42})
+x
+```
+
+Even a super-assignment won't change the calling environment:
+
+```{r future_scope_superassign}
+y <- 0
+f <- future({y <<- 42})
+y
+```
+
+The `future` can and by defualt will have access to the global environment `.GlobalEnv`:
+
+```{r future_scope}
+z <- 42
+f <- future({z})
+value(f)
+```
+
+More details on how globals should be accessed can be controled by the `globals` argument to the `future` function call.
+
+## Non-Blocking Resolution Check
+
+Since now a `future` expression may be or may not be `resolved` already,
+and a `value` call to the promised value will block if the value is not yet `resolved`,
+it becomes important to have the ability that allows us to check whether a promise is already `resolved`,
+without being blocked.
+
+This is exactly what the function `resolved` is doing:
+
+```{r future_resolved}
+f <- future({
+  Sys.sleep(1)
+  "I'm from the future!"
+})
+
+resolved(f)  # Return immediately and `f` is not yet resolved.
+
+Sys.sleep(1)
+
+resolved(f)  # Return immediately and `f` should be already resolved.
+```
+
+Now it is theoretically possible to create one non-blocking future thread to wait for another non-blocking future thread:
+
+```{r nonblocking_future_wait_for_future}
+# Educational purpose only.
+# This pattern may not be very useful in practice.
+f1 <- future({
+  Sys.sleep(5)
+  "I'm from the future!"
+})
+
+f2 <- future({
+  while ( TRUE ) {
+    if ( resolved(f) ) {
+      value(f)
+      break
+    }
+  }
+})
+```
+
+Whether such pattern is useful at all depends on the actual use case.
+But in [the next section](#promises) we will learn how to control even more on a promise to arrive at a full-fletched asynchronous programming framework in R.
+
+## Error Handling
+
+Error from a `future` expression will propogate to the actual value but not the `Future` object itself.
+
+```{r future_error}
+fe <- future(stop("Error from the future!"))
+str(fe)  # No exception before access the value.
+
+tryCatch(value(fe), error=function(e) print(e))
+```
+
+# Using `promises` {#promises}
+
+Using `promises` is one big step ahead of `future`,
+enabling even more flexibility on asynchronous programming.
+But it also drastically changes how we should write our code--specifically, in a promise-style.
+
+```{r import_pormises, results='hide'}
 library(promises)
+print(installed.packages()["promises", "Version"])
 ```
 
 
+
+
+## A `promise` is forever a `promise`
+
+
+
 ```{r}
-plan(multiprocess)  # Without this, will fallback to single-thread.
 
 
 # f is a multi-session future.
-f <- future({Sys.sleep(30); 123})
+f <- future({Sys.sleep(1); 123})
 class(f)
 str(f)
 
@@ -39,7 +309,7 @@ it will be immediately converted to a `promise`-like object by attribute assignm
 This can be easily seen in the following code chunk:
 
 ```{r}
-f <- future({Sys.sleep(5); 123})
+f <- future({Sys.sleep(1); 123})
 str(f)  # A future, before called with a then function.
 
 p <- then(f, onFulfilled=function(v) v)
@@ -50,7 +320,7 @@ str(f)  # The same future, after called with then and has been attached a promis
 # Use pipe and lambda notation (~).
 # NOTE:
 # The notebook code chunk won't be able to capture the stdout from the promise.
-future(Sys.sleep(5)) %>%
+future(Sys.sleep(1)) %>%
   then(~{cat("Time to awake.")})
 
 cat("This is non blocking.")
@@ -60,16 +330,16 @@ cat("This is non blocking.")
 # Promise-aware pipe.
 # Note that it only supports onFulfilled operation.
 # For onRejected one can use `%...!%` instead.
-future(Sys.sleep(5)) %...>% {
+future(Sys.sleep(1)) %...>% {
   cat("Time to awake.")
 }
 ```
 
 
 To extract the value from a `promise`, super-assignment is a workaround.
-But it defeats tyhe purpose of a `promise`.
+But it defeats the purpose of a `promise`.
 
-```{r}
+```{r, eval=FALSE}
 f <- future({Sys.sleep(5); 123})
 str(f)  # A future, before called with a then function.
 
@@ -85,6 +355,11 @@ while ( TRUE ) {
 ```
 
 
-## Async and Reactive Programming
+# Async with Reactive Programming
 
-[discussion about async shiny]
+```{r import_shiny}
+library(shiny)
+print(installed.packages()["shiny", "Version"])
+```
+
+
