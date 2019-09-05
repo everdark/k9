@@ -58,7 +58,7 @@ class MetropolisSampler():
 metropolis = MetropolisSampler(partial(dnorm, mean=10, sd=5), init_val=9)
 
 samp_size = 5000
-metropolis.sample(samp_size)
+metropolis.sample(samp_size, scale=1)
 t = metropolis.accepted_samples
 
 print("Accept Rate: ", metropolis.n_accepted / len(t))
