@@ -69,7 +69,9 @@ h6 {
 </style>
 
 
+</head>
 
+<body>
 
 <style type = "text/css">
 .main-container {
@@ -188,6 +190,8 @@ $(document).ready(function () {
 });
 </script>
 
+<div class="container-fluid main-container">
+
 <!-- tabsets -->
 
 <style type="text/css">
@@ -258,15 +262,6 @@ $(document).ready(function () {
 
 <!-- code folding -->
 
-
-
-
-</head>
-
-<body>
-
-
-<div class="container-fluid main-container">
 
 
 
@@ -363,6 +358,16 @@ $(document).ready(function () {
     </li>
   </ul>
 </li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Programming
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li class="dropdown-header">Asyncrhonous Programming in R</li>
+  </ul>
+</li>
 <li>
   <a href="https://www.linkedin.com/in/kylechung">
     <span class="fa fa-linkedin"></span>
@@ -437,17 +442,21 @@ $(document).ready(function () {
 <li>Sequence-to-Sequence Models</li>
 <li>GANs</li>
 <li>Reinforcement Learning Basics</li>
+<li>Model Explanation</li>
 </ul></li>
 <li>Statistics
 <ul>
 <li>Linear and Logistic Models: Econometrics v.s. Machine Learning</li>
 <li>Naive Bayes</li>
+<li>Bootstrap Sampling</li>
+<li>Bayesian Model Diagnostic</li>
 </ul></li>
-<li>Tools
+<li>Tools/Programming
 <ul>
 <li>TensorFlow 2.0 Hands-On</li>
 <li>MXNet Hands-On</li>
 <li>RASA Chatbot Framework Hands-On</li>
+<li>Asynchronous Programming in R</li>
 </ul></li>
 <li>Projects
 <ul>
@@ -458,7 +467,7 @@ $(document).ready(function () {
 <div id="site" class="section level3">
 <h3>Site</h3>
 <ul>
-<li>Dockerize each notebook (for complete reproducibility)?</li>
+<li>Dockerize each notebook (for complete reproducibility and portability)?</li>
 <li>Tidy up dependencies for each notebook</li>
 </ul>
 </div>
