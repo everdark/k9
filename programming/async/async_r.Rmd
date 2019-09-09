@@ -443,7 +443,7 @@ f <- future({
 })
 
 p <- then(f, onFulfilled=function(v) v)
-class(p)  # A promise object.
+print(class(p))  # A promise object.
 str(p)
 ```
 
@@ -452,7 +452,7 @@ a promise,
 even under `multiprocess`,
 is always `resolved`:
 
-```{r always_resolved_promise}
+```{r always_resolved_promise, timeit=TRUE}
 f <- future({
   Sys.sleep(1)
   "I'm from the future!"
@@ -500,9 +500,9 @@ f <- future({
 p <- then(f, onFulfilled=function(v) v)
 print(p)  # Still pending.
 
-Sys.sleep(1)
+Sys.sleep(2)
 
-print(p)  # Now should be fulfilled.
+print(p)  # Now should be fulfilled. (If not, just wait longer.)
 ```
 
 ## No Way Back Once `promise`d
@@ -527,7 +527,7 @@ f <- future(1 + 1)
 p1 <- then(f, onFulfilled=function(v) v + 1)
 p2 <- then(p1, onFulfilled=function(v) v + 2)
 
-Sys.sleep(1)
+Sys.sleep(2)
 
 p1
 p2
@@ -587,7 +587,7 @@ p2 <- then(
   onRejected=function(e) print(sprintf("From onRejected: %s", e))
 )
 
-Sys.sleep(1)
+Sys.sleep(3)
 
 p1
 p2
@@ -648,7 +648,7 @@ p <- then(f, ~{
   .  # Return the Future value as-is.
 })
 
-Sys.sleep(1)
+Sys.sleep(3)
 
 p
 ```
@@ -660,7 +660,7 @@ f <- future({
   Sys.sleep(.1)
   "I'm from the future!"
 }) %...>% {
-  cat(.)
+  cat(.)  # This won't show on the code chunk output.
 }
 ```
 
