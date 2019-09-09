@@ -89,7 +89,7 @@ The return value from a `future` is refered to as a *promise* in the async progr
 To access the return value from a `future` expression (i.e., a promise):
 
 ```{r future_value}
-value(f)
+print(value(f))
 ```
 
 Or a syntactic sugar can be used for returning the bounded value from `future` expression:
@@ -100,7 +100,7 @@ v %<-% {
   "I'm from the future!"
 }
 
-v
+print(v)
 ```
 
 ### Multi-Processing Plan
@@ -126,7 +126,7 @@ f <- future({
   "I'm from the future!"
 })  # The call will return immediately.
 
-class(f)  # A MultiprocessFuture object.
+print(class(f))  # A MultiprocessFuture object.
 ```
 
 Again we can use `value` to access the return value.
@@ -140,7 +140,7 @@ f <- future({
   "I'm from the future!"
 })  # The call will return immediately.
 
-value(f)  # This is blocking since `value` is waiting for `f` to be resolved.
+print(value(f))  # This is blocking since `value` is waiting for `f` to be resolved.
 ```
 
 One interesting fact about the pipe sugar `%<-%` in a `multiprocess` plan is that it is still non-blocking even if it seems to contain the `value` call implicitly.
@@ -163,7 +163,7 @@ v %<-% {
   "I'm from the future!"
 }  # Non-blocking.
 
-v  # Blocking.
+print(v)  # Blocking.
 ```
 
 When using the future pipe operator,
@@ -176,7 +176,7 @@ v %<-% {
   "I'm from the future!"
 }  # Non-blocking.
 
-class(futureOf(v))  # A Future object.
+print(class(futureOf(v)))  # A Future object.
 ```
 
 ### Nested Futures
@@ -193,33 +193,169 @@ plan(list(sequential, multiprocess))
 
 ## Scope of a `future`
 
-The environment for a `future` expression is always a `local` environment.
-That is,
-the calling environment is intact:
+The scope of a `future` expression can be tricky.
+In this section we will spend some time experimenting a bit on its scoping nature.
 
-```{r future_scope_local}
+### Global Variables
+
+Since `future` relies on a separate R process to handle asynchronous calls,
+how does it deal with global variable in the master process?
+
+By default `future` will automatically scan the given expression and determine which variable to copy for access.
+This is controlled by the following call:
+
+```
+future(expr, envir=parent.frame(), globals=TRUE)
+```
+
+Setting `globals=TRUE` enables the auto-search feature,
+which in theory can result in error by overlooking variable required by `expr`.
+The search includes the `envir` (by default is the calling `environment`) AND its parents until found (a.k.a. *lexical scoping*):
+
+```{r, future_global_search}
+x <- 42
+y <- 64  # Search up to here for y.
+k <- function() {
+  x <- 0  # Search up to here for x.
+  g <- function() {
+    f <- future({
+      list(x=x, y=y)
+    }, globals=TRUE)
+    value(f)
+  }
+  g()
+}
+k()
+```
+
+The search behavior can be controlled explicitly by setting `globals` to a variable name vector and specify the `enviroment` to search for:
+
+```{r future_global_explicit}
+x <- 42  # Exposed to future explicitly.
+y <- 64  # Exposed to future explicitly.
+k <- function() {
+  x <- 0  # This is ignored since it is not in the specified search environment.
+  g <- function() {
+    f <- future({
+      list(x=x, y=y)
+    }, globals=c("x", "y"), envir=.GlobalEnv)
+    value(f)
+  }
+  g()
+}
+k()
+```
+
+### Inconsistency between Plans
+
+When it comes to scoping,
+`future` is not very consistent across different execution plan.
+In this section we discuss several notable examples that can be confusing.
+
+#### Search Scope Inconsistency {-}
+
+To see how the global is NOT copied correctly by the auto-search feature,
+consider the following example:
+
+```{r future_global_not_found}
+plan(multiprocess)
+z <- 10
+f <- future({
+  get("z", envir=environment(), inherits=TRUE)  # Error.
+})
+tryCatch(value(f), error=function(e) print(e))
+```
+
+A contrasting example is to make the expression easy for the `future` to understand that we need the variable:
+
+```{r future_global_found}
+z <- 10
+f <- future({
+  get("z", envir=environment(), inherits=TRUE)  # This now is working even BEFORE the eval to z.
+  z  # This makes the auto-search work and export the variable from global.
+})
+tryCatch(value(f), error=function(e) print(e))
+```
+
+One tricky finding is that the behavior can differ for different execution plans.
+Indeed under a `sequential` plan the code works just fine:
+
+```{r future_global_found_sequential}
+plan(sequential)
+z <- 10
+f <- future({
+  get("z", envir=environment(), inherits=TRUE)
+})
+tryCatch(value(f), error=function(e) print(e))
+```
+
+#### Global Copy Inconsistency {-}
+
+Remember that all globals are *copied* to the `future` block,
+which means in-place change will not reflect on the original object even if the object is mutable:
+
+```{r future_global_copy_multiprocess}
+plan(multiprocess)
+e <- new.env()  # A global mutable.
+e$x <- 0
+
+f <- future({
+  print(capture.output(pryr::where("e")))  # The original.
+  e$x <- 42  # `e` is automatically searched and accessable, but changed in a copy.
+  print(capture.output(pryr::where("e")))  # Now a local copy.
+})
+invisible(value(f))
+
+ls.str(e)  # The original copy is intact.
+```
+
+However,
+the above fact only holds for a `multiprocess` plan.
+Under `sequential` plan the global original is indeed changed in-place:
+
+```{r future_global_copy_sequential}
+plan(sequential)
+e <- new.env()  # A global mutable.
+e$x <- 0
+
+f <- future({
+  print(capture.output(pryr::where("e")))
+  e$x <- 42
+  print(capture.output(pryr::where("e")))
+})
+invisible(value(f))
+
+ls.str(e)  # The original copy has been modified!
+```
+
+#### Super Assignment Inconsistency {-}
+
+Super assignment (`<<-`) behaves differently by execution plan.
+For a `sequential` plan:
+
+```{r future_scope_superassign_sequential}
+plan(sequential)
 x <- 0
-f <- future({x <- 42})
+f <- future({
+  x <<- 42
+  y <- 0
+})
+invisible(value(f))
 x
 ```
 
-Even a super-assignment won't change the calling environment:
+But for a `multiprocess` plan:
 
-```{r future_scope_superassign}
-y <- 0
-f <- future({y <<- 42})
-y
+```{r future_scope_superassign_multiprocess}
+plan(multiprocess)
+x <- 0
+f <- future({
+  x <<- 42
+  y <- 0
+})
+invisible(value(f))
+x
 ```
-
-The `future` can and by defualt will have access to the global environment `.GlobalEnv`:
-
-```{r future_scope}
-z <- 42
-f <- future({z})
-value(f)
-```
-
-More details on how globals should be accessed can be controled by the `globals` argument to the `future` function call.
 
 ## Non-Blocking Resolution Check
 
@@ -272,7 +408,7 @@ Error from a `future` expression will propogate to the actual value but not the 
 
 ```{r future_error}
 fe <- future(stop("Error from the future!"))
-class(fe)  # No exception before access the value.
+print(class(fe))  # No exception before access the value.
 
 tryCatch(value(fe), error=function(e) print(e))
 ```
@@ -285,9 +421,14 @@ Using `promises` is one big step ahead of `future`,
 enabling even more flexibility on asynchronous programming.
 But it also drastically changes how we should write our code--specifically, in a promise-style.
 
-```{r import_pormises, results='hide'}
+```{r import_pormises}
 library(promises)
 print(installed.packages()["promises", "Version"])
+```
+
+```{r multiprocess_plan_promises}
+# Fix the plan to multiprocess for promises.
+plan(multiprocess)
 ```
 
 ## From `future` to `promises`
@@ -352,7 +493,7 @@ While a `promise` is either *pending*, *fulfilled*, or *rejected* (due to error)
 
 ```{r promise_status}
 f <- future({
-  Sys.sleep(1)
+  Sys.sleep(.1)
   "I'm from the future!"
 })
 
@@ -364,7 +505,7 @@ Sys.sleep(1)
 print(p)  # Now should be fulfilled.
 ```
 
-## A `promise` is ALWAYS a `promise`
+## No Way Back Once `promise`d
 
 How do we extract the bounded value from a `promise`,
 like what we do with a `Future` by using the `value` function?
@@ -375,7 +516,7 @@ It turns out that,
 Indeed,
 **a `promise` is ALWAYS a `promise`.**
 There is simply no way back once we pipe our task into a `promise`.
-The esign philosophy is that we never know when the `promise`d value will be available,
+The design philosophy is that we never know when the `promise`d value will be available,
 and hence the return value from a `promise` must always be a `promise`.
 
 To process the return value from a `promise`,
