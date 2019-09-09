@@ -691,7 +691,147 @@ library(shiny)
 print(installed.packages()["shiny", "Version"])
 ```
 
+Broadly speaking there are two types of handler in reactive programmning for `shiny`:
+value handler and event handler.
+
+### Value Handler
+
+To register an object whose value changes reactively (according to, say, user input from the web app portal),
+we can use `reactiveVal` or `reactiveValues`.
+
+`reactiveVal` is designed for a single value (single object) while `reactiveValues` is designed for a list of values (multiple objects).
+
+To initialize a reactive value without a default (`NULL` as default):
+
+```r
+r <- reactiveVal(value=NULL)
+```
+
+To update the value we simply call:
+
+```r
+r(x)  # `x` is the new value assigned reactively to `r`.
+```
+
+And to retrieve the value we can call without argument:
+
+```r
+r()
+```
+
+In general `reactiveVal` is only callable under a reactive context (all the `render*` function such as `renderText`, `renderPrint`).
+To test it interactively,
+we can also use `isolate` to directly retrieve the value non-reactively:
+
+```{r reactiveVal_isolate}
+r <- reactiveVal(value=NULL)
+isolate(r())
+r(42)
+isolate(r())
+```
+
+To initialize a list of reactive values:
+
+```r
+rl <- reactiveValues()
+```
+
+`reactiveValues` can be directly update by using the list assignment syntax:
+
+```r
+rl$a <- 1
+rl$b <- 1
+```
+
+To test it:
+
+```{r reactiveValues_isolate}
+rl <- reactiveValues()
+rl$a <- 1
+rl$b <- 1
+isolate(rl$a + rl$b)
+```
+
+We can create reactive functions which depend on reactive values.
+The function will re-execute everytime any of the dependent reactive values change.
+
+```{r reactive_function}
+rl <- reactiveValues(a=1, b=2)
+
+rf <- reactive({
+  rl$a + rl$b
+})
+
+isolate(rf())
+```
+
+Or we can create reactive observer functions similar to `reactive` but only for its side-effects (i.e., no return value):
+
+```{r reactive_observer}
+rl <- reactiveValues(a=1, b=2)
+
+# Nothing will be printed since the value doesn't change without a reactive context.
+observe({
+  print(rl$a + rl$b)
+})
+```
+
+### Event Handler
+
+We can also create handlers that explicitly respond to UI component or other reactive events defined by a reactive function.
+
+For example,
+we can react to a user button click by a `eventReactive` function:
+
+```r
+r <- eventReactive(input$run, {expr})  # Assume `run` is the id for a button in the UI code.
+```
+
+Not just UI component,
+`eventReactive` can react to anything reactive:
+
+```{r eventReactive}
+r <- reactiveVal()
+r(123)
+er <- eventReactive(r(), 456)
+isolate(er())
+```
+
+We can do the same but only for side-effects by using `observeEvent`:
+
+```r
+observeEvent(input$run, {expr})  # Assume `run` is the id for a button in the UI code.
+```
+
+### A Minimum App Template
+
+```{r, eval=FALSE}
+# Define frontend code.
+ui <- fluidPage(
+
+  titlePanel("Test Reactive Programming in R"),
+  fluidRow(
+    column(6, actionButton("do", "Do something.")),
+    column(6, uiOutput("out"))
+  )
+
+)
+
+# Define backend code.
+server <- function(input, output, session) {
+
+  observeEvent(input$do, {
+    output$out <- renderText({
+      "Something."
+    })
+  })
+
+}
+
+# Launch the app.
+shinyApp(ui=ui, server=server, options=list(port=8787))
+```
+
+
 ## Promise-Aware Reactive Expression
-
-
 
