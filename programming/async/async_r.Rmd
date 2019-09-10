@@ -1,5 +1,5 @@
 ---
-title: "Asyncrhonous Programming in R"
+title: "Asynchronous Programming in R"
 subtitle: "From `future` to `promises` then a Scalable `shiny` App"
 author:
 - name: Kyle Chung
@@ -29,7 +29,7 @@ abstract: |
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
-    '<meta property="og:title" content="Asyncrhonous Programming in R">',
+    '<meta property="og:title" content="Asynchronous Programming in R">',
     '<meta property="og:url" content="https://everdark.github.io/k9/programming/async/async_r.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
     '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
@@ -253,6 +253,8 @@ When it comes to scoping,
 In this section we discuss several notable examples that can be confusing.
 
 #### Search Scope Inconsistency {-}
+
+[behavior difference in multisession and multicore, only multisession has this inconsistency]
 
 To see how the global is NOT copied correctly by the auto-search feature,
 consider the following example:
