@@ -27,6 +27,8 @@ abstract: |
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="Asynchronous Programming in R">',
@@ -35,6 +37,12 @@ meta <- c(
     '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
 )
 writeLines(meta, meta_header_file)
+
+# Add Github corner.
+github_corner_svg <- "../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/async")
+writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+
 close(meta_header_file)
 ```
 
