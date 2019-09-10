@@ -342,7 +342,7 @@ f <- future({
   print(capture.output(pryr::where("e")))  # The original.
   e$x <- 42  # `e` is automatically searched and accessable, but changed in a copy.
   print(capture.output(pryr::where("e")))  # Now a local copy.
-})
+}, packages="pryr")
 invisible(value(f))
 
 ls.str(e)  # The original copy is intact.
@@ -361,7 +361,7 @@ f <- future({
   print(capture.output(pryr::where("e")))
   e$x <- 42
   print(capture.output(pryr::where("e")))
-})
+}, packages="pryr")
 invisible(value(f))
 
 ls.str(e)  # The original copy has been modified!
