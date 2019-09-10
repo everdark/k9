@@ -18,7 +18,6 @@ output:
   code_download: true
 bibliography: async_r.bib
 nocite: | 
-  @future
   @promises
   @shiny
 abstract: |
@@ -69,6 +68,30 @@ library(future)
 print(installed.packages()["future", "Version"])
 ```
 
+The package `future` (@future) allows a single-threaded R process to launch a task in another thread to achieve asynchronous programming.
+It is the main entry point for a task to be asynchronous.
+
+To make an expression a `Future`,
+we simply wrap it with a `future` function call:
+
+```{r future}
+f <- future({
+  # Supposedly anything expensive to compute here.
+  1 + 1
+})
+```
+
+Then we can collect the result of a `Future`:
+
+```{r value}
+print(value(f))
+```
+
+In order for a `Future` to be useful,
+we need to configure the execution plan.
+That is,
+how we'd like to run a given task in a separate process.
+
 ## Execution Plan
 
 ### Sequential Plan
@@ -93,14 +116,15 @@ f <- future({
 str(f)  # A SequentialFuture object.
 ```
 
-The return value from a `future` is refered to as a *promise* in the async programming terminology.
-To access the return value from a `future` expression (i.e., a promise):
+The return value from a `future` is refered to as a *promise* in the asynchronous programming terminology.
+As we discussed already,
+to access the bounded value from a `future` expression (i.e., a promise) we use `value` function:
 
 ```{r future_value}
 print(value(f))
 ```
 
-Or a syntactic sugar can be used for returning the bounded value from `future` expression:
+Or a syntactic sugar can be used:
 
 ```{r future_sugar, timeit=TRUE}
 v %<-% {
@@ -114,7 +138,7 @@ print(v)
 ### Multi-Processing Plan
 
 A `SequentialFuture` is of course not very useful at all.
-The advantage of asynchgronous programming is to have multi-processing execution plan such that our function calls become non-blocking.
+The advantage of asynchgronous programming is to have multi-processing execution plan such that our function calls become non-blocking (asynchronous).
 To enable such setting:
 
 ```{r future_plan_multiprocess}
@@ -126,7 +150,11 @@ Depending on the running platform,
 the actual execution plan will be either `multicore` using fork (for Linux and macOS) or `multisession` using multiple R sessions (for Windows).
 So `multiprocess` is just a platform-independent convenience plan for multi-threading.
 
-Now our `future` expression becomes non-blocking:
+It is worth noting that the behavior is technically NOT the same between `multicore` and `multisession`,
+especially when it comes to variable scoping,
+which we will discussed latter.
+
+Under a `multiprocess` plan now our `future` expression becomes non-blocking:
 
 ```{r multiprocess_future, timeit=TRUE}
 f <- future({
@@ -137,7 +165,7 @@ f <- future({
 print(class(f))  # A MultiprocessFuture object.
 ```
 
-Again we can use `value` to access the return value.
+Again we can use `value` to access the bounded value.
 But keep in mind that *`value` is a blocking call.*
 If the promised value is not yet `resolved`,
 it will wait until `resolved`:
@@ -151,7 +179,7 @@ f <- future({
 print(value(f))  # This is blocking since `value` is waiting for `f` to be resolved.
 ```
 
-One interesting fact about the pipe sugar `%<-%` in a `multiprocess` plan is that it is still non-blocking even if it seems to contain the `value` call implicitly.
+One interesting fact about the pipe sugar `%<-%` in a `multiprocess` plan is that it is still non-blocking even if it seems to contain the `value` call implicitly:
 
 ```{r future_sugar_nonblocking, timeit=TRUE}
 v %<-% {
@@ -160,8 +188,8 @@ v %<-% {
 }
 ```
 
-This is because `%<-%` is *lazy* in its implicit `value` call.^[Readers should not confuse the laziness here with the `lazy` function argument in a `future` call. By setting `lazy=FALSE` (which is the default) in a `future` call it enables the expression to start execution immediately, otherwise not.]
-Only when the value is actually used will the call to `value` be executed.
+This is because `%<-%` is *lazy* in its implicit `value` call.
+Only when the value is actually used will the call to `value` be executed.^[Readers should not confuse the laziness here with the `lazy` function argument in a `future` call. By setting `lazy=FALSE` (which is the default) in a `future` call it enables the expression to start execution immediately, otherwise not.]
 
 To see this in action:
 
@@ -190,10 +218,11 @@ print(class(futureOf(v)))  # A Future object.
 ### Nested Futures
 
 `future` expression can be nested and the corresponding plan can be configured accordingly.
-By default the second layer `future` will be sequential no matter what plan the first layer uses.
+By default the second-layer `future` will be `sequential` no matter what plan the first layer uses.
 
-To specify the so-called future topology,
-for example a `sequential` for the first layer and a `multiprocess` for the second layer:
+To specify the so-called *future topology*,
+for example a `sequential` for the first layer and a `multiprocess` for the second layer,
+we can give a list to the `plan` call:
 
 ```r
 plan(list(sequential, multiprocess))
