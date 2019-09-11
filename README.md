@@ -14,9 +14,12 @@ You may find me sometimes interoperate the two langauges in a single notebook.
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html)
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
 + Natural Language Understanding
-    + [On Subword Units]
+    + [On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html)
     + [Contex-Free Word Embeddings]
     + [Contex-Aware Word Embeddings]
++ Programming
+    + R
+        + [Asynchronous Programming in R]
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model]
@@ -56,6 +59,7 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + MXNet Hands-On
     + RASA Chatbot Framework Hands-On
     + Asynchronous Programming in R
++ Programming
 + Projects
     + Model Deployment with gRRC
 
