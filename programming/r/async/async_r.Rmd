@@ -350,7 +350,7 @@ ls.str(e)  # The original copy is intact.
 ```
 
 ```{r future_global_copy_multicore}
-plan(multicore)
+plan(multicore)  # This is not supported in Windows and will fallback to a sequential plan.
 e <- new.env()  # A global mutable.
 e$x <- 0
 
@@ -409,7 +409,7 @@ x
 ```
 
 ```{r future_scope_superassign_multicore}
-plan(multicore)
+plan(multicore)  # This is not supported in Windows and will fallback to a sequential plan.
 x <- 0
 f <- future({
   x <<- 42
