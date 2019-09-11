@@ -840,7 +840,7 @@ observeEvent(input$run, {expr})  # Assume `run` is the id for a button in the UI
 For completeness,
 the following code chunk provides a minimum single-file working `shiny` app with a user input button and a output text window.
 
-```{r, eval=FALSE}
+```{r min_app, eval=FALSE}
 # Define frontend code.
 ui <- fluidPage(
 
@@ -869,3 +869,28 @@ shinyApp(ui=ui, server=server, options=list(port=8787))
 
 ## Promise-Aware Reactive Expression
 
+All reactive functions provided by `shiny` are both `future` and `promises` aware.
+It means that reactive expressions can be a `Future` or a `promise`:
+
+
+```{r async_app, eval=FALSE}
+
+```
+
+To play around with the actual app,
+run:
+
+```sh
+Rscript app.R
+```
+
+And navigate to `127.0.0.1:8787`.
+Open multiple tabs and hit the button sequentially to see if the performance of the app in one tab is affected by the other under different execution plans.
+
+[try shinyloadtest?]
+
+[invalidateLater]
+
+[super assign in promise]
+
+[asynchronous progress bar]
