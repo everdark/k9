@@ -33,6 +33,8 @@ MathJax.Hub.Config({
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="On Subword Units: Segmentation for Natural Language Modeling">',
@@ -41,6 +43,12 @@ meta <- c(
     '<meta property="og:description" content="A data science notebook about natural language understanding.">'
 )
 writeLines(meta, meta_header_file)
+
+# Add Github corner.
+github_corner_svg <- "../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/natural_language_understanding/subword_units")
+writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+
 close(meta_header_file)
 ```
 
