@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://github.com/everdark/k9/tree/master/natural_language_understanding/subword_units)
+[Link](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html)
 
 Langauge segmentation or tokenization is the very first step toward a natural language understanding (NLU) task.
 The state-of-the-art NLU model usually involves neural networks with word embeddings as the workhorse to encode raw text onto vector space.
