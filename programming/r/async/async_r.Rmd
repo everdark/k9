@@ -590,11 +590,6 @@ we simply chain it with another `promise`:
 f <- future(1 + 1)
 p1 <- then(f, onFulfilled=function(v) v + 1)
 p2 <- then(p1, onFulfilled=function(v) v + 2)
-
-Sys.sleep(2)
-
-p1
-p2
 ```
 
 ## Error Handling
@@ -611,6 +606,8 @@ the resulting value is a fulfilled `promise`.
 The following example illustrates the above idea:
 
 ```{r promise_error_1}
+plan(sequential)
+
 f <- future(1 + 1)
 
 # The first promise failed at its onFuilfilled task.
@@ -687,10 +684,6 @@ f <- future({
 p <- then(f, ~{
   .  # Return the Future value as-is.
 })
-
-Sys.sleep(3)
-
-p
 ```
 
 ### Promise-Aware Pipe {-}
@@ -700,7 +693,7 @@ f <- future({
   Sys.sleep(.1)
   "I'm from the future!"
 }) %...>% {
-  cat(.)  # This won't show on the code chunk output.
+  cat(.)  # This won't output to the notebook code chunk.
 }
 ```
 
@@ -736,9 +729,8 @@ value handler and event handler.
 
 ### Value Handler
 
-To register an object whose value changes reactively (according to, say, user input from the web app portal),
+To register an object whose value changes reactively (according to, say, user input from a web app portal),
 we can use `reactiveVal` or `reactiveValues`.
-
 `reactiveVal` is designed for a single value (single object) while `reactiveValues` is designed for a list of values (multiple objects).
 
 To initialize a reactive value without a default (`NULL` as default):
@@ -845,6 +837,9 @@ observeEvent(input$run, {expr})  # Assume `run` is the id for a button in the UI
 
 ### A Minimum App Template
 
+For completeness,
+the following code chunk provides a minimum single-file working `shiny` app with a user input button and a output text window.
+
 ```{r, eval=FALSE}
 # Define frontend code.
 ui <- fluidPage(
@@ -871,7 +866,6 @@ server <- function(input, output, session) {
 # Launch the app.
 shinyApp(ui=ui, server=server, options=list(port=8787))
 ```
-
 
 ## Promise-Aware Reactive Expression
 
