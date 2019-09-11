@@ -500,7 +500,7 @@ plan(multiprocess)
 
 ## From `future` to `promises`
 
-A `future` expression return a promise.
+A `future` expression return a *promise*.
 Such promise can be converted explicitly to a `promise` object using `then`:
 
 ```{r promise}
@@ -530,7 +530,7 @@ resolved(p)  # This is always, immediately, TRUE.
 ```
 
 Put it differently,
-`resolved` only works for `Future` object but not the `promise` object.
+`resolved` only works (or is only meaninngful) for a `Future` object but not for a `promise` object.
 
 We loosely call the return value of a `future` as a promise as well since this is the common wording used in asynchronous programming.
 But here we explicitly refer to the object class `promise` implemented by the R package `promises`.
@@ -599,30 +599,6 @@ Sys.sleep(2)
 p1
 p2
 ```
-
-If for some reason we definitely want to access the bounded value from a `promise`,
-a workaround is to use super-assignment:
-
-[TODO: This is not working under notebook calling environment.]
-
-```{r promise_super_assign}
-gv <- NULL
-
-f <- future(1 + 1)
-p1 <- then(f, onFulfilled=function(v) v + 1)
-p2 <- then(p1, onFulfilled=function(v) gv <<- v + 2)
-
-Sys.sleep(3)
-
-gv  # Actual value from the last promise.
-```
-
-Remeber that in `future` expression the calling environment is kept intact even with super-assignment.
-This is not true for `promise`.
-For the `promise` programming API we do have the ability to export any value to the calling environment.
-Such trick,
-however,
-must be used with high caution (as it is for any operation involving super-assignment).
 
 ## Error Handling
 
