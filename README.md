@@ -20,6 +20,7 @@ You may find me sometimes interoperate the two langauges in a single notebook.
 + Programming
     + R
         + [Asynchronous Programming in R]
+        + [High Performance Computing with Rcpp]
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model]
@@ -60,6 +61,8 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + RASA Chatbot Framework Hands-On
     + Asynchronous Programming in R
 + Programming
+    + R
+        + Production Quality Shiny App Development
 + Projects
     + Model Deployment with gRRC
 
