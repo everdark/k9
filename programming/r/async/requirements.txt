@@ -1,6 +1,5 @@
 future
 promises
 shiny
-pryr
 stringr
 rmarkdown

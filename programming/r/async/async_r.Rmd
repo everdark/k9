@@ -237,8 +237,7 @@ In this section we will spend some time experimenting a bit on its scoping natur
 
 Since `future` relies on a separate R process to handle asynchronous calls,
 how does it deal with global variable in the master process?
-
-By default `future` will automatically scan the given expression and determine which variable to copy for access.
+By default `future` will automatically scan the given expression and determine which variable to *copy* for the separate thread to access.
 This is controlled by the following call:
 
 ```
@@ -246,8 +245,8 @@ future(expr, envir=parent.frame(), globals=TRUE)
 ```
 
 Setting `globals=TRUE` enables the auto-search feature,
-which in theory can result in error by overlooking variable required by `expr`.
-The search includes the `envir` (by default is the calling `environment`) AND its parents until found (a.k.a. *lexical scoping*):
+which in theory can result in error by overlooking variables required by `expr`.
+The search includes the `envir` (by default it is the calling `environment`) AND its parents until found (a.k.a. *lexical scoping*):
 
 ```{r, future_global_search}
 x <- 42
@@ -289,15 +288,13 @@ When it comes to scoping,
 `future` is not very consistent across different execution plan.
 In this section we discuss several notable examples that can be confusing.
 
-#### Search Scope Inconsistency {-}
-
-[behavior difference in multisession and multicore, only multisession has this inconsistency]
+#### Auto-Search Scope Inconsistency {-}
 
 To see how the global is NOT copied correctly by the auto-search feature,
 consider the following example:
 
 ```{r future_global_not_found}
-plan(multiprocess)
+plan(multisession)
 z <- 10
 f <- future({
   get("z", envir=environment(), inherits=TRUE)  # Error.
@@ -308,6 +305,7 @@ tryCatch(value(f), error=function(e) print(e))
 A contrasting example is to make the expression easy for the `future` to understand that we need the variable:
 
 ```{r future_global_found}
+plan(multisession)
 z <- 10
 f <- future({
   get("z", envir=environment(), inherits=TRUE)  # This now is working even BEFORE the eval to z.
@@ -316,11 +314,19 @@ f <- future({
 tryCatch(value(f), error=function(e) print(e))
 ```
 
-One tricky finding is that the behavior can differ for different execution plans.
-Indeed under a `sequential` plan the code works just fine:
+But the same function call works perfectly under either `multicore` or `sequential`:
 
 ```{r future_global_found_sequential}
 plan(sequential)
+z <- 10
+f <- future({
+  get("z", envir=environment(), inherits=TRUE)
+})
+tryCatch(value(f), error=function(e) print(e))
+```
+
+```{r future_global_found_multicore}
+plan(multicore)  # This is not supported in Windows and will fallback to a sequential plan.
 z <- 10
 f <- future({
   get("z", envir=environment(), inherits=TRUE)
@@ -333,19 +339,30 @@ tryCatch(value(f), error=function(e) print(e))
 Remember that all globals are *copied* to the `future` block,
 which means in-place change will not reflect on the original object even if the object is mutable:
 
-```{r future_global_copy_multiprocess}
-plan(multiprocess)
+```{r future_global_copy_multisession}
+plan(multisession)
 e <- new.env()  # A global mutable.
 e$x <- 0
 
 f <- future({
-  print(capture.output(pryr::where("e")))  # The original.
   e$x <- 42  # `e` is automatically searched and accessable, but changed in a copy.
-  print(capture.output(pryr::where("e")))  # Now a local copy.
-}, packages="pryr")
+})
 invisible(value(f))
 
 ls.str(e)  # The original copy is intact.
+```
+
+```{r future_global_copy_multicore}
+plan(multicore)
+e <- new.env()  # A global mutable.
+e$x <- 0
+
+f <- future({
+  e$x <- 42
+})
+invisible(value(f))
+
+ls.str(e)
 ```
 
 However,
@@ -358,10 +375,8 @@ e <- new.env()  # A global mutable.
 e$x <- 0
 
 f <- future({
-  print(capture.output(pryr::where("e")))
   e$x <- 42
-  print(capture.output(pryr::where("e")))
-}, packages="pryr")
+})
 invisible(value(f))
 
 ls.str(e)  # The original copy has been modified!
@@ -383,10 +398,21 @@ invisible(value(f))
 x
 ```
 
-But for a `multiprocess` plan:
+But for a `multisession` plan:
 
-```{r future_scope_superassign_multiprocess}
-plan(multiprocess)
+```{r future_scope_superassign_multisession}
+plan(multisession)
+x <- 0
+f <- future({
+  x <<- 42
+  y <- 0
+})
+invisible(value(f))
+x
+```
+
+```{r future_scope_superassign_multicore}
+plan(multicore)
 x <- 0
 f <- future({
   x <<- 42
@@ -406,6 +432,8 @@ without being blocked.
 This is exactly what the function `resolved` is doing:
 
 ```{r future_resolved}
+plan(multiprocess)
+
 f <- future({
   Sys.sleep(1)
   "I'm from the future!"
@@ -424,7 +452,7 @@ Now it is theoretically possible to create one non-blocking future thread to wai
 # Educational purpose only.
 # This pattern may not be very useful in practice.
 f1 <- future({
-  Sys.sleep(5)
+  Sys.sleep(3)
   "I'm from the future!"
 })
 
@@ -443,7 +471,7 @@ But in [the next section](#promises) we will learn how to control even more on a
 
 ## Error Propogation
 
-Error from a `future` expression will propogate to the actual value but not the `Future` object itself.
+Error from a `future` expression will propogate to the actual bounded value but not the `Future` object itself.
 
 ```{r future_error}
 fe <- future(stop("Error from the future!"))
