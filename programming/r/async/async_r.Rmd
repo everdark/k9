@@ -527,7 +527,7 @@ resolved(p)  # This is always, immediately, TRUE.
 ```
 
 Put it differently,
-`resolved` only works (or is only meaninngful) for a `Future` object but not for a `promise` object.
+`resolved` only works (or is only meaningful) for a `Future` object but not for a `promise` object.
 
 We loosely call the return value of a `future` as a promise as well since this is the common wording used in asynchronous programming.
 But here we explicitly refer to the object class `promise` implemented by the R package `promises`.
