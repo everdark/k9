@@ -17,9 +17,6 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 bibliography: async_r.bib
-nocite: | 
-  @promises
-  @shiny
 abstract: |
   The notebook is a practical walk-through of implementing asynchronous programming in R using package `future` and `promises`, mainly for the purpose of developing a scalable `shiny` application. Indeed, all 3 packages come with very well-structured official tutorials already. This notebook serves more as a one-stop reference for developers to quickly hands-on on the topic and get ready for the actual application development.
 ---
@@ -484,7 +481,7 @@ For explicit error handling it is better to resort to using `promises`.
 
 # Using `promises` {#promises}
 
-Using `promises` is one big step ahead of `future`,
+Using `promises` (@promises) is one big step ahead of `future`,
 enabling even more flexibility on asynchronous programming.
 But it also drastically changes how we should write our code--specifically, in a promise-style.
 
@@ -717,7 +714,7 @@ For a complete custom branch handling one should always use the `then` API expli
 
 # Async with Reactive Programming
 
-Reactive programming in R is introduced by the well-known `shiny` package which facilitates the ease of web application development purely using R,
+Reactive programming in R is introduced by the well-known `shiny` package (@shiny) which facilitates the ease of web application development purely using R,
 usually for data-driven dashboard building purpose.
 
 A huge limitation about such web app is that R is a single-threaded process.
