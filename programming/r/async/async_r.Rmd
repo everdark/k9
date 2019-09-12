@@ -895,10 +895,8 @@ the following code chunk provides a minimum single-file working `shiny` app with
 ui <- fluidPage(
 
   titlePanel("Test Reactive Programming in R"),
-  fluidRow(
-    column(6, actionButton("do", "Do something.")),
-    column(6, uiOutput("out"))
-  )
+  actionButton("do", "Do something."),
+  uiOutput("out")
 
 )
 
@@ -919,12 +917,96 @@ shinyApp(ui=ui, server=server, options=list(port=8787))
 
 ## Promise-Aware Reactive Expression
 
-All reactive functions provided by `shiny` are both `future` and `promises` aware.
-It means that reactive expressions can be a `Future` or a `promise`:
+All reactive functions provided by `shiny` are both `future` and `promise` aware.
+It means that reactive expressions can be a `Future`:
+
+```{r reactive_future}
+rl <- reactiveValues(a=1, b=2)
+
+rf <- reactive({
+  future(rl$a + rl$b)
+})
+
+isolate(value(rf()))
+```
+
+or a `promise`:
+
+```{r reactive_promise}
+rl <- reactiveValues(a=1, b=2)
+
+rf <- reactive({
+  future(rl$a + rl$b) %...>% {
+    .
+  }
+})
+
+isolate(str(rf()))
+```
+
+To see how one session is blocking another in a single-threaded app,
+here is a minimum app:
+
+```{r shiny_async_app, eval=FALSE}
+library(shiny)
+library(future)
+library(promises)
 
 
-```{r async_app, eval=FALSE}
+exec_plan <- commandArgs(trailingOnly=TRUE)[1]
+if ( is.na(exec_plan) ) exec_plan <- "sequential"
 
+plan(exec_plan)
+
+
+# Define frontend code.
+ui <- fluidPage(
+
+  titlePanel("Async Shiny App"),
+  textOutput("time"),
+  actionButton("do", "Do some heavy works."),
+  verbatimTextOutput("out")
+
+)
+
+
+do_heavy_work <- function() {
+  st <- Sys.time()
+
+  Sys.sleep(5) # Or anything expensive here.
+
+  et <- Sys.time()
+  list(st=st, et=et)
+}
+
+
+# Define backend code.
+server <- function(input, output, session) {
+
+  output$time <- renderText({
+    invalidateLater(1000, session)
+    paste("The current time is", Sys.time())
+  })
+
+  observeEvent(input$do, {
+    st <- Sys.time()  # This only record when the app starts process the input but NOT when the user hit the button.
+    output$out <- renderText({
+      future(do_heavy_work()) %...>% {
+        paste(
+          "Heavy work done!",
+          sprintf("Started at %s", st),
+          sprintf("Ended at %s", .$et),
+          sprintf("Time used: %s", .$et - st),
+          sep="\n"
+        )
+      }
+    })
+  })
+
+}
+
+# Launch the app.
+shinyApp(ui=ui, server=server, options=list(port=8787))
 ```
 
 To play around with the actual app,
@@ -936,8 +1018,6 @@ Rscript app.R
 
 And navigate to `127.0.0.1:8787`.
 Open multiple tabs and hit the button sequentially to see if the performance of the app in one tab is affected by the other under different execution plans.
-
-[try shinyloadtest?]
 
 [invalidateLater]
 

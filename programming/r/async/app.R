@@ -19,6 +19,7 @@ plan(exec_plan)
 ui <- fluidPage(
 
   titlePanel("Async Shiny App"),
+  textOutput("time"),
   actionButton("do", "Do some heavy works."),
   verbatimTextOutput("out")
 
@@ -28,7 +29,7 @@ ui <- fluidPage(
 do_heavy_work <- function() {
   st <- Sys.time()
 
-  Sys.sleep(3) # Or anything expensive here.
+  Sys.sleep(5) # Or anything expensive here.
 
   et <- Sys.time()
   list(st=st, et=et)
@@ -38,18 +39,9 @@ do_heavy_work <- function() {
 # Define backend code.
 server <- function(input, output, session) {
 
-  r <- reactive({
-    future(do_heavy_work())
-  })
-
-  observe({
-    # A non-blocking wait for a future.
-    # The block will re-execute every 1000 milliseconds.
+  output$time <- renderText({
     invalidateLater(1000, session)
-
-    r()
-
-    print(paste("The value of input$n is", isolate(input$n)))
+    paste("The current time is", Sys.time())
   })
 
   observeEvent(input$do, {
