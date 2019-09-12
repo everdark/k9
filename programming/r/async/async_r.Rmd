@@ -1016,6 +1016,14 @@ run:
 Rscript app.R
 ```
 
+for synchronous mode or run:
+
+```sh
+Rscript app.R multiprocess
+```
+
+for asynchronous mode.
+
 And navigate to `127.0.0.1:8787`.
 Open multiple tabs and hit the button sequentially to see if the performance of the app in one tab is affected by the other under different execution plans.
 
