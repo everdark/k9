@@ -408,6 +408,8 @@ invisible(value(f))
 x
 ```
 
+Or for a `multicore` plan:
+
 ```{r future_scope_superassign_multicore}
 plan(multicore)  # This is not supported in Windows and will fallback to a sequential plan.
 x <- 0
@@ -563,10 +565,14 @@ f <- future({
 
 p <- then(f, onFulfilled=function(v) v)
 print(p)  # Still pending.
+```
 
-Sys.sleep(2)
+Due to the specialty of the notebook rendering environment,
+a promise is always shown as pending no matter how long we wait for.
+For an actual R session the result will be something like:
 
-print(p)  # Now should be fulfilled. (If not, just wait longer.)
+```
+<Promise [fulfilled: character]>
 ```
 
 ## No Way Back Once `promise`d
@@ -594,11 +600,9 @@ p2 <- then(p1, onFulfilled=function(v) v + 2)
 
 ## Error Handling
 
-When a `then` job failed at its `onFulfilled` task,
+When a `then` job failed at either its `onFulfilled` or `onRejected` task,
 it returns a rejected `promise` with the corresponding error type.
-
 Rejection does NOT propagate, though.
-
 When a `then` job processes a rejected `promise`,
 it will go to the `onRejected` branch (by default simply propagate the error if not specified) and if that task is done without error,
 the resulting value is a fulfilled `promise`.
@@ -610,29 +614,48 @@ plan(sequential)
 
 f <- future(1 + 1)
 
-# The first promise failed at its onFuilfilled task.
+# The first promise will fail at its onFuilfilled task (on purpose).
 p1 <- then(
-  f,
-  onFulfilled=function(v) stop(v),
+  f,  # This is a fulfilled promise.
+  onFulfilled=function(v) stop(v),  # Hence we follow this branch. (And then will fail.)
   onRejected=function(e) e
 )
 
 # The second promise will go to the onRejected branch since the first promise failed.
 p2 <- then(
-  p1,
+  p1,  # This is failed on its own onFulfilled task.
   onFulfilled=function(v) print(sprintf("From onFulfilled: %s", v)),
-  onRejected=function(e) print(sprintf("From onRejected: %s", e))
+  onRejected=function(e) print(sprintf("From onRejected: %s", e))  # Hence we go here.
 )
 
-Sys.sleep(3)
+
 
 p1
 p2
 ```
 
+The first `promise` object `p1` will have a value of
+
+```
+<Promise [rejected: simpleError]>
+```
+
+after running its own `onFulfilled` task.
+But the second `promise` object `p2` instead will have a value of
+
+```
+<Promise [fulfilled: character]>
+```
+
+after running its own `onRejected` task and also print the message
+
+```
+[1] "From onRejected: Error in onFulfilled(value): 2"
+```
+
 Then same logic applies to `Future` object (i.e., converted `promise`):
 
-```{r promise_error_2}
+```{r promise_error_2, eval=FALSE}
 # Error at the future expression.
 f <- future(stop("Something just went wrong at the very beginning."))
 
@@ -668,6 +691,33 @@ Sys.sleep(3)  # Wait longer to allow for potential backend overhead.
 p1
 p2
 ```
+
+This time `p1` will print
+
+```
+[1] "From onRejected"
+```
+
+with a value of
+
+```
+<Promise [fulfilled: simpleError]>
+```
+
+And `p2` will print
+
+```
+[1] "From onFulfilled."
+```
+
+with a value of
+
+```
+<Promise [fulfilled: simpleError]>
+```
+
+Both `promise`s are `fulfilled` (i.e., no further error at the branch) on their corresponding task,
+whether it is a branch task of `onFulfilled` or `onRejected`.
 
 ## Syntactic Sugars
 
