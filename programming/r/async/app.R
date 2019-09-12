@@ -1,21 +1,26 @@
 #!/usr/bin/env Rscript
+# A minimum asynchronous shiny app.
+# Usage:
+#   Rscript app.R [sequential|multiprocess]
+# By default (without argument) the app is run in sequential mode.
 
 library(shiny)
 library(future)
 library(promises)
 
-plan(sequential)
+
+exec_plan <- commandArgs(trailingOnly=TRUE)[1]
+if ( is.na(exec_plan) ) exec_plan <- "sequential"
+
+plan(exec_plan)
+
 
 # Define frontend code.
 ui <- fluidPage(
 
   titlePanel("Async Shiny App"),
-  fluidRow(
-    column(6, actionButton("do", "Do some heavy works."))
-  ),
-  fluidRow(
-    column(12, verbatimTextOutput("out"))
-  )
+  actionButton("do", "Do some heavy works."),
+  verbatimTextOutput("out")
 
 )
 
@@ -33,10 +38,21 @@ do_heavy_work <- function() {
 # Define backend code.
 server <- function(input, output, session) {
 
+  r <- reactive({
+    future(do_heavy_work())
+  })
+
+  observe({
+    # A non-blocking wait for a future.
+    # The block will re-execute every 1000 milliseconds.
+    invalidateLater(1000, session)
+
+    r()
+
+    print(paste("The value of input$n is", isolate(input$n)))
+  })
+
   observeEvent(input$do, {
-    # TODO:
-    # Timing is not working as expected.
-    # We need to record the user button hit time but if the app is busy in single-thread mode how can we do that?
     st <- Sys.time()  # This only record when the app starts process the input but NOT when the user hit the button.
     output$out <- renderText({
       future(do_heavy_work()) %...>% {
