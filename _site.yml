@@ -42,6 +42,7 @@ navbar:
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"
+          - href: programming/r/async/async_r.nb.html
     - icon: fa-linkedin
       href: https://www.linkedin.com/in/kylechung
     - icon: fa-github
