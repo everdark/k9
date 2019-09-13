@@ -36,7 +36,7 @@ writeLines(meta, meta_header_file)
 
 # Add Github corner.
 github_corner_svg <- "../../../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/async")
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/async")
 writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
 
 close(meta_header_file)
