@@ -19,7 +19,7 @@ You may find me sometimes interoperate the two langauges in a single notebook.
     + [Contex-Aware Word Embeddings]
 + Programming
     + R
-        + [Asynchronous Programming in R]
+        + [Asynchronous Programming in R](https://everdark.github.io/k9/programming/r/async/async_r.nb.html)
         + [High Performance Computing with Rcpp]
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
