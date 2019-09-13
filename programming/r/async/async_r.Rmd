@@ -1,6 +1,6 @@
 ---
 title: "Asynchronous Programming in R"
-subtitle: "From `future` to `promises` then a Scalable `shiny` App"
+subtitle: "To kick-Start Developing a Scalable `shiny` App"
 author:
 - name: Kyle Chung
   affiliation:
@@ -18,7 +18,7 @@ output:
   code_download: true
 bibliography: async_r.bib
 abstract: |
-  The notebook is a practical walk-through of implementing asynchronous programming in R using package `future` and `promises`, mainly for the purpose of developing a scalable `shiny` application. Indeed, all 3 packages come with very well-structured official tutorials already. This notebook serves more as a one-stop reference for developers to quickly hands-on on the topic and get ready for the actual application development.
+  The notebook is a practical walk-through of implementing asynchronous programming in R using package `future` and `promises`, mainly for the purpose of kick-starting developing a scalable `shiny` application. Indeed, all 3 packages come with very well-structured official tutorials already. This notebook serves more as a minimally sufficient one-stop reference for developers to quickly hands-on on the topic and get ready for the actual application development.
 ---
 
 ```{r meta, include=FALSE}
@@ -944,8 +944,10 @@ rf <- reactive({
 isolate(str(rf()))
 ```
 
+## Experimental App on Async
+
 To see how one session is blocking another in a single-threaded app,
-here is a minimum app:
+here is a minimum app for pure illustration purpose:
 
 ```{r shiny_async_app, eval=FALSE}
 library(shiny)
@@ -1016,19 +1018,37 @@ run:
 Rscript app.R
 ```
 
-for synchronous mode or run:
+for synchronous mode.
+
+The app will be listening on `127.0.0.1:8787`.
+Open more than 1 tab and click the `do` button for all the opening tabs.
+For a `sequential` app we shall observe the timer stop jumping when there is any other session (browser tab) still working and hence blocking.
+The more other sessions are still working,
+the more times you will see the timer jump and stop.
+The start time recorded in the output text is always roughly 5 seconds before it ended.
+However the start time is NOT the time we hit the `do` button.
+
+Now close the app.
+For asynchronous mode run:
 
 ```sh
 Rscript app.R multiprocess
 ```
 
-for asynchronous mode.
+and investigate again.
 
-And navigate to `127.0.0.1:8787`.
-Open multiple tabs and hit the button sequentially to see if the performance of the app in one tab is affected by the other under different execution plans.
+The timer will still stop jumping when we hit the `do` button.
+But this time it didn't stop more than once.
+*It only stop for its own session.*
 
-[invalidateLater]
+And the timer is stopping because we didn't implement the timer asynchronously.
+In the experimental app only the `do_heavy_work` operation is implemented in asynchronous mode.
 
-[super assign in promise]
+In general we will only make those heavy tasks asynchronous instead of trying to make everything asynchronous.
 
-[asynchronous progress bar]
+# Closing Remarks
+
+Up to now we've equiped with the basic knowledge to start developing asynchronous web application using R.
+There are far more features then what we just discussed here for all these packages:
+`future`, `promises`, and `shiny`.
+But we will leave it for exploration and retain the scope of this notebook at a entry-level.
