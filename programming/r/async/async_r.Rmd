@@ -1052,3 +1052,5 @@ Up to now we've equiped with the basic knowledge to start developing asynchronou
 There are far more features then what we just discussed here for all these packages:
 `future`, `promises`, and `shiny`.
 But we will leave it for exploration and retain the scope of this notebook at a entry-level.
+
+# References
