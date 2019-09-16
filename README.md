@@ -59,7 +59,6 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + TensorFlow 2.0 Hands-On
     + MXNet Hands-On
     + RASA Chatbot Framework Hands-On
-    + Asynchronous Programming in R
 + Programming
     + R
         + Production Quality Shiny App Development
