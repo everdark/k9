@@ -1,0 +1,201 @@
+---
+title: "High Performance Computing in R using `Rcpp`"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+output:
+  html_notebook:
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: rcpp.bib
+nocite: |
+  @rcpp1
+  @rcpp2
+  @rcpp3
+abstract: |
+  TBC.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="High Performance Computing in R using Rcpp">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/programming/rcpp/rcpp.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:description" content="A Showcase of high performance computing in R using Rcpp.">'
+)
+writeLines(meta, meta_header_file)
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/rcpp")
+writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+
+close(meta_header_file)
+```
+
+The notebook is a re-writing of its [original version](http://everdark.github.io/rcpp_lightning_dsc2015/) for a lightning talk at Data Science Conference 2015 at Taipei.
+
+```{r import, results="hide"}
+# Import all required packages.
+library(data.table)
+library(ggplot2)
+library(wordcloud2)
+library(Rcpp)
+library(R.utils)
+```
+
+# Decompose the R Source Code
+
+```{r download_r_source}
+# Download the source code of R lang.
+# This may take a while.
+TEMPDIR <- tempdir()
+target_file <- "https://cran.r-project.org/src/base/R-3/R-3.6.1.tar.gz"
+downloaded_file <- file.path(TEMPDIR, basename(target_file))
+download.file(target_file, downloaded_file)
+untar(downloaded_file, files="src", exdir=TEMPDIR)
+```
+
+```{r read_r_source}
+# List all files in the source and count the extensions.
+
+src_dir <- file.path(tools::file_path_sans_ext(downloaded_file, compression=TRUE), "src")
+src_files <- list.files(src_dir, recursive=TRUE, full.names=TRUE)
+src_exts <- tools::file_ext(src_files)
+src_exts <- src_exts[src_exts != ""]
+
+ext_counts <- as.data.table(sort(table(src_exts), decreasing=TRUE), keep.rownames=TRUE)
+setnames(ext_counts, c("ext", "count"))
+ext_counts[, ext:=factor(ext, levels=rev(ext))]
+```
+
+```{r}
+# TODO: embed in rmd notebook.
+wordcloud2(table(src_exts))
+```
+
+```{r}
+top_n <- 10
+ggplot(ext_counts[1:top_n], aes(x=ext, y=count)) +
+  geom_bar(stat="identity") +
+  coord_flip()
+```
+
++ `.Rd`: Document file
++ `.R`: R source file
++ `.c`: C source file
++ `.mo`: Binary data file
++ `.po`: `gettext` file, about programming language translation
++ `.h`: Header file for C
++ `.afm`: Font file
++ `.in`: Template config file for some macro preprocessor
++ `.win`: Same above, but specifically for Windows
++ `.f`: Fortran source
+
+```{r}
+lang_ext <- c("c", "h", "R", "f")
+lang_ext_counts <- ext_counts[ext %in% lang_ext]
+lang_ext_counts[, pct:=count / sum(count)]
+
+ggplot(lang_ext_counts, aes(x=ext, y=count)) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=scales::percent(pct), y=count),
+            vjust=1.25, size=5, color="white")
+```
+
+The fact is that,
+*R is heavily written in C.*
+`Primitive` functions are writtin in C.
+Most of them are vectorized so it is very fast to apply the function directly to a vector.
+For example the power function is a `primitive` function
+
+```{r}
+`^`  # A primitive.
+
+(1:10)^2  # A vectorized primitive function call.
+```
+
+```{r}
+lang_src_files <- src_files[tools::file_ext(src_files) %in% lang_ext]
+lang_src_file_lens <- sapply(lang_src_files, R.utils::countLines)
+
+lang_len <- data.table(lang=gsub("^.*\\.", "", names(lang_src_file_lens)), len=lang_src_file_lens)
+lang_len_counts <- lang_len[, .(tot_lines=sum(len)), by="lang"]
+lang_len_counts[, pct:=tot_lines / sum(tot_lines)]
+
+ggplot(lang_len_counts, aes(x=lang, y=tot_lines)) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=scales::percent(pct), y=tot_lines),
+            vjust=1.25, size=5, color="white")
+```
+
+# Tips for Performant R Programming
+
+[speed up discussion]
+vectorization
+avoid memory copy (matrix pre-allocation >> matrix combine)
+
+
+# Working Examples for `Rcpp`
+
+## N-Gram Generation
+
+```{r}
+infile <- file("README.md", "rb")
+hex <- readBin(infile, what="raw", n=file.info(infile)$size)
+hex <- as.character(hex)
+# cat(rawToChar(hex)) # verify the data.
+
+close(infile)
+```
+
+```{r}
+ngram_r <- function(x, n) {
+    len <- length(x) - (n - 1)
+    out <- character(len)
+    for ( i in 1:len ) {
+        out[i] <- x[i]
+        if ( n > 1 )
+            for ( j in 1:(n-1) )
+                out[i] <- paste0(out[i], x[i+j])
+    }
+    unlist(as.list(sort(table(out), decreasing=TRUE)))
+}
+system.time(out_r <- ngram_r(hex, 2))
+```
+
+```{r}
+cppFunction("
+  CharacterVector ngram_rcpp (CharacterVector hexvector, int ngram) {
+    int len = hexvector.size() - (ngram - 1);
+    CharacterVector out(len);
+    for (int i = 0; i < len; i++) {
+      out(i) = hexvector[i];
+      for (int j = 1; j < ngram; j++) {
+        out(i) += hexvector[i+j];
+      }
+    }
+    return out;
+}")
+
+ngram_rcpp
+```
+
+# References
+
+```{r session_info}
+sessionInfo()
+```
