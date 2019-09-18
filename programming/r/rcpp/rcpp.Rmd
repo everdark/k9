@@ -59,6 +59,7 @@ The notebook is a re-writing of its [original version](http://everdark.github.io
 
 ```{r import, results="hide"}
 # Import all required packages.
+
 library(data.table)
 library(ggplot2)
 library(wordcloud2)
@@ -71,11 +72,12 @@ library(R.utils)
 ```{r download_r_source, results="hide"}
 # Download the source code of R lang.
 # This may take a while.
+
 TEMPDIR <- tempdir()
 target_file <- "https://cran.r-project.org/src/base/R-3/R-3.6.1.tar.gz"
 downloaded_file <- file.path(TEMPDIR, basename(target_file))
 download.file(target_file, downloaded_file)
-untar(downloaded_file, exdir=TEMPDIR)
+untar(downloaded_file, exdir=TEMPDIR)  # This may generate warnings under Windows.
 ```
 
 ```{r read_r_source}
@@ -91,9 +93,9 @@ setnames(ext_counts, c("ext", "count"))
 ext_counts[, ext:=factor(ext, levels=rev(ext))]
 ```
 
-```{r}
-# TODO: embed in rmd notebook.
-wordcloud2(table(src_exts))
+```{r ext_wordcloud}
+# Scale down to avoid over-sizing.
+wordcloud2(sqrt(table(src_exts)))
 ```
 
 ```{r}
