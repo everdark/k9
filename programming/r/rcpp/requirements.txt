@@ -1,0 +1,10 @@
+data.table
+R.utils
+ggplot2
+wordcloud2
+Rcpp
+quanteda
+text2vec
+ngram
+microbenchmark
+rmarkdown

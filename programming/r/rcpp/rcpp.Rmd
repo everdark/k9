@@ -7,7 +7,7 @@ author:
 date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook:
-    highlight: pygments
+    highlight: tango
     number_sections: yes
     theme: paper
     toc: yes
@@ -18,14 +18,23 @@ output:
   code_download: true
 bibliography: rcpp.bib
 nocite: |
+  @R.utils
+  @data.table
+  @ggplot2
+  @wordcloud2
   @rcpp1
   @rcpp2
   @rcpp3
+  @quanteda
+  @text2vec
+  @ngram
+  @microbenchmark
 abstract: |
   TBC.
 ---
 
 ```{r meta, include=FALSE}
+dir.create("/tmp", showWarnings=FALSE)
 meta_header_file <- file("/tmp/meta_header.html")
 
 # Add open graph meta.
@@ -59,14 +68,14 @@ library(R.utils)
 
 # Decompose the R Source Code
 
-```{r download_r_source}
+```{r download_r_source, results="hide"}
 # Download the source code of R lang.
 # This may take a while.
 TEMPDIR <- tempdir()
 target_file <- "https://cran.r-project.org/src/base/R-3/R-3.6.1.tar.gz"
 downloaded_file <- file.path(TEMPDIR, basename(target_file))
 download.file(target_file, downloaded_file)
-untar(downloaded_file, files="src", exdir=TEMPDIR)
+untar(downloaded_file, exdir=TEMPDIR)
 ```
 
 ```{r read_r_source}
