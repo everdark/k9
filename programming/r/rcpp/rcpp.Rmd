@@ -81,8 +81,8 @@ numbers <- 1:1e5
 
 pow_all_1 <- function(numbers) {
   out <- c()
-  for ( i in numbers ) {
-    out <- c(out, i^2)  # Memory copy is happening here.
+  for ( n in numbers ) {
+    out <- c(out, n^2)  # Memory copy is happening here.
   }
   out
 }
@@ -161,7 +161,9 @@ let's understand *what is R* a bit more.
 
 # Decompose the R Source Code
 
-```{r download_r_source, results="hide"}
+Let's examine the source code of the R language.
+
+```{r download_r_source, results="hide", warning=FALSE}
 # Download the source code of R lang.
 # This may take a while.
 
@@ -172,8 +174,12 @@ download.file(target_file, downloaded_file)
 untar(downloaded_file, exdir=TEMPDIR)  # This may generate warnings under Windows.
 ```
 
+We'd like to know the file type distribution in the source code.
+
 ```{r read_r_source}
 # List all files in the source and count the extensions.
+
+library(data.table)
 
 src_dir <- file.path(tools::file_path_sans_ext(downloaded_file, compression=TRUE), "src")
 src_files <- list.files(src_dir, recursive=TRUE, full.names=TRUE)
@@ -186,6 +192,8 @@ ext_counts[, ext:=factor(ext, levels=rev(ext))]
 ```
 
 ```{r ext_wordcloud}
+library(wordcloud2)
+
 # Scale down to avoid over-sizing.
 wordcloud2(sqrt(table(src_exts)))
 ```
@@ -194,19 +202,24 @@ wordcloud2(sqrt(table(src_exts)))
 top_n <- 10
 ggplot(ext_counts[1:top_n], aes(x=ext, y=count)) +
   geom_bar(stat="identity") +
+  labs(title=sprintf("Top %s File Extensions in R Source Code", top_n)) +
   coord_flip()
 ```
+
+Here are the most common file types found in the source code of R.
 
 + `.Rd`: Document file
 + `.R`: R source file
 + `.c`: C source file
 + `.mo`: Binary data file
-+ `.po`: `gettext` file, about programming language translation
++ `.po`: Language translation file
 + `.h`: Header file for C
 + `.afm`: Font file
-+ `.in`: Template config file for some macro preprocessor
-+ `.win`: Same above, but specifically for Windows
++ `.in`: Template configuration file for some macro preprocessor
++ `.win`: Same above but specifically for Windows
 + `.f`: Fortran source
+
+If we further limit to only programming language related files:
 
 ```{r lang_ext_count}
 lang_ext <- c("c", "h", "f", "R")
@@ -226,13 +239,16 @@ The fact is that,
 *R is heavily written in C.*
 `Primitive` functions are writtin in C.
 Most of them are vectorized so it is very fast to apply the function directly to a vector.
-For example the power function is a `primitive` function
+For example the power function we just examined previously is a `primitive` function:
 
 ```{r primitive}
 `^`  # A primitive.
 
 (1:10)^2  # A vectorized primitive function call.
 ```
+
+Instead of counting files,
+we can further count the number of lines in those language files to arrive at the distribution at file line level:
 
 ```{r lang_line_count}
 lang_src_files <- src_files[tools::file_ext(src_files) %in% lang_ext]
@@ -251,12 +267,9 @@ ggplot(lang_len_counts, aes(x=lang, y=tot_lines)) +
             vjust=1.25, size=5, color="white")
 ```
 
-# Tips for Performant R Programming
-
-[speed up discussion]
-vectorization
-avoid memory copy (matrix pre-allocation >> matrix combine)
-
+The take-away is that,
+R simply *cannot* be slow for most of the computation.
+Its core is written in C and C is super fast.
 
 # Working Examples for `Rcpp`
 
