@@ -33,6 +33,10 @@ abstract: |
   TBC.
 ---
 
+```{r setup, include=FALSE}
+options(width=120)
+```
+
 ```{r meta, include=FALSE}
 dir.create("/tmp", showWarnings=FALSE)
 meta_header_file <- file("/tmp/meta_header.html")
@@ -63,7 +67,6 @@ The notebook is a re-writing of its [original version](http://everdark.github.io
 
 The performance of a R program can vary a lot,
 depending on whether it is written by an experienced R programmer or a newbie who don't know how to properly write R.
-
 Unfortunately,
 unlike other general purpose langauges,
 it is much more likely to write improper R codes which run embarrassingly slow.
@@ -97,7 +100,6 @@ But NOT for R.
 
 The above code is just WRONG because it violates both our two principles:
 it didn't vectorize when it could, and it didn't avoid memory copy.
-
 Let's first fix the second issue about the memory copy:
 
 ```{r still_terrible}
@@ -223,7 +225,7 @@ Here are the most common file types found in the source code of R.
 
 If we further limit to only programming language related files:
 
-```{r lang_ext_count}
+```{r lang_ext_count, results="hold"}
 lang_ext <- c("c", "h", "f", "R")
 lang_ext_counts <- ext_counts[ext %in% lang_ext]
 lang_ext_counts[, pct:=count / sum(count)]
@@ -252,7 +254,7 @@ For example the power function we just examined previously is a `primitive` func
 Instead of counting files,
 we can further count the number of lines in those language files to arrive at the distribution at file line level:
 
-```{r lang_line_count}
+```{r lang_line_count, message=FALSE, results="hold"}
 lang_src_files <- src_files[tools::file_ext(src_files) %in% lang_ext]
 lang_src_file_lens <- sapply(lang_src_files, R.utils::countLines)
 
@@ -382,11 +384,11 @@ There are many such high-level classes we can find in the `Rcpp` library.
 These classes will save our development time when writing the C++ code since we won't limit ourselves to only C++ standard library.
 
 ```{r ngram_benchmark, paged.print=FALSE}
-microbenchmark(
+print(microbenchmark(
   ngram_r(hex_c, 2),
   ngram_rcpp(hex_c, 2),
   times=10
-)
+))
 ```
 
 The `Rcpp` is much faster than the native R implementation.
