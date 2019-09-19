@@ -268,10 +268,15 @@ ggplot(lang_len_counts, aes(x=lang, y=tot_lines)) +
 ```
 
 The take-away is that,
-R simply *cannot* be slow for most of the computation.
+R simply *cannot* be slow for most of the fundamentally demanding computating tasks.
 Its core is written in C and C is super fast.
 
-# Working Examples for `Rcpp`
+# Working Examples of Using `Rcpp`
+
+There will be cases where the native R code is not suitable for the desired implementation.
+This is usually because the built-in `primitive` functions are not available for a particular kind of algorithm.
+In such scenario we can use `Rcpp` to re-write only the most demanding part of our implementation in C++ and port it to our R program seamlessly.
+In this section we are going to illustrate several such use cases.
 
 ## N-Gram Generation
 
@@ -282,14 +287,20 @@ it is not easy for native R code to fulfill the task in an efficient manner.
 
 Let's assume we'd like to count the bigrams of the [hex dump](https://en.wikipedia.org/wiki/Hex_dump) of a (potentially binary) file.
 The byte code information could be useful for a downstream machine learning task such as file category classification.
+But that is not our concern for now.
+We just want to implement a function that can extract ngrams given a long string,
+and count their frequencies.
 
 ```{r ngram_read_text}
 # Prepare hex dump of a file.
-infile <- "README.md"
-hex <- readBin(file(infile, "rb"), what="raw", n=file.info(infile)$size)
+# We will use the Rmd file itself as an example.
+infile <- "rcpp.Rmd"
+con <- file(infile, "rb")
+hex <- readBin(con, what="raw", n=file.info(infile)$size)
 hex_c <- as.character(hex)
+close(con)
 
-# cat(rawToChar(hex)) # One can verify the data if it is a text file.
+str(hex_c)  # A character vector of hexadecimals.
 ```
 
 ### Native R {-}
@@ -300,7 +311,7 @@ assuming each element is a token:
 ```{r ngram_r}
 ngram_r <- function(x, n) {
     len <- length(x) - (n - 1)
-    out <- character(len)
+    out <- character(len)  # Pre-allocate size.
     for ( i in 1:len ) {
         out[i] <- x[i]
         if ( n > 1 )
@@ -318,8 +329,9 @@ print(out_r[1]) # The most frequent ngram.
 ```
 
 The above function,
-though implenmentation is straightforward,
+though implementation is straightforward,
 is terribly slow because it didn't utilize vectorization.
+And there doesn't seem to have a readily available `primitive` function for this very purpose.
 This is the usually frustrated experience when people familiar with other general purpose languages first come to use R.
 
 ### Rcpp {-}
@@ -328,6 +340,11 @@ For a function requiring arbitraily large explicit loop and there is no obvious 
 we have `Rcpp` come to the rescue.^[And also surprisingly, we don't really have many such cases in R programming where we really need to resort to its C interface. The languange is doing a very good job in vectorizing the most utilized functions for the majority of programming operations, especially in the data analytical field.]
 
 For exactly the same minimum implementation we can re-write it in C++ using the `Rcpp` API:
+
+```{r import_rcpp, message=FALSE}
+library(Rcpp)
+print(installed.packages()["Rcpp", "Version"])
+```
 
 ```{r ngram_rcpp}
 cppFunction("
@@ -343,6 +360,8 @@ cppFunction("
     return out;
 }")
 
+ngramRcpp  # A primitive function.
+
 ngram_rcpp <- function(x, n) {
   ngrams <- ngramRcpp(x, 2)
   sort(table(ngrams), decreasing=TRUE)
@@ -356,18 +375,74 @@ all.equal(out_rcpp, out_r, check.attributes=FALSE)
 Notice that we only implement the ngram extraction loop but leave the frequency count for native R.
 This is because the `table` function is not a bottleneck of our task.
 
-In this example we use the `CharacterVector` class implemented in `Rcpp` which mimics the `character` vector we usually use in native R.
+In this example we use the `CharacterVector` class implemented in `Rcpp` which mimics the `character` vector we usually use in native R code.
 There are many such high-level classes we can find in the `Rcpp` library.
 These classes will save our development time when writing the C++ code since we won't limit ourselves to only C++ standard library.
 
-```{r ngram_benchmark_1}
-library(microbenchmark)
-
+```{r ngram_benchmark, paged.print=FALSE}
 microbenchmark(
   ngram_r(hex_c, 2),
   ngram_rcpp(hex_c, 2),
   times=10
 )
+```
+
+The `Rcpp` is much faster than the native R implementation.
+And it will be even faster if the data is getting larger.
+
+```{r read_big_file}
+# Now take the entire R source code as one big file.
+con <- file(downloaded_file, "rb")
+big_hex <- readBin(con, what="raw", n=file.info(downloaded_file)$size)
+big_hex_c <- as.character(big_hex)
+close(con)
+
+str(big_hex_c)
+```
+
+This time we benchmark with different file size,
+we'll see that theoretically `Rcpp` can be hundreds of times faster than native R.
+
+```{r ngram_benchmark_size}
+# Benchmark the native R code with varying file sizes.
+# Since it may take too long for the redundant tasks we'll use parallel computing.
+# Another more clever way is to time on-the-fly when we parse the file and hence parse only once.
+# In that case we need to modify the original function.
+# Here we go for the brutal but simple way.
+library(parallel)
+
+cl <- makeCluster(detectCores() / 2)
+clusterExport(cl, c("big_hex_c"))
+
+n_size <- 10
+sizes <- seq(1e3, length(big_hex_c), length.out=n_size)
+
+time_ngram <- function(func, s, n) {
+  st <- proc.time()
+  func(big_hex_c[1:s], n)
+  et <- proc.time()
+  (et - st)["elapsed"]
+}
+
+# This could take a while.
+time_r <- parLapplyLB(cl, sizes, time_ngram, func=ngram_r, n=2)
+
+stopCluster(cl)
+
+
+# Benchmark the Rcpp code with varying file sizes.
+time_rcpp <- numeric(n_size)
+for ( i in 1:length(sizes) ) {
+  time_rcpp[i] <- time_ngram(ngram_rcpp, sizes[i], 2)
+}
+
+out_time <- data.table(r=unlist(time_r), rcpp=unlist(time_rcpp), size=sizes)
+out_time <- melt(out_time, id.vars="size", variable.name="impl", value.name="time")
+ggplot(out_time, aes(x=size, y=time, group=impl, color=impl)) +
+  geom_line() +
+  geom_point() +
+  labs(x="File Size (Bytes)", y="Seconds",
+       title="Speed on Bigram Generation of Varying Input Length")
 ```
 
 ### Other Packages {-}
@@ -379,12 +454,14 @@ We will expect them to be also much more efficient than a naive implementation i
 
 The first package we explore is [`quanteda`](https://github.com/quanteda/quanteda):
 
-```{r ngram_quanteda}
+```{r import_quanteda, message=FALSE}
 library(quanteda)
+print(installed.packages()["quanteda", "Version"])
+```
 
+```{r ngram_quanteda}
 # For quanteda we need to convert text to its `tokens` API.
 # This may introduce some overhead so we will create two functions for fair comparison latter.
-
 hex_s <- paste(hex_c, collapse=" ")
 hex_t <- tokens(hex_s)
 
@@ -407,9 +484,12 @@ all.equal(out_quanteda, out_r, check.attributes=FALSE)
 
 [`text2vec`](https://github.com/dselivanov/text2vec) is also a high-performance package implemented with `Rcpp`:
 
-```{r ngram_text2vec}
+```{r import_text2vec, message=FALSE}
 library(text2vec)
+print(installed.packages()["text2vec", "Version"])
+```
 
+```{r ngram_text2vec}
 # Again to use text2vec we need to follow its API:
 # Converting text into `itoken` iterator.
 # Similar to the case of quanteda, we use two functions where one excludes the conversion overhead.
@@ -428,16 +508,21 @@ out_text2vec <- ngram_text2vec_1(hex_s, n=2)
 
 # Tidy the result to align with our previous functions.
 out_text2vec <- setNames(out_text2vec$term_count, out_text2vec$term)
+
 all.equal(as.table(sort(out_text2vec, decreasing=TRUE)), out_r, check.attributes=FALSE)
 ```
 
 Lastly,
-there is a package called [`ngram`](https://github.com/wrathematics/ngram) dedicating only at ngram generation task,
+unlike the previous two packages both aim at a larger scope of natural language processing tasks,
+the package [`ngram`](https://github.com/wrathematics/ngram) dedicates only at ngram generation task,
 written mainly in C:
 
-```{r ngram_ngram}
+```{r import_ngram, message=FALSE}
 library(ngram)
+print(installed.packages()["ngram", "Version"])
+```
 
+```{r ngram_ngram}
 ngram_ngram <- function(x, n) {
   ngram(x, n=n)
 }
@@ -447,22 +532,37 @@ out_ngram <- ngram(hex_s)
 # Tidy the result.
 out_ngram <- get.phrasetable(out_ngram)
 out_ngram <- setNames(out_ngram$freq, out_ngram$ngrams)
+
 all.equal(as.table(out_ngram), out_r, check.attributes=FALSE)
 ```
 
-Now we benchmark all the above implementations:
+Now we benchmark all the above implementations using the large file:
 
-```{r ngram_benchmark_all}
-microbenchmark(
-  ngram_r(hex_c, 2),
-  ngram_rcpp(hex_c, 2),
-  ngram_quanteda_1(hex_s, 2),
-  ngram_quanteda_2(hex_t, 2),
-  ngram_text2vec_1(hex_s, 2),
-  ngram_text2vec_2(hex_i, 2),
-  ngram_ngram(hex_s, 2),
-  times=10
+```{r ngram_benchmark_all, paged.print=FALSE}
+benchmark_all <- function(x) {
+  
+  x_s <- paste(x, collapse=" ")
+  x_t <- tokens(x_s)
+  x_i <- itoken(x_s, progressbar=FALSE)
+  
+  microbenchmark(
+    ngram_r(x, 2),
+    ngram_rcpp(x, 2),
+    ngram_quanteda_1(x_s, 2),
+    ngram_quanteda_2(x_t, 2),
+    ngram_text2vec_1(x_s, 2),
+    ngram_text2vec_2(x_i, 2),
+    ngram_ngram(x_s, 2),
+    times=3
+  )
+}
+
+x <- big_hex_c[1:as.integer(length(big_hex_c) / 10)]
+system.time(
+ben_all <- benchmark_all(x)
 )
+
+print(ben_all)
 ```
 
 # References
