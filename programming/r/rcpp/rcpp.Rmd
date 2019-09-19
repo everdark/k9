@@ -557,11 +557,8 @@ benchmark_all <- function(x) {
   )
 }
 
-x <- big_hex_c[1:as.integer(length(big_hex_c) / 10)]
-system.time(
+x <- big_hex_c[1:as.integer(length(big_hex_c) / 10)]  # Smaller.
 ben_all <- benchmark_all(x)
-)
-
 print(ben_all)
 ```
 
