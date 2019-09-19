@@ -563,7 +563,3 @@ print(ben_all)
 ```
 
 # References
-
-```{r session_info}
-sessionInfo()
-```
