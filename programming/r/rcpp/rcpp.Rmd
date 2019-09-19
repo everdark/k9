@@ -199,6 +199,8 @@ wordcloud2(sqrt(table(src_exts)))
 ```
 
 ```{r top_n_ext}
+library(ggplot2)
+
 top_n <- 10
 ggplot(ext_counts[1:top_n], aes(x=ext, y=count)) +
   geom_bar(stat="identity") +
