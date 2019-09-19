@@ -57,15 +57,107 @@ close(meta_header_file)
 
 The notebook is a re-writing of its [original version](http://everdark.github.io/rcpp_lightning_dsc2015/) for a lightning talk at Data Science Conference 2015 at Taipei.
 
-```{r import, results="hide"}
-# Import all required packages.
+---
 
-library(data.table)
-library(ggplot2)
-library(wordcloud2)
-library(Rcpp)
-library(R.utils)
+# Motivation
+
+The performance of a R program can vary a lot,
+depending on whether it is written by an experienced R programmer or a newbie who don't know how to properly write R.
+
+Unfortunately,
+unlike other general purpose langauges,
+it is much more likely to write improper R codes which run embarrassingly slow.
+Two important and common factors that affect the performance of R code:
+
+1. Vectorization
+2. Memory Copy
+
+In general,
+we should use vectorization as much as possible and *avoid* memory copy as much as possible.
+For example the following code is TERRIBLE:
+
+```{r terrible}
+numbers <- 1:1e5
+
+pow_all_1 <- function(numbers) {
+  out <- c()
+  for ( i in numbers ) {
+    out <- c(out, i^2)  # Memory copy is happening here.
+  }
+  out
+}
+
+system.time(out_1 <- pow_all_1(numbers))
 ```
+
+We are just trying to calculate the base-2 power of a sequence of numbers.
+It will be very straghtforward to just loop over the numbers and compute the result for a general purpose language.
+
+But NOT for R.
+
+The above code is just WRONG because it violates both our two principles:
+it didn't vectorize when it could, and it didn't avoid memory copy.
+
+Let's first fix the second issue about the memory copy:
+
+```{r still_terrible}
+pow_all_2 <- function(numbers) {
+  out <- numeric(length(numbers))  # Pre-allocate memory.
+  for ( i in 1:length(numbers) ) {
+    out[i] <- numbers[i]^2
+  }
+  out
+}
+
+system.time(out_2 <- pow_all_2(numbers))
+stopifnot(all.equal(out_1, out_2))
+```
+
+The output vector size is pre-determined for our second attempt,
+which avoid copies happening again and again during the unnecessary concatenation in the loop.
+
+Still the code is terrible,
+because it didn't *vectorize* when it actually could:
+
+```{r good}
+pow_all_3 <- function(numbers) {
+  numbers^2
+}
+
+system.time(out_3 <- pow_all_3(numbers))
+stopifnot(all.equal(out_1, out_3))
+```
+
+The difference may not be obvious at the first glance because the task is too trivial.
+Now for a serious benchmarking at microsecond-level:
+
+```{r benchmark_vectorization, paged.print=FALSE}
+library(microbenchmark)
+
+numbers <- 1:1e4  # Make it smaller for faster benchmarking.
+
+ben <- microbenchmark(
+  pow_all_1(numbers),
+  pow_all_2(numbers),
+  pow_all_3(numbers),
+  times=10
+)
+
+print(ben)
+```
+
+A properly written R program can be of several orders of magnitude faster.
+
+Even if we already carefully write our R code,
+it may still occur that we want even faster speed.
+This is especially true when there is no trivial way of vectorization for the implementation desired.
+This is the main topic of this notebook:
+we can still be faster,
+by using R's C interface.
+
+`Rcpp` is the most dominant way of achieving that.
+But before our deep dive,
+let's understand *what is R* a bit more.
 
 # Decompose the R Source Code
 
@@ -98,7 +190,7 @@ ext_counts[, ext:=factor(ext, levels=rev(ext))]
 wordcloud2(sqrt(table(src_exts)))
 ```
 
-```{r}
+```{r top_n_ext}
 top_n <- 10
 ggplot(ext_counts[1:top_n], aes(x=ext, y=count)) +
   geom_bar(stat="identity") +
@@ -116,15 +208,18 @@ ggplot(ext_counts[1:top_n], aes(x=ext, y=count)) +
 + `.win`: Same above, but specifically for Windows
 + `.f`: Fortran source
 
-```{r}
-lang_ext <- c("c", "h", "R", "f")
+```{r lang_ext_count}
+lang_ext <- c("c", "h", "f", "R")
 lang_ext_counts <- ext_counts[ext %in% lang_ext]
 lang_ext_counts[, pct:=count / sum(count)]
+lang_ext_counts[, ext:=factor(ext, levels=lang_ext)]
 
 ggplot(lang_ext_counts, aes(x=ext, y=count)) +
   geom_bar(stat="identity") +
+  labs(y="Number of Files", x="File Extension",
+       title="Language File Distribution in R Source Code") +
   geom_text(aes(label=scales::percent(pct), y=count),
-            vjust=1.25, size=5, color="white")
+            vjust=1, size=5, color="white")
 ```
 
 The fact is that,
@@ -133,22 +228,25 @@ The fact is that,
 Most of them are vectorized so it is very fast to apply the function directly to a vector.
 For example the power function is a `primitive` function
 
-```{r}
+```{r primitive}
 `^`  # A primitive.
 
 (1:10)^2  # A vectorized primitive function call.
 ```
 
-```{r}
+```{r lang_line_count}
 lang_src_files <- src_files[tools::file_ext(src_files) %in% lang_ext]
 lang_src_file_lens <- sapply(lang_src_files, R.utils::countLines)
 
 lang_len <- data.table(lang=gsub("^.*\\.", "", names(lang_src_file_lens)), len=lang_src_file_lens)
 lang_len_counts <- lang_len[, .(tot_lines=sum(len)), by="lang"]
 lang_len_counts[, pct:=tot_lines / sum(tot_lines)]
+lang_len_counts[, ext:=factor(lang, levels=lang_ext)]
 
 ggplot(lang_len_counts, aes(x=lang, y=tot_lines)) +
   geom_bar(stat="identity") +
+  labs(y="Number of Lines", x="File Extension",
+       title="Language File Line Distribution in R Source Code") +
   geom_text(aes(label=scales::percent(pct), y=tot_lines),
             vjust=1.25, size=5, color="white")
 ```
