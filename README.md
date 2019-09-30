@@ -20,7 +20,7 @@ You may find me sometimes interoperate the two langauges in a single notebook.
 + Programming
     + R
         + [Asynchronous Programming in R](https://everdark.github.io/k9/programming/r/async/async_r.nb.html)
-        + [High Performance Computing in R using Rcpp]
+        + [High Performance Computing in R using Rcpp](https://everdark.github.io/k9/programming/r/async/rcpp.nb.html)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model]

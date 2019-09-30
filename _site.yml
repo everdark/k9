@@ -43,6 +43,8 @@ navbar:
       menu:
           - text: "Asyncrhonous Programming in R"
             href: programming/r/async/async_r.nb.html
+          - text: "High Performance Computing in R using Rcpp"
+            href: programming/r/rcpp/rcpp.nb.html
     - icon: fa-linkedin
       href: https://www.linkedin.com/in/kylechung
     - icon: fa-github

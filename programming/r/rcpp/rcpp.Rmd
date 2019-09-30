@@ -61,6 +61,8 @@ writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf)
 close(meta_header_file)
 ```
 
+---
+
 The notebook is a full re-writing of its [original version](http://everdark.github.io/rcpp_lightning_dsc2015/) for a lightning talk at Data Science Conference 2015 at Taipei.
 The coding examples in the original notebook are for Linux/macOS users only.
 The revised notebook here is platform-independent.
@@ -579,7 +581,7 @@ print(ben_all)
 Task like n-gram generation is a type of moving-window operation.
 Such task is in general harder to vectorize and hence will usually result in performance issue in R.
 In this section we generalize the discussion to a generic moving window operation.
-For illustration we will use a sample log file from a Apache web server publicly available from [Loghub](https://github.com/logpai/loghub)(@zhu2019tools).
+For illustration we will use a sample log file from a Apache web server publicly available from [Loghub](https://github.com/logpai/loghub) (@zhu2019tools).
 The log will look like the following text lines:
 
 ```{r mw_download_log}
@@ -742,7 +744,7 @@ As one can see,
 using Rcpp is brutal and simple and extremely fast.
 It also supports vector slicing as in R so writing Rcpp is indeed more like writing R and less like writing C++.
 
-In this toy example our Rcpp solution is 4 times faster than our creative twisted approach.
+In this toy example our Rcpp solution is more than 3 times faster than our creative twisted approach.
 And it cerrtainly can be even faster when it comes to larger application.
 
 ## Time-Dependent Feature Generation
