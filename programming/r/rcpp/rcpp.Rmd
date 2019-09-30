@@ -30,7 +30,7 @@ nocite: |
   @ngram
   @microbenchmark
 abstract: |
-  TBC.
+  R is inherently a high-performance scripting language since its core is written in C. Writing a high-performance R program, however, may not be as straightforward as it is for some other general purpose languages. This notenook demonstrates quickly the key concept in writing a good R program and a fact check about the decomposition of the language source code. It also demonstrates in more details with several working examples and benchmarks on how we can boost the performance when the underlying task is not easy to optimize in native R code: by using Rcpp.
 ---
 
 ```{r setup, include=FALSE}
@@ -59,7 +59,9 @@ writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf)
 close(meta_header_file)
 ```
 
-The notebook is a re-writing of its [original version](http://everdark.github.io/rcpp_lightning_dsc2015/) for a lightning talk at Data Science Conference 2015 at Taipei.
+The notebook is a full re-writing of its [original version](http://everdark.github.io/rcpp_lightning_dsc2015/) for a lightning talk at Data Science Conference 2015 at Taipei.
+The coding examples in the original notebook are for Linux/macOS users only.
+The revised notebook here is platform-independent.
 
 ---
 
@@ -565,5 +567,10 @@ x <- big_hex_c[1:as.integer(length(big_hex_c) / 10)]  # Smaller.
 ben_all <- benchmark_all(x)
 print(ben_all)
 ```
+
+## Moving-Window Calculation
+
+Task like n-gram generation is a type of moving-window operation.
+Such task is in general harder to vectorize and hence will usually result in performance issue in R.
 
 # References
