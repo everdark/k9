@@ -652,7 +652,7 @@ ggplot(mv_res, aes(x=i, y=count, group=log_type, color=log_type)) +
        y="Number of Logs")
 ```
 
-One should notice that this is a very small dataset but our function is already exhibit bottlenecked.
+One should notice that this is a very small dataset but our function already exhibits bottlenecked.
 Before we proceed to implement the same idea but in Rcpp,
 let's struggle a bit more:
 
@@ -744,5 +744,157 @@ It also supports vector slicing as in R so writing Rcpp is indeed more like writ
 
 In this toy example our Rcpp solution is 4 times faster than our creative twisted approach.
 And it cerrtainly can be even faster when it comes to larger application.
+
+## Time-Dependent Feature Generation
+
+Another common use case similar to a moving window operation is when we need to calculate derived features based on a look-back time window.
+This is usually for a machine learning dataset where an entity can have time dependent behavior statistics such as number of a certain activity in the past 30 days at any given point when a model needs to make a prediction about the future.
+
+For this scenario we will create a [MOOC](https://en.wikipedia.org/wiki/Massive_open_online_course)-like student-course dataset as our working example:
+
+```{r fe_fake_data}
+# Assume user is encoded by integer and class is encoded by a single English letter.
+create_mooc_data <- function(nlog, nuser, seed=528491) {
+  set.seed(seed)
+  dat <- data.table(user=sample(1:nuser, nlog, replace=TRUE, 
+                                prob=rbeta(1:nuser, .1, 2)),
+                    course=sample(letters, nlog, replace=TRUE, prob=1:26),
+                    ts=runif(nlog, as.integer(as.POSIXct("2015-01-01")),
+                             as.integer(as.POSIXct("2015-06-30"))))
+  dat[, t:=as.POSIXct(ts, origin="1970-01-01")]
+  setorder(dat, user, course, ts)
+  dat
+}
+
+mdata <- create_mooc_data(nlog=1e6, nuser=1e3)
+head(mdata)
+```
+
+To interpret the dataset,
+a row represents a pair of studient-class interaction at a given timestamp.
+
+Now assume we'd like to extract a feature:
+How many unique courses in total did a student register at the time of his/her last activity record for each course?
+For example,
+if student 1's last activity for course a is today,
+then how many courses in total (including course a) did she also have at least one interaction record?
+We may want to use this information as one of the feature to build a model to predict whether a user will drop out from a registered class.
+
+For this use case we will again benchmark with 3 different approaches:
+
+1. The naive R approach
+2. The improved R approach using `data.table` API
+3. The naive approach but written in Rcpp
+
+### Native R {-}
+
+First the naive approach in native R code:
+
+```{r fe_naive_r}
+naive_r_func <- function(DT) {
+  require(data.table)
+  DT <- copy(DT)
+  DT[, `:=`(tsmin=min(ts), tsmax=max(ts)), by="user,course"]
+  DT <- unique(DT[, list(user, course, tsmin, tsmax)])
+  res <- integer(uniqueN(DT$user) + uniqueN(DT$course))
+  cnt <- 1
+  for ( i in unique(DT$user) ) {
+    tmpdat <- DT[user == i]
+    for ( j in tmpdat$course ) {
+      res[cnt] <- sum(tmpdat$tsmin <= tmpdat[course == j, tsmax])
+      cnt <- cnt + 1
+    }
+  }
+  cbind(DT[, list(user, course)], res)
+}
+
+system.time(fe_res_r1 <- naive_r_func(mdata))
+```
+
+The idea is simple:
+we loop over each student and inner-loop over each courses to calculate the required metric.
+Such huge nested loop is doomed to fail for large application.
+
+The result will look something like:
+
+```{r fe_res}
+fe_res_r1[sample(.N, 10)]
+```
+
+So for example user 491 has interacted with 18 courses (or 17 *other* courses) in total when she last interacted with course t in the records.
+
+To stick with R,
+let's improve the performance by using `data.table`'s special *group by each i* functionality:
+
+```{r fe_better_r}
+better_r_func <- function(DT) {
+    require(data.table)
+    DT <- copy(DT)
+    DT[, `:=`(tsmin=min(ts), tsmax=max(ts)), by="user,course"]
+    tmpdat1 <- unique(DT[, list(user, course, tsmin)])
+    tmpdat2 <- unique(DT[, list(user, course, tsmax)])
+    setkey(tmpdat1, user)
+    setkey(tmpdat2, user)
+    cbind(tmpdat1[, list(user, course)], 
+          res=tmpdat1[tmpdat2, list(res=sum(tsmin <= tsmax)), by=.EACHI][, res])
+}
+
+system.time(fe_res_r2 <- better_r_func(mdata))
+
+setkey(fe_res_r1, user)
+identical(fe_res_r1, fe_res_r2)
+```
+
+The solution is indeed very fast.
+The only drawback is that the code is hard to read and understand,
+as it always will be when we try to re-work a problem from its original representation.
+
+### Rcpp {-}
+
+Can we beat the performance of a pure `data.table` approach by simply implement the nested loop using Rcpp?
+
+```{r fe_rcpp}
+cppFunction("
+  NumericVector rcppFunc(NumericVector first, NumericVector last) {
+    int len = first.size();
+    NumericVector out(len);
+    for (int i = 0; i < len; i++) {
+      out(i) = 0;
+      for (int j = 0; j < len; j++) {
+        if (first(j) <= last(i)) {
+          out(i) += 1;
+        }
+      }
+    }
+    return out;
+  }")
+
+rcpp_func <- function(DT) {
+  require(data.table)
+  DT <- copy(DT)
+  DT[, `:=`(tsmin=min(ts), tsmax=max(ts)), by="user,course"]
+  DT <- unique(DT[, list(user, course, tsmin, tsmax)])
+  cbind(DT[, list(user, course)],
+        res=as.integer(DT[, list(res=rcppFunc(.SD$tsmin, .SD$tsmax)), by="user"][, res]))
+}
+
+system.time(fe_res_cpp <- rcpp_func(mdata))
+
+setkey(fe_res_cpp, user)
+identical(fe_res_cpp, fe_res_r1)
+```
+
+```{r, paged.print=FALSE}
+print(microbenchmark(better_r_func(mdata),
+                     rcpp_func(mdata), 
+                     times=10))
+```
+
+It turns out that,
+Rcpp is still the fastest!
+But the difference is not significant.
+We shouldn't be surprised if we know that `data.table` itself is indeed written in C.
+
+# Final Wrap-Up
 
 # References
