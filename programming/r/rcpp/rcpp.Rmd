@@ -29,6 +29,8 @@ nocite: |
   @text2vec
   @ngram
   @microbenchmark
+  @stringr
+  @lubridate
 abstract: |
   R is inherently a high-performance scripting language since its core is written in C. Writing a high-performance R program, however, may not be as straightforward as it is for some other general purpose languages. This notenook demonstrates quickly the key concept in writing a good R program and a fact check about the decomposition of the language source code. It also demonstrates in more details with several working examples and benchmarks on how we can boost the performance when the underlying task is not easy to optimize in native R code: by using Rcpp.
 ---
@@ -174,7 +176,11 @@ Let's examine the source code of the R language.
 TEMPDIR <- tempdir()
 target_file <- "https://cran.r-project.org/src/base/R-3/R-3.6.1.tar.gz"
 downloaded_file <- file.path(TEMPDIR, basename(target_file))
-download.file(target_file, downloaded_file)
+
+if ( !file.exists(downloaded_file) ) {
+  download.file(target_file, downloaded_file)
+}
+
 untar(downloaded_file, exdir=TEMPDIR)  # This may generate warnings under Windows.
 ```
 
@@ -572,5 +578,171 @@ print(ben_all)
 
 Task like n-gram generation is a type of moving-window operation.
 Such task is in general harder to vectorize and hence will usually result in performance issue in R.
+In this section we generalize the discussion to a generic moving window operation.
+For illustration we will use a sample log file from a Apache web server publicly available from [Loghub](https://github.com/logpai/loghub)(@zhu2019tools).
+The log will look like the following text lines:
+
+```{r mw_download_log}
+# https://github.com/logpai/loghub/tree/master/Apache
+target_file <- "https://raw.githubusercontent.com/logpai/loghub/master/Apache/Apache_2k.log"
+downloaded_file <- file.path(TEMPDIR, basename(target_file))
+
+if ( !file.exists(downloaded_file) ) {
+  download.file(target_file, downloaded_file)
+}
+
+logs <- readLines(downloaded_file, warn=FALSE)
+print(head(logs))
+print(length(logs))
+```
+
+Suppose the task is to count number of records by log type (`notice` or `error`) within the last 5 minutes for every 1 minute.
+This is an overlapping moving window operation where the actual window size (number of records involved in each time-fixed window) must be further determined by the original timestamp.
+The idea is rather simple but the actual implementation presents several challanges from the angle of performance optimization in native R code.
+
+Let's tidy up the log lines first to have a cleaner input to our task:
+
+```{r mw_parse_log}
+apache_logs <- as.data.table(stringr::str_match(logs, "^\\[([a-zA-Z0-9: ]+)\\] \\[([a-z]+)\\]")[,-1])
+setnames(apache_logs, c("ts", "type"))
+apache_logs <- apache_logs[, ts:=as.POSIXct(ts, format="%a %b %d %H:%M:%S %y", tz="UTC")]
+apache_logs <- apache_logs[, sec:=as.integer(ts)]
+
+head(apache_logs)
+```
+
+### Native R {-}
+
+Again let's try the naive approach using plain R code first.
+
+```{r mw_r}
+mw_count_r <- function(DT, wsize, inter, select=NULL) {
+    require(data.table)
+    sts <- min(DT$sec)
+    ninter <- ceiling(diff(range(DT$sec)) / inter)
+    if ( !is.null(select) )
+        DT <- DT[type %in% select]
+    res <- list()
+    for ( ca in unique(DT$type) ) {
+        sts_ <- sts
+        cnt <- integer(ninter)  # Pre-allocate memory.
+        for ( i in 1:ninter ) {
+            cnt[i] <- nrow(DT[type == ca][sec <= sts_ & sec > sts_ - wsize])
+            sts_ <- sts_ + inter
+        }
+        res[[ca]] <- cnt
+    }
+    res
+}
+
+system.time(mw_res_r <- mw_count_r(apache_logs, 300, 60))
+```
+
+The results are two numeric series,
+which can be plotted as below.
+
+```{r mw_plot}
+mv_res <- as.data.table(mw_res_r)
+mv_res <- mv_res[, i:=.I]
+mv_res <- melt(mv_res, id.vars="i", variable.name="log_type", value.name="count")
+
+ggplot(mv_res, aes(x=i, y=count, group=log_type, color=log_type)) +
+  geom_line() +
+  labs(x="5-Min Moving Window with 1-Min Interval",
+       y="Number of Logs")
+```
+
+One should notice that this is a very small dataset but our function is already exhibit bottlenecked.
+Before we proceed to implement the same idea but in Rcpp,
+let's struggle a bit more:
+
+```{r mw_r_2}
+mw_count_r_2 <- function(DT, wsize, inter, select=NULL) {
+    require(data.table)
+    all_secs <- data.table(sec=min(DT$sec):max(DT$sec))
+    if ( !is.null(select) )
+        DT <- DT[type %in% select]
+    res <- lapply(split(DT, DT$type), 
+                  function(x) {
+                      x <- merge(x, all_secs, by="sec", all=TRUE)
+                      sec_unit_cnt <- x[, .(cnt=sum(!is.na(type))), by="sec"]
+                      sec_unit_cumcnt <- c(rep(0, wsize), cumsum(sec_unit_cnt$cnt))
+                      as.integer(tail(sec_unit_cumcnt, -wsize) - head(sec_unit_cumcnt, -wsize))
+                  })
+    lapply(res, function(x) x[seq(1, length(x), inter)])
+}
+
+system.time(mw_res_r_2 <- mw_count_r_2(apache_logs, 300, 60))
+```
+
+```{r mw_check_res}
+identical(mw_res_r$notice, mw_res_r_2$notice) && 
+  identical(mw_res_r$error, mw_res_r_2$error)
+```
+
+Apparently we can improve drastically with native R code if we do some creative twisting of the original task.
+Here we re-work the original problem by forcely expanding the input `data.frame` to have at least one row for every second in the covered period,
+and we do a cumulative sum by second to arrive at a second-level moving window and then subset its minute-level results.
+In doing so we effectively remove the need to do the moving window loop (which R is not good at) and transform the task to use the built-in vectorized primitive `cumsum` function.
+
+The improved solution still has several flaws:
+
+1. It uses more memory than it actually needs by expanding the `data.frame` from a sparse representation (a second without log will not present) into a dense one; this can be a bottleneck for really huge datasets
+2. It computes things more than we need: moving window operation is performed at second level but we only need a minute level (This can be solved if we refactor the code a bit, so less of an issue and also its performance impact is quite limited)
+3. It is much harder to read and understand the intent of the code
+
+And,
+as a matter of fact,
+it is still not *super* fast.
+
+Let's see if we can achieve even faster computing time by using Rcpp.
+
+### Rcpp {-}
+
+```{r mw_rcpp}
+cppFunction("
+  NumericVector MWCountRcpp(NumericVector ts, int wsize, int inter, int sts, int nt) {
+    NumericVector out(nt);
+    for (int i = 0; i < nt; i++) {
+      NumericVector cnts = ts[(ts <= sts) & (ts > sts - wsize)];
+      out(i) = cnts.size();
+      sts += inter;
+    }
+    return out;
+  }")
+
+mw_count_rcpp <- function(DT, wsize, inter, select=NULL) {
+    require(data.table)
+    sts <- min(DT$sec)
+    ninter <- ceiling(diff(range(DT$sec)) / inter)
+    if ( !is.null(select) )
+        DT <- DT[type %in% select]
+    lapply(split(DT, DT$type), 
+           function(x) as.integer(MWCountRcpp(x$sec, wsize, inter, sts, ninter)))
+}
+
+system.time(mw_res_rcpp <- mw_count_rcpp(apache_logs, 300, 60))
+```
+
+```{r mw_check_res_rcpp}
+identical(mw_res_r$notice, mw_res_rcpp$notice) && 
+  identical(mw_res_r$error, mw_res_rcpp$error)
+```
+
+```{r mw_benchmark, paged.print=FALSE}
+print(microbenchmark(
+  mw_count_r(apache_logs, 300, 60),
+  mw_count_r_2(apache_logs, 300, 60),
+  mw_count_rcpp(apache_logs, 300, 60),
+  times=3
+))
+```
+
+As one can see,
+using Rcpp is brutal and simple and extremely fast.
+It also supports vector slicing as in R so writing Rcpp is indeed more like writing R and less like writing C++.
+
+In this toy example our Rcpp solution is 4 times faster than our creative twisted approach.
+And it cerrtainly can be even faster when it comes to larger application.
 
 # References

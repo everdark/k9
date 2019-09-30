@@ -8,3 +8,4 @@ text2vec
 ngram
 microbenchmark
 rmarkdown
+stringr
