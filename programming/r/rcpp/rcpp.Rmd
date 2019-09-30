@@ -897,4 +897,22 @@ We shouldn't be surprised if we know that `data.table` itself is indeed written 
 
 # Final Wrap-Up
 
+In this notebook we've demonstrated the key concept to write a high-performance R program:
+to vectorize and to avoid memory copy.
+They will work 90% of the time to make sure our R program is fast enough.
+But there are use cases where the concept,
+especially vectorization,
+is hard to apply.
+To overcome such problem we can:
+
+1. Re-work the original problem with an alternative algorithm that can be vectorized
+2. Survey any existing package that already handles such case efficiently
+3. Implement the core of our algorithm in Rcpp
+
+Obviously the last option is the most flexible one.
+And we've also demonstrated 3 different common use cases where Rcpp can gain tremendous improvement in computing time,
+with not really much effort to implement.
+
+The key to using Rcpp with ease is to identify only the bottleneck in the algorithm (which is usually a very small part of it) and implement only the bottleneck part in Rcpp.
+
 # References
