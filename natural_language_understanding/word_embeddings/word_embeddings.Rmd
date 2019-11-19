@@ -587,7 +587,9 @@ print(model.summary())
 ```
 
 ```{python word2vec_tf_model_train}
-model.fit(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
+# NOTE:
+# fit() is buggy in 2.0.0 stable release, use fit_generator() instead for a workaround.
+model.fit_generator(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
 ```
 
 ```{r word2vec_tf_model_loss}
@@ -895,7 +897,7 @@ print(glove.summary())
 ```
 
 ```{python glove_tf_model_train}
-glove.fit(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
+glove.fit_generator(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
 ```
 
 ```{r glove_tf_model_loss}
@@ -1332,7 +1334,7 @@ print(fasttext.summary())
 ```
 
 ```{python fasttext_tf_model_train}
-fasttext.fit(dataset, epochs=10, steps_per_epoch=100, verbose=0)
+fasttext.fit_generator(dataset, epochs=10, steps_per_epoch=100, verbose=0)
 ```
 
 ```{r fasttext_tf_model_loss}
