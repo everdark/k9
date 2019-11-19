@@ -18,7 +18,7 @@ output:
   code_download: true
 bibliography: word_embeddings.bib
 abstract: |
-  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning.
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -78,7 +78,7 @@ But it fails to deliver usable results when it comes to more complicated tasks s
 question answering,
 or other advanced natural language understanding (NLU) tasks.
 
-Embeddings are vector representation of features that are otherwise non-numerical.
+Embeddings are vector representation of features that are otherwise non-numerical.^[Embeddings are indeed not limited to non-numerical features. Essentially anything can be embeded into the vector space. But embedding a numercial feature may not have as much benefit as embedding a non-numerical feature.]
 All weights in the vector are trainable parameters given a machine learning task.
 Depending on the task itself,
 the resulting learned embeddings can be informative in the vector space.
@@ -88,10 +88,10 @@ in factorization model for recommender systems,
 users and items are represented by embeddings and their similarity can be calculated by calculating the dot-product or the cosine distance of the underlying vectors.
 
 The same idea can be applied to natural language,
-where each word is represented by its embeddings.
+where each word is represented by its own embedding.
 Word embeddings are the building blocks for modern neural network models that can successfully handle a variety of NLU tasks.
-In this notebook we are going to review thoroughly several most popular unsupervised approaches for learning word embeddings.
-The learned embeddings can then be used by a downstream machine learning model to solve further problems at an application level.
+In this notebook we are going to review thoroughly several most popular and influential unsupervised approaches for learning word embeddings.
+The learned embeddings can then be used by a downstream machine learning model to solve further problems at the application level.
 This is referred to as *transfer learning*.
 
 # Context-Free Word Embeddings
@@ -123,7 +123,7 @@ so we can lay down the foundation for natural language modeling.
 The core idea of learning `word2vec` is extremely simple:
 to *train a predictive model that can predict the surrounding context of a word.*
 There are two ways of construct such a predictive learning task:
-the continous bag-of-words model and the skip-gram model.
+the *continous bag-of-words* model and the *skip-gram* model.
 
 #### Continuous Bag-of-Words {-}
 
@@ -136,6 +136,8 @@ all models are wrong but some are useful
 
 Given a window size of 2,
 we may like to predict the target word `wrong` by its context (surrounding) words `models are` and also `but some`.
+The target word is a training label and its surrounding words serve as training features.
+
 A context window of size 1 instead will give us the following training examples:
 
 ```
@@ -207,7 +209,7 @@ $$
 
 where $c$ is the skip-gram window size,
 $T$ is the total number of words in the training corpus,
-and $w_t$ ius the $t$-th word in the corpus.
+and $w_t$ is the $t$-th word in the corpus.
 
 Assuming the word embedding for $w_t$ is $v_t$,
 the natural choice of estimator for $P(w_{t+j} \vert w_t)$ is the softmax using embedding dot-product:
@@ -227,7 +229,7 @@ which is considered a hyperparameter of the model.
 
 The model is learned by maximizing the likelihood of all the surrounding words within a context window.
 Theoretically,
-the loss function will be a softmax with number of class equal to vocabulary size.
+the loss function will be a softmax with number of classes equal to vocabulary size.
 In practice this is prohibitively costly to compute due to usually the fairly large size of vocabulary.
 
 To overcome the issue,
@@ -244,7 +246,7 @@ _{\sum_i \log P(Y = 0 \vert w_i, w_t)},
 $$
 
 where $\sigma$ is a standard sigmoid function,
-$P_n(W)$ is a noise distribution and $k$ is the number of negative samples drawn from that distribution,
+$P_n(W)$ is a *noise distribution* and $k$ is the number of negative samples drawn from that distribution,
 $Y$ is simply a dummy indicator of the correctness of the prediction.^[We use the fact that $\sigma(t) = \frac{1}{1 + e^{-t}} = \frac{e^t}{1 + e^t}$ and hence $1 - \sigma(t) = \frac{1}{1 + e^t} = \sigma(-t)$.]
 
 Let's use our toy example to illustrate the idea of negative sampling further.
@@ -279,8 +281,8 @@ the single softmax training example effectively expands into multiple binary tra
 | are    | but     | 0  |
 | are    | some    | 0  |
 
-And the model now is going to learn that given the word `are` the probasbility of `wrong` should be high and the probability of `but` and `some` should be low.
-(We assume `but` and `some` are the random draws from a noise distribution.)
+And the model now is going to learn that given the word `are` the probability of `wrong` should be high and the probability of `but` and `some` should be low.
+(Here we assume `but` and `some` are the random draws from a noise distribution.)
 
 For natural language modeling a classical choice of the noise distribution is the unigram distribution which can be estimated simply by vocabulary frequency counts.
 In the original paper of `word2vec` the unigram distribution raised to the 3/4rd power seems to perform better in their evaluation setup.
@@ -288,12 +290,12 @@ It is actually also common in practice to use a simple uniform distribution from
 
 The negative sampling loss is indeed a simplifed version of a more general loss called the Noise-Contrastive Estimation (NCE) loss,
 proposed by @mnih2013learning for also learning a word embedding model.
-Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. $Q(\cdot)$ is the noise distribution. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings of the entire vocabulary.]
+Since practically there is little difference between the two approaches we will skip the discussion on NCE loss for simplicity.^[In a nutshell, negative sampling approximates $\ln \frac{P(y \vert x)}{Q(y \vert x)}$ while NCE approximates $\ln P(y \vert x)$. $Q(\cdot)$ is the noise distribution. So NCE is asymptotically softmax but negative sampling is not. For the sake of learning word embeddings this is not a required condition since we don't use the model prediction for the downstream task at all; instead we extract the fitted embeddings (learned parameters) of the entire vocabulary.]
 
 ### Dropout for Frequent Words
 
 To counter the effect of imbalanced distribution among popular (and usually less informative) words.
-@mikolov2013distributed also propose the idea of randomly discard training example based on a heuristic dropout probability:
+@mikolov2013distributed also propose the idea of randomly discarding training example based on a heuristic dropout probability:
 
 $$
 \begin{equation} \label{eq:dropout}
@@ -332,7 +334,7 @@ text(1e-5, -1, pos=4, col="red", bquote(t == 10^-5))
 ```
 
 Note that the function does not return a valid probability in smaller $f(w_i)$.
-Indeed $\lim_{f(w_i) \to 0} P(w_i) = -\infty$.
+Indeed we have $\lim_{f(w_i) \to 0} P(w_i) = -\infty$.
 In case of a negative value we simply replace it with a zero:
 no dropout.
 
@@ -556,7 +558,7 @@ for x, y in dataset:
 #### Model Architecture {-}
 
 The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
-dot-products and cross entropy loss.
+dot-products and cross entropy loss optimization.
 It is highly similar to a matrix factorization problem with a log-loss.
 The main difference lies in how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
 
@@ -625,6 +627,9 @@ Based on the `word2vec` approach,
 1@lam2018word2bits propose an enhancement to considerably reduce the amount of vector space required for the embeddings while retain the same or even improve the quality in terms of several evaluation tests.
 The enhanced model is referred to as `Word2Bits`.
 
+To save space we will skip the discussion on this model.
+Readers who are interestefd can refer to the author's [source repository](https://github.com/agnusmaximus/Word2Bits).
+
 ## GloVe
 
 GloVe stands for "Global Vectors" for word representation,
@@ -632,7 +637,7 @@ proposed by @pennington2014glove as another unsupervised approach to train word 
 The idea is to combine a global matrix factorization that utilize the co-occurence statistics with a local context window method that utlizes the target-context predictive relatedness.
 Based on a given context window size,
 we first establish a word-word co-occurence matrix,
-then factiorize the sparse matrix by training on only the nonzero elements.^[[Latent Semantic Analysis (LSA)](https://en.wikipedia.org/wiki/Latent_semantic_analysis) also uses matrix factorization but on a term-document matrix.]
+then factiorize the sparse matrix by training on only the nonzero elements.^[[Latent Semantic Analysis (LSA)](https://en.wikipedia.org/wiki/Latent_semantic_analysis) also uses matrix factorization in this manner but on a term-document matrix instead.]
 
 ### The Learning Objective
 
@@ -684,7 +689,7 @@ In the original paper the setting is $x_{max} = 100$ and $\alpha = \frac{3}{4}$.
 Note that by explicitly introducing the above weighting function all the zero entries in the co-occurence matrix are effectively discarded during the training since we (on purpose) have $f(0) = 0$.
 
 Essentially GloVe is a factorization model on the log of context co-occurence matrix with a weighted least-squares cost function.
-The model can be trained by a stochastic gradient descent optimizer on random samples of non-zero elements in the co-occurrence matrix.
+The model can be trained by a stochastic gradient descent optimizer on randomly ordered samples of non-zero elements in the co-occurrence matrix.
 
 The model can also be interpreted as using embedding dot-product to approximate the log of co-occurrence probability:
 
