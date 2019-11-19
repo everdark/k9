@@ -7,7 +7,7 @@ author:
 date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
 output:
   html_notebook:
-    highlight: pygments
+    highlight: tango
     number_sections: yes
     theme: paper
     toc: yes
@@ -34,12 +34,18 @@ MathJax.Hub.Config({
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
-    '<meta property="og:title" content="On Word Embeddings: Vector Representation for Language Modeling">',
+    '<meta property="og:title" content="Context-Free Word Embeddings: From word2vec, GloVe, to fastText">',
     '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
     '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
 )
 writeLines(meta, meta_header_file)
+
+# Add Github corner.
+github_corner_svg <- "../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/rcpp")
+writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+
 close(meta_header_file)
 ```
 
