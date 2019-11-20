@@ -4,7 +4,7 @@ subtitle: "To kick-Start Developing a Scalable `shiny` App"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (14 Sep 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: pygments
@@ -26,18 +26,20 @@ meta_header_file <- file("/tmp/meta_header.html")
 
 # Add open graph meta.
 meta <- c(
-    '<meta name="author" content="Kyle Chung">',
-    '<meta property="og:title" content="Asynchronous Programming in R">',
-    '<meta property="og:url" content="https://everdark.github.io/k9/programming/async/async_r.nb.html">',
-    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
-    '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Asynchronous Programming in R">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/programming/async/async_r.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+  '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
 )
-writeLines(meta, meta_header_file)
+contents <- meta
 
 # Add Github corner.
 github_corner_svg <- "../../../assets/github_corner.html"
 github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/async")
-writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
 
 close(meta_header_file)
 ```

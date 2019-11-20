@@ -4,10 +4,11 @@ subtitle: "with Examples Using R and Stan"
 author:
 - name: Kyle Chung
   affiliation: 
-date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated (14 Jun 2019 First Uploaded)"
 output: 
   html_notebook:
     number_sections: yes
+    highlight: tango
     theme: paper
     toc: yes
     toc_float: true
@@ -33,13 +34,21 @@ MathJax.Hub.Config({
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
-    '<meta name="author" content="Kyle Chung">',
-    '<meta property="og:title" content="Bayesian Modeling Explained">',
-    '<meta property="og:url" content="https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html">',
-    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
-    '<meta property="og:description" content="A data science notebook about Bayesian modeling with examples using R and Stan.">'
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Bayesian Modeling Explained">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+  '<meta property="og:description" content="A data science notebook about Bayesian modeling with examples using R and Stan.">'
 )
-writeLines(meta, meta_header_file)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/bayesian")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
 close(meta_header_file)
 ```
   

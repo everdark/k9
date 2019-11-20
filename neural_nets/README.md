@@ -1,5 +1,7 @@
 # Neural Networks Fundamentals
 
+[Link](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html)
+
 ## R Dependencies for Notebook Rendering
 
 + [`rmarkdown`](https://rmarkdown.rstudio.com/)

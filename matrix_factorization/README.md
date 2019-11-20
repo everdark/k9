@@ -1,5 +1,7 @@
 # Matrix Factorization
 
+[Link](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html)
+
 ## R Dependencies for Notebook Rendering
 
 + [`rmarkdown`](https://rmarkdown.rstudio.com/)

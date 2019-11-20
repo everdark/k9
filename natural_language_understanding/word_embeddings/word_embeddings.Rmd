@@ -4,7 +4,7 @@ subtitle: "From word2vec, GloVe, to fastText"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %B %Y')` Last Updated"
+date: "`r format(Sys.time(), '%d %B %Y')` Last Updated (21 Nov 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -37,16 +37,18 @@ meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="Context-Free Word Embeddings: From word2vec, GloVe, to fastText">',
+    '<meta property="og:type" content="article">',
     '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
     '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
 )
-writeLines(meta, meta_header_file)
+contents <- meta
 
 # Add Github corner.
 github_corner_svg <- "../../assets/github_corner.html"
 github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/rcpp")
-writeLines(stringr::str_interp(readLines(github_corner_svg), github_corner_conf), meta_header_file)
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
 
 close(meta_header_file)
 ```
