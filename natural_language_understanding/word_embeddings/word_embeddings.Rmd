@@ -553,8 +553,8 @@ dataset = dataset.prefetch(batch_size)
 
 # Test.
 for x, y in dataset:
-  tf.print(x)
-  tf.print(y)
+  print(x)
+  print(y)
   break
 ```
 
@@ -779,8 +779,8 @@ dataset = dataset.prefetch(batch_size)
 
 # Test.
 for x, y in dataset:
-  tf.print(x)
-  tf.print(y)
+  print(x)
+  print(y)
   break
 ```
 
@@ -1276,8 +1276,8 @@ dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
 for x, y in dataset:
-  tf.print(x)
-  tf.print(y)
+  print(x)
+  print(y)
   break
 ```
 
