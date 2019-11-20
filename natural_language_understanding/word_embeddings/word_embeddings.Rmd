@@ -1153,10 +1153,27 @@ and the final size of n-gram vocabulary is $2 \times 10^6$.
 Comparing to `word2vec` and `GloVe`,
 `fastText`'s [original implementation](https://github.com/facebookresearch/fastText.git)(written in C++) has a rather rich command line API and also a Python wrapper.
 
-Here is the command line tool output of `fasttext`:
+Here is the command line usage of `fasttext`:
 
-```{bash}
-fasttext
+```
+usage: fasttext <command> <args>
+
+The commands supported by fasttext are:
+
+  supervised              train a supervised classifier
+  quantize                quantize a model to reduce the memory usage
+  test                    evaluate a supervised classifier
+  test-label              print labels with precision and recall scores
+  predict                 predict most likely labels
+  predict-prob            predict most likely labels with probabilities
+  skipgram                train a skipgram model
+  cbow                    train a cbow model
+  print-word-vectors      print word vectors given a trained model
+  print-sentence-vectors  print sentence vectors given a trained model
+  print-ngrams            print ngrams given a trained model and word
+  nn                      query for nearest neighbors
+  analogies               query for analogies
+  dump                    dump arguments,dictionary,input/output vectors
 ```
 
 For educational purpose we will still try to use `tensorflow` to implement the model.
@@ -1395,7 +1412,8 @@ As a demo, a pre-trained `word2vec` embeddings of dimension size 250 can be load
 ```{python tf_hub}
 import tensorflow_hub as hub
 
-# This may take some time to download. The model size is about 800+ mb.
+# This may take some time to download for the first time.
+# The model size is about 800+ mb.
 embed = hub.load("https://tfhub.dev/google/Wiki-words-250/2")
 embeddings = embed(["all models are wrong"])
 embeddings.shape
@@ -1405,8 +1423,10 @@ The sentence embeddings is derived by the `sqrtn` combiner from individual word 
 We can do a quick check:
 
 ```{python tf_hub_combiner_check}
+import math
+
 embeddings_4 = embed(["all", "models", "are", "wrong"])
-((tf.reduce_sum(embeddings_4, axis=0) / tf.sqrt(4)) == embeddings).numpy().all()
+((tf.reduce_sum(embeddings_4, axis=0) / math.sqrt(4)) == embeddings).numpy().all()
 ```
 
 ## Gensim
