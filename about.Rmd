@@ -9,7 +9,7 @@ h1.title {
 </style>
 
 <center>
-![](assets/avatar.jpg)
+![](assets/androidify.jpg)
 
 [LinkedIn](https://www.linkedin.com/in/kylechung/) | [Medium](https://medium.com/@knine)
 </center>
