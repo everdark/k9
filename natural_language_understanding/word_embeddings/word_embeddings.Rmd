@@ -17,8 +17,10 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 bibliography: word_embeddings.bib
+nocite: |
+  @heinzerling2018bpemb
 abstract: |
-  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models.
+  Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models. At the end, we demonstrate in short several popular frameworks to handle pre-trained embeddings.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -1365,7 +1367,7 @@ fasttext_word_vectors = fasttext.get_layer("word_embeddings").weights[0].numpy()
 fasttext_ngram_vectors = fasttext.get_layer("ngram_embeddings").weights[0].numpy()
 ```
 
-# Transfer Learning
+# Transfer Learning with Pre-Trained Embeddings
 
 The use of pre-trained word embeddings is a realization of transfer learning.
 The embeddings are learned from a general language model such as those we discussed in this notebook,
@@ -1388,18 +1390,82 @@ In this section we will walk through some coding examples using well-known libra
 [TensorFlow Hub](https://www.tensorflow.org/hub) is a reository for sharing modules of pre-trained neural network embeddings not limited to natural language.
 Both `word2vec` and `BERT` pre-trained embeddings are available under the [text embedding module](https://tfhub.dev/s?module-type=text-embedding).
 
-[coding example of using tensorhub]
+As a demo, a pre-trained `word2vec` embeddings of dimension size 250 can be loaded by the following lines:
+
+```{python tf_hub}
+import tensorflow_hub as hub
+
+# This may take some time to download. The model size is about 800+ mb.
+embed = hub.load("https://tfhub.dev/google/Wiki-words-250/2")
+embeddings = embed(["all models are wrong"])
+embeddings.shape
+```
+
+The sentence embeddings is derived by the `sqrtn` combiner from individual word embeddings.
+We can do a quick check:
+
+```{python tf_hub_combiner_check}
+embeddings_4 = embed(["all", "models", "are", "wrong"])
+((tf.reduce_sum(embeddings_4, axis=0) / tf.sqrt(4)) == embeddings).numpy().all()
+```
 
 ## Gensim
 
-[coding example here]
+[`gensim`](https://radimrehurek.com/gensim/index.html) is a framework focusing on natural language processing tasks.
+We can easily load up pre-trained `word2vec` embeddings with it:
+
+```python
+from gensim.models import KeyedVectors
+
+infile = "data/GoogleGoogleNews-vectors-negative300.bin"
+gensim_w2v = KeyedVectors.load_word2vec_format(infile, binary=True)
+```
+
+We skip the actual download since the pre-trained embeddings is pretty huge.
+For the pre-trained file source please refer to the [official repo of Google's word2vec project](https://code.google.com/archive/p/word2vec/).
+
+Or similarly we can load the pre-trained `fastText`:
+
+```python
+from gensim.models.wrappers import FastText
+
+infile = "data/wiki-news-300d-1M.vec.zip"
+gensim_ft = FastText.load_fasttext_format(infile)
+```
+
+For the source file one can download from the [official site of fastText](https://fasttext.cc/).
+
+Other than ust loading pre-trained embeddings,
+`gensim` is indeed a high-level library to train different kinds of language model.
+`Wrod2vec`, `GloVe`, and `fastText` are all supported and can be easily trained from scratch with only a couple of lines in coding, provided the corpus is ready.
+We will skip the demo and for readers interested in this please refer to their official documents.
+
+## spaCy
+
+[`spaCy`](https://spacy.io/) is yet another popular NLP framework which also comes with pre-trained embeddings.
+The embeddings are a built-in feature in spaCy.
+Once we download the language file,
+vector representation will be readily available without explicitly preparing additional pre-trained file.
+
+We will skip the demo to save space here.
 
 ## BPEmb
 
->
 [BPEmb](https://github.com/bheinzerling/bpemb) is a collection of pre-trained subword embeddings in 275 languages,
 based on Byte-Pair Encoding (BPE) and trained on Wikipedia.
 
-[coding example here]
+`bpemb` can be used to encode string tino subwords and also lookup pre-trained embeddings:
+
+```{python bpemb}
+from bpemb import BPEmb
+
+bpemb = BPEmb(lang="en", vs=10000, dim=50)  # This will download a small pre-trained file.
+
+print(bpemb.encode("all models are wrong")) # Encode into subwords.
+
+print(bpemb.vectors.shape)  # The pre-trained embeddings in numpy.
+
+print(bpemb.emb)  # Under the hood it is a gensim word2vec model implementation.
+```
 
 # References
