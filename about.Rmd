@@ -14,3 +14,12 @@ h1.title {
 [LinkedIn](https://www.linkedin.com/in/kylechung/) | [Medium](https://medium.com/@knine)
 </center>
 
+My definition of a **Data Scientist**:
+
+> A *software developer* specializing in data science application.
+
+And, yes, I'm a data scientist. :)
+
+I use data to solve problems. For the past decade I've worked in E-commerce, cyber security, and banking indsutry.
+
+WHENEVER THERE IS DATA, THERE IS A WAY.
