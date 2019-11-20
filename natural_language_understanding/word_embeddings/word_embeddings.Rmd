@@ -907,9 +907,6 @@ plot(unlist(py$glove$history$history["loss"]), pch="X", type="o",
      xlab="Epoch", ylab="Loss", main="GloVe Model Loss Trace")
 ```
 
-As one can see,
-for such a the small corpus the model quickly converge.
-
 ```{python glove_tf_trained_vectors}
 target_word_vectors = glove.get_layer("target_embeddings").weights[0].numpy()
 context_word_vectors = glove.get_layer("context_embeddings").weights[0].numpy()
@@ -999,6 +996,10 @@ Here is an example of window size = 2:
 ```
 
 #### Train GloVe {-}
+
+For ease of a quick demo we will use the official demo sample data for `text2vec` here.
+The `text8` dataset is a one long line resulting from concatenation of the entire corpus,
+which is a subset of wikipedia articles.
 
 ```{r text2vec_demo}
 text8_file = "data/text8"
