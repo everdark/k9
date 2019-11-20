@@ -354,6 +354,8 @@ we will try to use `tensorflow` (@tensorflow2015-whitepaper) to implement an end
 ```{python import_tf}
 import logging
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import tensorflow as tf
 print(tf.__version__)
@@ -467,7 +469,6 @@ $$
 
 where $w_r$ is the frequency rank of word $w$,
 $\gamma$ is the [Euler-Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant).
-
 In this manner the frequency only depends on the ranks but not the exact counts of words in vocabulary.
 
 Let's examine the resulting dropout probabilities given our threshold (`sampling_factor`):
@@ -626,7 +627,7 @@ for i, s in zip(sim_ind, scores[sim_ind]):
 ## Word2Bits
 
 Based on the `word2vec` approach,
-1@lam2018word2bits propose an enhancement to considerably reduce the amount of vector space required for the embeddings while retain the same or even improve the quality in terms of several evaluation tests.
+@lam2018word2bits propose an interesting enhancement to considerably reduce the amount of vector space required for the embeddings while retain the same or even improve the quality in terms of several evaluation tests.
 The enhanced model is referred to as `Word2Bits`.
 
 To save space we will skip the discussion on this model.
