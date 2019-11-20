@@ -1150,6 +1150,13 @@ and the final size of n-gram vocabulary is $2 \times 10^6$.
 
 Comparing to `word2vec` and `GloVe`,
 `fastText`'s [original implementation](https://github.com/facebookresearch/fastText.git)(written in C++) has a rather rich command line API and also a Python wrapper.
+
+Here is the command line tool output of `fasttext`:
+
+```{bash}
+fasttext
+```
+
 For educational purpose we will still try to use `tensorflow` to implement the model.
 
 #### Data Pipeline {-}
@@ -1351,11 +1358,12 @@ plot(unlist(py$fasttext$history$history["loss"]), pch="X", type="o",
 As one can see,
 for such a the small corpus the model quickly converge.
 
+Finally, we can collect the learned embeddings:
+
 ```{python fasttext_tf_trained_vectors}
 fasttext_word_vectors = fasttext.get_layer("word_embeddings").weights[0].numpy()
 fasttext_ngram_vectors = fasttext.get_layer("ngram_embeddings").weights[0].numpy()
 ```
-
 
 # Transfer Learning
 
