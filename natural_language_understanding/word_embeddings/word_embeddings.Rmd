@@ -1095,13 +1095,13 @@ print(ngram_vectorizer.inverse_transform(ngram_vectorizer.transform(["all"])))
 
 #### A `keras` Approach {-}
 
-Keras text preprocessing module does not have ngram support!
+Suprisingly, Keras text preprocessing module does not support ngram.
+Here is just a simple demo of the tokenizer API:
 
 ```{python fasttext_ngram_keras}
 from tensorflow.keras.preprocessing.text import Tokenizer
 
 keras_vectorizer = Tokenizer(char_level=True, lower=True)
-
 keras_vectorizer.fit_on_texts(["all models are wrong but some are useful"])
 
 print(keras_vectorizer.word_index)
@@ -1109,7 +1109,9 @@ print(keras_vectorizer.word_index)
 
 #### A `tensorflow-text` Approach {-}
 
-The [TF.Text](https://github.com/tensorflow/text) module is a new module designated for text processing in TF 2.0.
+The [TF.Text](https://github.com/tensorflow/text) module is a rather new module designated for text processing in TF 2.0.
+
+Here are just some simple demo of the API usage:
 
 ```{python fasttext_ngram_tf_text}
 import os
@@ -1121,19 +1123,20 @@ else:
   import tensorflow_text as text
 
 
-tt = tf.strings.unicode_split(["all models are wrong but some are useful"], input_encoding="UTF-8")
+splitted = tf.strings.unicode_split(["all models are wrong but some are useful"], input_encoding="UTF-8")
 # No word boundary detection.
-tt
-text.ngrams(tt, width=2, reduction_type=text.Reduction.STRING_JOIN, string_separator="")
+splitted
+
+text.ngrams(splitted, width=2, reduction_type=text.Reduction.STRING_JOIN, string_separator="")
 # No bos and eos. Need to manually add to the original string.
 
 tokenizer = text.UnicodeScriptTokenizer()
-kk = tokenizer.tokenize(["all models are wrong but some are useful"])
-kk
+tokens = tokenizer.tokenize(["all models are wrong but some are useful"])
+tokens
 
-kk2 = tf.strings.unicode_split(kk, input_encoding="UTF-8")
-kk2
-text.ngrams(kk2, width=3, reduction_type=text.Reduction.STRING_JOIN, string_separator="")
+tokens2 = tf.strings.unicode_split(tokens, input_encoding="UTF-8")
+tokens2
+text.ngrams(tokens2, width=3, reduction_type=text.Reduction.STRING_JOIN, string_separator="")
 ```
 
 ### Feature Hashing
