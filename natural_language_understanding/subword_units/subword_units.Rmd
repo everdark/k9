@@ -39,7 +39,7 @@ meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="On Subword Units: Segmentation for Natural Language Modeling">',
     '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html">',
-    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/viterbi.png">',
     '<meta property="og:description" content="A data science notebook about natural language understanding.">'
 )
 writeLines(meta, meta_header_file)
