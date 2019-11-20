@@ -162,6 +162,9 @@ mkdir -p data
 ```
 
 ```{python bpe_dl_shakespeare}
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 import os
 import shutil
 import tensorflow as tf
