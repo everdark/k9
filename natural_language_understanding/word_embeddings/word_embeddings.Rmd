@@ -452,7 +452,7 @@ if not os.path.exists(outfile):
 
 spm_args = "--input={}".format(outfile)
 spm_args += " --model_prefix=m"
-spm_args += " --vocab_size=10000"
+spm_args += " --vocab_size=30000"
 spm_args += " --model_type=unigram"
 spm.SentencePieceTrainer.Train(spm_args)
 
@@ -982,7 +982,7 @@ print(glove_vectors.shape)
 
 ```{python glove_cosine_sim}
 ws_meta = "\u2581"
-i = sp.PieceToId(ws_meta + "love")
+i = sp.PieceToId(ws_meta + "man")
 
 scores = cosine_similarity(glove_vectors[i,np.newaxis], glove_vectors)
 scores = np.squeeze(scores)
