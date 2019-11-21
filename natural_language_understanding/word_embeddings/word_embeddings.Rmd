@@ -62,6 +62,13 @@ if ( is(r, "try-error") ) {
 }
 ```
 
+---
+
+This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate)(@reticulate),
+a package that allows inter-operation between R and Python.
+
+---
+
 # The Motivation for Embeddings
 
 Generally speaking,
@@ -367,39 +374,85 @@ print(tf.__version__)
 
 #### Subword Segmentation {-}
 
-Lets' use Shakespeare as our corpus.
+Since skip-gram works better when the corpus is larger,
+let's use a subset of wikipedia articles (from [Wikimedia Downloads](https://dumps.wikimedia.org/)) to demonstrate the training of `word2vec`.
+We use the [WikiExtractor](https://github.com/attardi/wikiextractor) tool to process the raw dump.
 
 ```{bash mkdir}
+# Bash
 mkdir -p data
+
+OUTDIR=data/enwiki_texts
+if [ ! -d $OUTDIR ]
+then
+  # Download the data if not found locally.
+  WIKIDUMP=enwiki-latest-pages-articles1.xml-p10p30302
+  if [ ! -f data/"$WIKIDUMP" ]
+  then
+    wget https://dumps.wikimedia.org/enwiki/latest/$WIKIDUMP.bz2
+    mv $WIKIDUMP.bz2 data
+    bzip2 -d -k $WIKIDUMP.bz2
+  fi
+  # Extract clean text from xml dump.
+  WikiExtractor.py --json --no_templates --processes 4 \
+    -o $OUTDIR --min_text_length 10 data/$WIKIDUMP
+fi
 ```
 
-```{python word2vec_dl_shakespeare}
-import os
-import shutil
+Check one of the parsed file:
 
-shakes_file = "data/shakespeare.txt"
-if not os.path.exists(shakes_file):
-  shakes_dl_path = tf.keras.utils.get_file(
-    "shakespeare.txt",
-    "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt")
-  shutil.move(shakes_dl_path, shakes_file)
-shakespeare = open(shakes_file, "rb").read().decode(encoding="utf-8")
-shakespeare = shakespeare.split("\n")
+```{python}
+import re
+import jsonlines
 
-# Print the first few lines.
-for sent in shakespeare[:20]:
-  print(sent)
+infile = "data/enwiki_texts/AA/wiki_00"
+def parse_wiki_sent(infile):
+  paragraphs = []
+  with jsonlines.open(infile) as jlines:
+    for j in jlines:
+      paragraphs.append(j["text"])  # One paragraph per line.
+
+  # Break by newline.
+  lines = []
+  for p in paragraphs:
+    lines.extend(p.lower().split("\n"))
+
+  # Further break by sentence. We use a naive approach here just for simplicity.
+  sents = []
+  for l in lines:
+    if len(l) >= 20:
+      sents.extend(re.split(r"\. |! |\? ", l))
+
+  return sents
+
+sents = parse_wiki_sent(infile)
+print(len(sents))
+
+for s in sents[:3]:
+  print(s + "\n")
 ```
 
 To prepare our vocabulary,
 we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook: On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
 
 ```{python word2vec_spm, results="hide"}
+import os
+
 import sentencepiece as spm
 
-spm_args = "--input=data/shakespeare.txt"
+# Write out sentence files from processed wiki dumps.
+indir = "data/enwiki_texts/AA"
+outfile = "data/enwiki_sents.txt"
+if not os.path.exists(outfile):
+  with open(outfile, "w") as f:
+    for infile in os.listdir(indir):
+      sents = parse_wiki_sent(os.path.join(indir, infile))
+      for s in sents:
+        f.write(s + "\n")
+
+spm_args = "--input={}".format(outfile)
 spm_args += " --model_prefix=m"
-spm_args += " --vocab_size=5000"
+spm_args += " --vocab_size=10000"
 spm_args += " --model_type=unigram"
 spm.SentencePieceTrainer.Train(spm_args)
 
@@ -410,10 +463,10 @@ sp.Load("m.model")
 With the pre-trained vocabulary we can easily encode our entire corpus into sequence of integers:
 
 ```{python word2vec_encode_subword}
-shakespeare_wids = [sp.EncodeAsIds(line) for line in shakespeare]
+sent_wids = [sp.EncodeAsIds(s) for s in sents]
 
 # Test a line.
-test_ids = shakespeare_wids[213]
+test_ids = sent_wids[213]
 print(test_ids)
 print(sp.DecodeIds(test_ids))
 ```
@@ -442,12 +495,12 @@ pairs, labels = skipgrams(
 
 # Inspect the parsed training examples.
 # We discard the meta char <U+2581> for a cleaner output.
-sep = "\n----------------------------"
+sep = "\n------------------------------------------"
 for i, (x, y) in enumerate(zip(pairs, labels)):
   if i == 0:
-    print("{:6} -> {:12} | {}{}".format("target", "context", "label", sep))
+    print("{:15} -> {:15} | {}{}".format("target", "context", "label", sep))
   target, context = [sp.IdToPiece(i).replace("\u2581", "") for i in x]
-  print("{:6} -> {:12} | {}".format(target, context, y))
+  print("{:15} -> {:15} | {}".format(target, context, y))
 ```
 
 The `sampling_table` argumwent can be used to implement the dropout for frequent words.
@@ -545,7 +598,7 @@ def parse_line_map_fn(text_tensor):
 
 
 # For simplicity we drop text lines that are too short.
-dataset = tf.data.TextLineDataset(shakes_file)
+dataset = tf.data.TextLineDataset(outfile)
 dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 10))
 dataset = dataset.flat_map(parse_line_map_fn)
 dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
@@ -594,7 +647,7 @@ print(model.summary())
 ```{python word2vec_tf_model_train}
 # NOTE:
 # fit() is buggy in 2.0.0 stable release, use fit_generator() instead for a workaround.
-model.fit_generator(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
+model.fit_generator(dataset, epochs=2, steps_per_epoch=5000, verbose=0)
 ```
 
 ```{r word2vec_tf_model_loss}
@@ -604,10 +657,13 @@ plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
 ```
 
 As one can see,
-for such a the small corpus the model quickly converge.
+for such a the small corpus the model quickly converges.
+The learned embeddings can be retrieved from a layer of our neural nets.
+It is simply a matrix of dimension with vocab size by embedding size.
 
 ```{python word2vec_tf_trained_vectors}
 word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
+print(word_vectors.shape)
 print(word_vectors)
 ```
 
@@ -615,7 +671,7 @@ print(word_vectors)
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-ws_meta = "\u2581"
+ws_meta = "\u2581"  # The sentencepiece special meta char.
 i = sp.PieceToId(ws_meta + "love")
 
 scores = cosine_similarity(word_vectors[i,np.newaxis], word_vectors)
@@ -757,14 +813,20 @@ def count_cooccurrence(seq_list, window_size):
   return cooccur_dict
 
 # Pre-parse corpus into word ids.
-shakespeare_wids = [sp.EncodeAsIds(line) for line in shakespeare]
+with open(outfile, "r") as f:
+  wiki_sents = f.read().split("\n")
+wiki_sents_wids = [sp.EncodeAsIds(s) for s in wiki_sents]
 
 # Create co-occurence training triplets.
-cooccur_dict = count_cooccurrence(shakespeare_wids, 2)
+cooccur_dict = count_cooccurrence(wiki_sents_wids, 3)
 triplets = np.array([(*k, v) for k, v in cooccur_dict.items()])
 
-# Print the resulting triplets.
-print(triplets[:5])
+print(triplets.shape)
+```
+
+```{r glove_print_triplets}
+# Print the resulting triplets. Use R for better print format.
+head(py$triplets)
 ```
 
 ```{python glove_tf_data_pipeline}
@@ -867,8 +929,7 @@ target and context embeddings.
 The final embedding of a word can be obtained by summing the two embeddings together.
 
 ```{python glove_tf_model}
-# Dimension of embeddings. Typically 128 to 512.
-k = 64
+k = 64  # Dimension of embeddings.
 vocab_size = len(sp)
 
 # We separate target and context word indices as two input layers.
@@ -902,7 +963,8 @@ print(glove.summary())
 ```
 
 ```{python glove_tf_model_train}
-glove.fit_generator(dataset, epochs=5, steps_per_epoch=1000, verbose=0)
+# We train only 1 epoch to save time.
+glove.fit_generator(dataset, epochs=1, steps_per_epoch=100000, verbose=0)
 ```
 
 ```{r glove_tf_model_loss}
@@ -1001,32 +1063,41 @@ Here is an example of window size = 2:
 
 #### Train GloVe {-}
 
-For ease of a quick demo we will use the official demo sample data for `text2vec` here.
-The `text8` dataset is a one long line resulting from concatenation of the entire corpus,
-which is a subset of wikipedia articles.
+Let's use the wiki texts again for a quick demo.
 
-```{r text2vec_demo}
-text8_file = "data/text8"
-if (!file.exists(text8_file)) {
-  download.file("http://mattmahoney.net/dc/text8.zip", "data/text8.zip")
-  unzip ("data/text8.zip", files="text8", exdir="data")
-}
-wiki <- readLines(text8_file, n=1, warn=FALSE)
+```{r text2vec_shakes}
+sents <- readLines("data/enwiki_sents.txt")
 
-tokens <- space_tokenizer(wiki)
+tokens <- word_tokenizer(sents)
 it <- itoken(tokens, progressbar=FALSE)
 vocab <- create_vocabulary(it)
-vocab <- prune_vocabulary(vocab, term_count_min=5)
+vocab <- prune_vocabulary(vocab, term_count_min=10)
 vectorizer <- vocab_vectorizer(vocab)
-tcm <- create_tcm(it, vectorizer, skip_grams_window=2)
+tcm <- create_tcm(it, vectorizer, skip_grams_window=3)
 dim(tcm)
 
 glove <- GlobalVectors$new(word_vectors_size=64, vocabulary=vocab, x_max=100, alpha=3/4)
-target_embeddings <- glove$fit_transform(tcm, n_iter=5)
+target_embeddings <- glove$fit_transform(tcm, n_iter=20)
 
 # Merge target and context embeddings as the final embeddings.
 glove_embeddings <- target_embeddings + t(glove$components)
+str(glove_embeddings)
+
+# Calculate similarity.
+query <- sim2(glove_embeddings, glove_embeddings["man",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["taiwan",,drop=FALSE])
+tail(sort(query[,1]))
 ```
+
+In the second similarity task outcome,
+apparently "hong" should be "hong kong" instead,
+but our naive tokenizer fails to make it as one single word.
+Extension to a bigram approach could be a cure.
+
+One should also realize that the training speed is considerably faster with `text2vec` (even with a larger vocabulary size) than our previous hand-crafted `tensorflow` implementation.
+This is totally expected since our implementation is really for educational purpose and is not optimized at all.
 
 ## FastText
 
@@ -1061,7 +1132,7 @@ let's take advantage of the high-level API from `scikit-learn` for a quick exper
 ```{python fasttext_ngram_sklearn}
 from sklearn.feature_extraction.text import CountVectorizer
 
-corpus = shakespeare
+corpus = wiki_sents
 
 # Create fullword vocabulary.
 word_vectorizer = CountVectorizer(analyzer="word", lowercase=True)
