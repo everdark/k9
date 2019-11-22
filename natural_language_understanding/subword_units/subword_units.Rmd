@@ -755,4 +755,124 @@ for seg in sp.NBestEncodeAsPieces("This is a test", 5):
   print(seg)
 ```
 
+# Exercise: Chinese Words Segmentation
+
+In this section we demonstrate the segmentation on a non-whitespace-separated langauge:
+traditional chinese.
+We will use a subset of wikipedia articles (from [Wikimedia Downloads](https://dumps.wikimedia.org/)).
+We use the [WikiExtractor](https://github.com/attardi/wikiextractor) tool to process the raw dump,
+and [OpenCC](https://github.com/BYVoid/OpenCC) to convert the texts into traditional chinese (Taiwan standard).
+
+```{bash download_zhwiki}
+# Prepare zh-wiki dumps
+OUTDIR=data/zhwiki_texts
+if [ ! -d $OUTDIR ]
+then
+  # Download the data if not found locally.
+  WIKIDUMP=zhwiki-latest-pages-articles1.xml-p1p162886
+  if [ ! -f data/"$WIKIDUMP" ]
+  then
+    wget https://dumps.wikimedia.org/zhwiki/latest/$WIKIDUMP.bz2
+    mv $WIKIDUMP.bz2 data
+    bzip2 -d -k $WIKIDUMP.bz2
+  fi
+  # Extract clean text from xml dump.
+  WikiExtractor.py --json --no_templates --processes 4 \
+    -o $OUTDIR --min_text_length 10 data/$WIKIDUMP
+fi
+```
+
+```{python parse_zhwiki_dump}
+import jsonlines
+
+infile = "data/zhwiki_texts/AA/wiki_00"
+def parse_wiki_sent(infile):
+  # Simple sentence delimiter.
+  _DELIMITER_HALF = ["!", "\?"]
+  _ZH_DELIMITER_FULL = ["。", "！", "？"]
+  _GENERAL_DELIMITER = ["\n"]
+  _DELIMITER = _DELIMITER_HALF + _ZH_DELIMITER_FULL + _GENERAL_DELIMITER
+  split_pat = r'{}'.format('|'.join(_DELIMITER))
+
+  # Read paragraphs.
+  paragraphs = []
+  with jsonlines.open(infile) as jlines:
+    for j in jlines:
+      paragraphs.append(j["text"])
+
+  # Break by newline.
+  lines = []
+  for p in paragraphs:
+    lines.extend(p.lower().split("\n"))
+
+  # Further break by sentence. We use a naive approach here just for simplicity.
+  sents = []
+  for l in lines:
+    if len(l) >= 20:
+      sents.extend(re.split(split_pat, l))
+
+  return sents
+
+sents = parse_wiki_sent(infile)
+
+# Show raw cleaned texts.
+for s in sents[:3]:
+  print(s + "\n")
+```
+
+```{python writeout_wiki_sent}
+# Write out sentence files from processed wiki dumps.
+indir = "data/zhwiki_texts"
+outfile = "data/zhwiki_sents.txt"
+
+if not os.path.exists(outfile):
+  with open(outfile, "w") as f:
+    for root, dirs, leafs in os.walk(indir):
+      for l in leafs:
+        infile = os.path.join(root, l)
+        if os.path.isfile(infile):
+          sents = parse_wiki_sent(infile)
+          for s in sents:
+            if s != "":
+              f.write(s + "\n")
+```
+
+```{bash opencc}
+# Bash
+# Convert to traditional chinese in Taiwan standard.
+opencc -i data/zhwiki_sents.txt -o data/tw_zhwiki_sents.txt -c s2twp.json
+```
+
+```{bash tw_zhwiki_sent_head}
+head -n5 data/tw_zhwiki_sents.txt
+```
+
+```{python train_twzh_spm}
+import sentencepiece as spm
+
+# Skip training if the model file is already there, to save notebook rendering time.
+if not os.path.exists("twzh.model"):
+  spm_args = "--input=data/tw_zhwiki_sents.txt"
+  spm_args += " --model_prefix=twzh"
+  spm_args += " --vocab_size=30000"
+  spm_args += " --model_type=unigram"
+  spm.SentencePieceTrainer.Train(spm_args)
+```
+
+```{python twzh_demo}
+twzh_model = spm.SentencePieceProcessor()
+twzh_model.Load("twzh.model")
+
+twzh_model.EncodeAsPieces("光復香港，時代革命")
+
+twzh_model.EncodeAsPieces("我們與惡的距離")
+
+twzh_model.EncodeAsPieces("所有的模型都是錯的，但有些是有用的")
+```
+
+The result is not perfect,
+but considering the effort we put it is quite good already.
+For a bigger corpus that may be more representative to the downstream application,
+the unsupervised tokenization is a very convenient way to quickly dive into the modeling phase with little pre-processing effort of the traditional NLP tasks.
+
 # References
