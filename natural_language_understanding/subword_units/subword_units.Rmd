@@ -840,7 +840,10 @@ if not os.path.exists(outfile):
 ```{bash opencc}
 # Bash
 # Convert to traditional chinese in Taiwan standard.
-opencc -i data/zhwiki_sents.txt -o data/tw_zhwiki_sents.txt -c s2twp.json
+if [ ! -f "data/tw_zhwiki_sents.txt" ]
+then
+  opencc -i data/zhwiki_sents.txt -o data/tw_zhwiki_sents.txt -c s2twp.json
+fi
 ```
 
 ```{bash tw_zhwiki_sent_head}
