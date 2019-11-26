@@ -646,8 +646,9 @@ context_embeddings = embeddings(input_contexts)
 dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
 outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
 
+optimizer = tf.keras.optimizers.SGD(lr=.025, decay=1e-6, momentum=.9)
 model = tf.keras.Model(inputs=[input_targets, input_contexts], outputs=outputs, name="word2vec")
-model.compile(loss="binary_crossentropy", optimizer=tf.keras.optimizers.SGD(.025))
+model.compile(loss="binary_crossentropy", optimizer=optimizer)
 
 print(model.summary())
 ```
