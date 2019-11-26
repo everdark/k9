@@ -370,6 +370,8 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import tensorflow as tf
 print(tf.__version__)
+if tf.test.is_gpu_available():
+  print(tf.test.gpu_device_name())
 ```
 
 #### Subword Segmentation {-}
@@ -445,7 +447,8 @@ import sentencepiece as spm
 indir = "data/enwiki_texts/AA"
 outfile = "data/enwiki_sents.txt"
 if not os.path.exists(outfile):
-  with open(outfile, "w") as f:
+  # This may cause RStudio to hang forever. In that case, run it in a separate Python session.
+  with open(outfile, "w", encoding="utf-8") as f:
     for infile in os.listdir(indir):
       sents = parse_wiki_sent(os.path.join(indir, infile))
       for s in sents:
@@ -578,7 +581,7 @@ here instead we demonstrate a more production-ready approach with a data iterato
 
 ```{python word2vec_tf_data_pipeline}
 vocab_size = len(sp)
-batch_size = 32
+batch_size = 64
 sampling_table = make_sampling_table(vocab_size, sampling_factor=1e-3)
 
 
@@ -722,7 +725,7 @@ from gensim.models import Word2Vec
 # Encode sentences into list of tokens as training input.
 # Here we use our pre-trained sentencepiece model as the tokenizer.
 sp_sents = []
-with open(outfile, "r") as f:
+with open(outfile, "r", encoding="utf-8") as f:
   for _, line in enumerate(f):
     sp_sents.append(sp.EncodeAsPieces(line))
 
