@@ -696,17 +696,18 @@ print(word_vectors)
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-ws_meta = "\u2581"  # The sentencepiece special meta char.
-i = sp.PieceToId(ws_meta + "love")
+def find_similar_words(w, wv, top_k=10):
+  ws_meta = "\u2581"  # The sentencepiece special meta char.
+  i = sp.PieceToId(ws_meta + w)
+  scores = cosine_similarity(wv[i,np.newaxis], wv)
+  scores = np.squeeze(scores)
+  sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
+  for i, s in zip(sim_ind, scores[sim_ind]):
+    print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 
-scores = cosine_similarity(word_vectors[i,np.newaxis], word_vectors)
-scores = np.squeeze(scores)
-
-top_k = 10
-sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
-
-for i, s in zip(sim_ind, scores[sim_ind]):
-  print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
+find_similar_words("love", wv=word_vectors)
+find_similar_words("girl", wv=word_vectors)
+find_similar_words("computer", wv=word_vectors)
 ```
 
 ### Training with High-Level Framework
