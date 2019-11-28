@@ -50,17 +50,18 @@ print(model.summary())
 
 
 # In-memory training.
+infile = "data/enwiki_sents.txt"
 sampling_table = make_sampling_table(len(sp), sampling_factor=1e-3)
 x = []
 y = []
-with open(outfile, "r", encoding="utf-8") as f:
+with open(infile, "r", encoding="utf-8") as f:
   for i, line in enumerate(f):
     ids = sp.EncodeAsIds(line)
     pairs, labels = skipgrams(
       ids, vocabulary_size=len(sp),
-      window_size=3, negative_samples=5,
-      shuffle=True, sampling_table=sampling_table
-    )
+      window_size=2, negative_samples=2,
+      sampling_table=sampling_table,
+      shuffle=True)
     x.extend(pairs)
     y.extend(labels)
 x = np.array(x)
@@ -68,8 +69,28 @@ y = np.array(y)
 
 x.shape
 
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=5, verbose=1)
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, initial_epoch=5, epochs=10, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=10000, epochs=5, verbose=1)
+
+
+# Sentence as batch training.
+sent_ids = []
+with open(infile, "r", encoding="utf-8") as f:
+  for i, line in enumerate(f):
+    sent_ids.append(sp.EncodeAsIds(line))
+
+sampling_table = make_sampling_table(len(sp), sampling_factor=1e-3)
+for epoch in range(10):
+  loss = 0
+  for sent in sent_ids:
+    if len(sent) > 5:
+      pairs, labels = skipgrams(
+        sent, vocabulary_size=len(sp),
+        window_size=2, negative_samples=2,
+        sampling_table=sampling_table,
+        shuffle=True)
+      x = np.array(pairs)
+      loss += model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
+  print("Epoch {}, total_loss={}".format(epoch, loss))
 
 
 # On-disk training.
@@ -77,8 +98,8 @@ def parse_line(text_tensor):
   """Convert a raw text line (in tensor) into skp-gram training examples."""
   ids = sp.EncodeAsIds(text_tensor.numpy())
   pairs, labels = skipgrams(
-    ids, vocabulary_size=vocab_size,
-    window_size=3, negative_samples=5,
+    ids, vocabulary_size=len(sp),
+    window_size=2, negative_samples=2,
     shuffle=True, sampling_table=sampling_table
   )
   targets, contexts = list(zip(*pairs))
@@ -95,10 +116,11 @@ def parse_line_map_fn(text_tensor):
 
 
 # For simplicity we drop text lines that are too short.
+batch_size = 10000
 dataset = tf.data.TextLineDataset(outfile)
 dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 20))
 dataset = dataset.flat_map(parse_line_map_fn)
-dataset = dataset.shuffle(buffer_size=10000).repeat(None)
+dataset = dataset.shuffle(buffer_size=10000).repeat(10)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
@@ -110,11 +132,12 @@ for x, y in dataset:
 
 
 # It seems that fit_generator only updates gradient per epoch with dataset api.
-# This will be too slow to train our model
-model.fit_generator(dataset, epochs=10, steps_per_epoch=100, shuffle=True, workers=4, use_multiprocessing=True, verbose=1)
+# This will be too slow to train our model.
+# And repeat() doesn't seem to work with keras.Model.fit_generator at all?
+model.fit_generator(dataset, epochs=10, steps_per_epoch=320, shuffle=True, workers=4, use_multiprocessing=True, verbose=1)
 
 
-# Use train_on_batch instead,
+# Or use train_on_batch instead.
 n_steps = 100000
 losses = []
 for i, (x, y) in enumerate(dataset):
@@ -147,9 +170,11 @@ def find_similar_words(w, wv, top_k=10):
 
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
+find_similar_words("man", wv=word_vectors)
 find_similar_words("computer", wv=word_vectors)
 find_similar_words("elephants", wv=word_vectors)
 find_similar_words("elephant", wv=word_vectors)
 find_similar_words("1", wv=word_vectors)
+find_similar_words("2", wv=word_vectors)
 find_similar_words("and", wv=word_vectors)
 find_similar_words("or", wv=word_vectors)
