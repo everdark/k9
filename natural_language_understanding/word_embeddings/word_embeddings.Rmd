@@ -18,6 +18,7 @@ output:
   code_download: true
 bibliography: word_embeddings.bib
 nocite: |
+  @reticulate
   @heinzerling2018bpemb
 abstract: |
   Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models. At the end, we demonstrate in short several popular frameworks to handle pre-trained embeddings.
@@ -64,7 +65,7 @@ if ( is(r, "try-error") ) {
 
 ---
 
-This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate)(@reticulate),
+This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate),
 a package that allows inter-operation between R and Python.
 
 ---
@@ -572,6 +573,54 @@ Based on the [source code](https://github.com/keras-team/keras-preprocessing/blo
 it only performs a uniform distribution random draw from the vocabulary as the negative sample.
 For simplicity we will keep it as-is.
 
+##### Further Down-Sampling in Skipgram Generation
+
+The Keras `skipgrams` module will generate pair of target-context words in an exhaustive manner,
+subect to subsampling of frequent words.
+This turns out to be still too much for us to train a model efficiently.
+For example,
+a sentence of only 5 words with window size = 2 and 3 negative samples will result in up to 56 training examples!
+Given any sizable corpus the training examples will easily expand to hundreds of millions,
+with too many redundant information that doesn't really help the model to learn.
+
+@mikolov2013efficient propose a randomized context window approach to effectively reduce training examples whenever context window size is larger than 1.
+So instead of doing
+
+```python
+skipgrams(ids, window_size=5, ...)
+```
+
+we do
+
+```python
+skipgrams(ids, window_size=np.random.randint(5 - 1) + 1, ...)
+```
+
+Consequently,
+more distant words will be subject to dropout.
+
+In addition,
+we will avoid to build the context window with consecutive target words.
+Instead,
+we build the window in a non-overlapping manner:
+
+```{python word2vec_downsample_skipgram}
+def downsample_skipgrams(ids, vocab_size, subsample=1e-3, window=2, neg=2):
+  w = []
+  y = []
+  sampling_table = make_sampling_table(vocab_size, sampling_factor=subsample)
+  span = 2 * window + 1
+  targets = ids[window::span]
+  pairs, labels = skipgrams(
+    ids, vocabulary_size=vocab_size, window_size=np.random.randint(window - 1) + 1,
+    negative_samples=neg, sampling_table=sampling_table, shuffle=True)
+  for (t, c), l in zip(pairs, labels):
+    if t in targets:
+      w.append([t, c])
+      y.append(l)
+  return w, y
+```
+
 #### Model Architecture {-}
 
 The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
@@ -622,29 +671,23 @@ let's train the model with a variety of different ways.
 
 #### In-Memory Training
 
-
-
 ```{python word2vec_in_mem_train}
+infile = "data/enwiki_sents.txt"
 x = []
 y = []
-with open(outfile, "r", encoding="utf-8") as f:
+with open(infile, "r", encoding="utf-8") as f:
   for i, line in enumerate(f):
     ids = sp.EncodeAsIds(line)
-    pairs, labels = skipgrams(
-      ids, vocabulary_size=len(sp),
-      window_size=3, negative_samples=5,
-      sampling_table=make_sampling_table(len(sp), sampling_factor=1e-3),
-      shuffle=True
-    )
+    pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
     x.extend(pairs)
     y.extend(labels)
 x = np.array(x)
 y = np.array(y)
 
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=2048, epochs=5, verbose=1)
+x.shape
+
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=5, verbose=1)
 ```
-
-
 
 #### Data Pipeline {-}
 
