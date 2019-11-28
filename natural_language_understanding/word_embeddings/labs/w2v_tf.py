@@ -37,11 +37,11 @@ target_embeddings = embeddings(input_targets)
 context_embeddings = embeddings(input_contexts)
 
 dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
-outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
-#outputs = tf.keras.layers.Dense(1, activation="sigmoid")(dots)
+#outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
+outputs = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")(dots)
 outputs = tf.keras.layers.Reshape((1,), input_shape=(1, 1))(outputs)
 
-optimizer = tf.keras.optimizers.SGD(lr=.2, decay=1e-5, momentum=.9)
+optimizer = tf.keras.optimizers.SGD(lr=.5, decay=1e-4, momentum=.9)
 model = tf.keras.Model(inputs=[input_targets, input_contexts],
                        outputs=outputs,
                        name="word2vec")
@@ -86,8 +86,8 @@ y = np.array(y)
 
 x.shape
 
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=5, verbose=1)
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, initial_epoch=5, epochs=10, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=10, verbose=1)
+#model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, initial_epoch=10, epochs=20, verbose=1)
 
 
 # On-the-fly. Batch by sentence.
@@ -184,11 +184,13 @@ def find_similar_words(w, wv, top_k=10):
   for i, s in zip(sim_ind, scores[sim_ind]):
     print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 
+find_similar_words("man", wv=word_vectors)
+find_similar_words("1", wv=word_vectors)
+
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
 find_similar_words("computer", wv=word_vectors)
 find_similar_words("elephants", wv=word_vectors)
 find_similar_words("elephant", wv=word_vectors)
-find_similar_words("1", wv=word_vectors)
 find_similar_words("and", wv=word_vectors)
 find_similar_words("or", wv=word_vectors)
