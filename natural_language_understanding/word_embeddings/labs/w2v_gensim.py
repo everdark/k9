@@ -15,7 +15,7 @@ len(sp_sents)
 sp_sents[0]
 
 # Train word2vec.
-gensim_w2v = Word2Vec(sp_sents, sg=1, size=128, window=3, hs=0, negative=5, min_count=5, workers=4)
+gensim_w2v = Word2Vec(sp_sents, sg=1, size=128, window=2, hs=0, negative=2, min_count=5, workers=4)
 
 len(gensim_w2v.wv.vocab)
 

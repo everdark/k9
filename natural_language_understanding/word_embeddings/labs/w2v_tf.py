@@ -38,9 +38,10 @@ context_embeddings = embeddings(input_contexts)
 
 dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
 outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
+#outputs = tf.keras.layers.Dense(1, activation="sigmoid")(dots)
 outputs = tf.keras.layers.Reshape((1,), input_shape=(1, 1))(outputs)
 
-optimizer = tf.keras.optimizers.SGD(lr=.1, decay=1e-5, momentum=.9)
+optimizer = tf.keras.optimizers.SGD(lr=.2, decay=1e-5, momentum=.9)
 model = tf.keras.Model(inputs=[input_targets, input_contexts],
                        outputs=outputs,
                        name="word2vec")
@@ -49,19 +50,35 @@ model.compile(loss="binary_crossentropy", optimizer=optimizer)
 print(model.summary())
 
 
+# Skipgram generation.
+# Keras skipgrams generates too many pairs. We need to downsample it for efficient training.
+# The only flaw here is that if the target word appears more than once in the sentence,
+# we will also extract the training window from those appearance.
+# This still can already reduce lots of training pairs.
+def downsample_skipgrams(ids, vocab_size, subsample=1e-3, window=2, neg=2):
+  w = []
+  y = []
+  sampling_table = make_sampling_table(vocab_size, sampling_factor=subsample)
+  span = 2 * window + 1
+  targets = ids[window::span]
+  pairs, labels = skipgrams(
+    ids, vocabulary_size=vocab_size, window_size=np.random.randint(window - 1) + 1,
+    negative_samples=neg, sampling_table=sampling_table, shuffle=True)
+  for (t, c), l in zip(pairs, labels):
+    if t in targets:
+      w.append([t, c])
+      y.append(l)
+  return w, y
+
+
 # In-memory training.
 infile = "data/enwiki_sents.txt"
-sampling_table = make_sampling_table(len(sp), sampling_factor=1e-3)
 x = []
 y = []
 with open(infile, "r", encoding="utf-8") as f:
   for i, line in enumerate(f):
     ids = sp.EncodeAsIds(line)
-    pairs, labels = skipgrams(
-      ids, vocabulary_size=len(sp),
-      window_size=2, negative_samples=2,
-      sampling_table=sampling_table,
-      shuffle=True)
+    pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
     x.extend(pairs)
     y.extend(labels)
 x = np.array(x)
@@ -69,27 +86,28 @@ y = np.array(y)
 
 x.shape
 
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=10000, epochs=5, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=5, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, initial_epoch=5, epochs=10, verbose=1)
 
 
-# Sentence as batch training.
+# On-the-fly. Batch by sentence.
 sent_ids = []
 with open(infile, "r", encoding="utf-8") as f:
   for i, line in enumerate(f):
     sent_ids.append(sp.EncodeAsIds(line))
 
-sampling_table = make_sampling_table(len(sp), sampling_factor=1e-3)
+len(sent_ids)
+
 for epoch in range(10):
-  loss = 0
-  for sent in sent_ids:
-    if len(sent) > 5:
-      pairs, labels = skipgrams(
-        sent, vocabulary_size=len(sp),
-        window_size=2, negative_samples=2,
-        sampling_table=sampling_table,
-        shuffle=True)
+  total_loss = 0
+  for i, sent in enumerate(sent_ids):
+    if len(sent) >= 5:
+      pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
       x = np.array(pairs)
-      loss += model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
+      loss = model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
+      total_loss += loss
+      if i % 100 == 0:
+        print("Step {}, loss={}".format(i, loss), end="\r")
   print("Epoch {}, total_loss={}".format(epoch, loss))
 
 
@@ -98,8 +116,8 @@ def parse_line(text_tensor):
   """Convert a raw text line (in tensor) into skp-gram training examples."""
   ids = sp.EncodeAsIds(text_tensor.numpy())
   pairs, labels = skipgrams(
-    ids, vocabulary_size=len(sp),
-    window_size=2, negative_samples=2,
+    ids, vocabulary_size=vocab_size,
+    window_size=3, negative_samples=5,
     shuffle=True, sampling_table=sampling_table
   )
   targets, contexts = list(zip(*pairs))
@@ -116,11 +134,10 @@ def parse_line_map_fn(text_tensor):
 
 
 # For simplicity we drop text lines that are too short.
-batch_size = 10000
 dataset = tf.data.TextLineDataset(outfile)
 dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 20))
 dataset = dataset.flat_map(parse_line_map_fn)
-dataset = dataset.shuffle(buffer_size=10000).repeat(10)
+dataset = dataset.shuffle(buffer_size=10000).repeat(None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
@@ -132,12 +149,11 @@ for x, y in dataset:
 
 
 # It seems that fit_generator only updates gradient per epoch with dataset api.
-# This will be too slow to train our model.
-# And repeat() doesn't seem to work with keras.Model.fit_generator at all?
-model.fit_generator(dataset, epochs=10, steps_per_epoch=320, shuffle=True, workers=4, use_multiprocessing=True, verbose=1)
+# This will be too slow to train our model
+model.fit_generator(dataset, epochs=10, steps_per_epoch=100, shuffle=True, workers=4, use_multiprocessing=True, verbose=1)
 
 
-# Or use train_on_batch instead.
+# Use train_on_batch instead,
 n_steps = 100000
 losses = []
 for i, (x, y) in enumerate(dataset):
@@ -170,11 +186,9 @@ def find_similar_words(w, wv, top_k=10):
 
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
-find_similar_words("man", wv=word_vectors)
 find_similar_words("computer", wv=word_vectors)
 find_similar_words("elephants", wv=word_vectors)
 find_similar_words("elephant", wv=word_vectors)
 find_similar_words("1", wv=word_vectors)
-find_similar_words("2", wv=word_vectors)
 find_similar_words("and", wv=word_vectors)
 find_similar_words("or", wv=word_vectors)
