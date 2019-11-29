@@ -876,7 +876,7 @@ for i, (x, y) in enumerate(dataset):
 print(model.optimizer._decayed_lr("float32").numpy())
 
 # Save the entire model.
-model.save("enwiki_w2v.h5")
+model.save("models/enwiki_w2v.h5")
 ```
 
 (We won't run the code in notebook rendering to save time.)
@@ -887,7 +887,7 @@ The learned embeddings can be retrieved from a layer of our neural nets.
 It is simply a matrix of dimension with vocabulary size by embedding size.
 
 ```{python word2vec_tf_trained_vectors}
-model = tf.keras.models.load_model("enwiki_w2v.h5")
+model = tf.keras.models.load_model("models/enwiki_w2v.h5")
 word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
 print(word_vectors.shape)
 print(word_vectors)
@@ -1284,13 +1284,13 @@ for epoch in range(n_epoch):
       continue
 
 # Save model.
-glove.save("enwiki_glove.h5")
+glove.save("models/enwiki_glove.h5")
 ```
 
 #### Word Similarity {-}
 
 ```{python glove_tf_trained_vectors}
-glove = tf.keras.models.load_model("enwiki_glove.h5")
+glove = tf.keras.models.load_model("models/enwiki_glove.h5")
 target_word_vectors = glove.get_layer("target_embeddings").weights[0].numpy()
 context_word_vectors = glove.get_layer("context_embeddings").weights[0].numpy()
 glove_vectors = target_word_vectors + context_word_vectors
