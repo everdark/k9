@@ -126,20 +126,9 @@ for epoch in range(n_epoch):
         print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss), end="\r")
         losses.append(loss)
     else:
-      print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
-      continue
+      break
+  print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
 
-
-n_steps = len(triplets) // batch_size
-losses = []
-for i, (x, y) in enumerate(dataset):
-  if i < n_steps:
-    loss = glove.train_on_batch(x, y, reset_metrics=True)
-    if i % 1000 == 0:
-      print("Step {}, loss={}".format(i, loss))#, end="\r")
-      losses.append(loss)
-  else:
-    break
 
 
 # Save model.

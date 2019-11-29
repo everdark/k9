@@ -1280,8 +1280,8 @@ for epoch in range(n_epoch):
         print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss), end="\r")
         losses.append(loss)
     else:
-      print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
-      continue
+      break
+  print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
 
 # Save model.
 glove.save("models/enwiki_glove.h5")
