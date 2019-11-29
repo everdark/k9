@@ -19,6 +19,7 @@ output:
 bibliography: word_embeddings.bib
 nocite: |
   @reticulate
+  @tensorflow2015-whitepaper
   @heinzerling2018bpemb
 abstract: |
   Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models. At the end, we demonstrate in short several popular frameworks to handle pre-trained embeddings.
@@ -345,7 +346,7 @@ abline(v=1e-5, col="red")
 text(1e-5, -1, pos=4, col="red", bquote(t == 10^-5))
 ```
 
-Note that the function does not return a valid probability in smaller $f(w_i)$.
+Note that the function does not return a valid probability in small $f(w_i)$.
 Indeed we have $\lim_{f(w_i) \to 0} P(w_i) = -\infty$.
 In case of a negative value we simply replace it with a zero:
 no dropout.
@@ -361,7 +362,8 @@ it is not very flexible to use and has platform compatibility issue.^[Specifical
 
 In this section,
 instead,
-we will try to use `tensorflow` (@tensorflow2015-whitepaper) to implement an end-to-end example of a skip-gram `word2vec` model.
+we will try to use `tensorflow` to implement an end-to-end example of a skip-gram `word2vec` model,
+for educational purpose.
 
 ```{python import_tf}
 import logging
@@ -375,7 +377,7 @@ if tf.test.is_gpu_available():
   print(tf.test.gpu_device_name())
 ```
 
-#### Subword Segmentation {-}
+#### Training Corpus {-}
 
 Since skip-gram works better when the corpus is larger,
 let's use a subset of wikipedia articles (from [Wikimedia Downloads](https://dumps.wikimedia.org/)) to demonstrate the training of `word2vec`.
@@ -435,6 +437,8 @@ for s in sents[:3]:
   print(s + "\n")
 ```
 
+#### Subword Segmentation {-}
+
 To prepare our vocabulary,
 we use `sentencepiece` (@kudo2018sentencepiece) to learn subwords from Shakespeare.^[For more details on subword unit segmentation, reader can refer to the [notebook: On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html).]
 
@@ -444,10 +448,14 @@ import string
 
 import sentencepiece as spm
 
+vocab_size = 30000
+model_prefix = "enwiki"
+
 # Write out sentence files from processed wiki dumps.
 indir = "data/enwiki_texts/AA"
 outfile = "data/enwiki_sents.txt"
 if not os.path.exists(outfile):
+  # For notebook user:
   # This may cause RStudio to hang forever. In that case, run it in a separate Python session.
   with open(outfile, "w", encoding="utf-8") as f:
     for infile in os.listdir(indir):
@@ -458,13 +466,13 @@ if not os.path.exists(outfile):
         f.write(s + "\n")
   # Train a sentencepiece model.
   spm_args = "--input={}".format(outfile)
-  spm_args += " --model_prefix=m"
-  spm_args += " --vocab_size=30000"
+  spm_args += " --model_prefix={}".format(model_prefix)
+  spm_args += " --vocab_size={}".format(vocab_size)
   spm_args += " --model_type=unigram"
   spm.SentencePieceTrainer.Train(spm_args)
 
 sp = spm.SentencePieceProcessor()
-sp.Load("m.model")
+sp.Load(model_prefix + ".model")
 ```
 
 With the pre-trained vocabulary we can easily encode our entire corpus into sequence of integers:
@@ -500,8 +508,7 @@ print(test_ids[:5]) # Demo short sentence.
 pairs, labels = skipgrams(
   test_ids[:5], vocabulary_size=len(sp),
   window_size=1, negative_samples=1,
-  shuffle=False, seed=777,
-  sampling_table=None)
+  shuffle=False, sampling_table=None)
 
 # Inspect the parsed training examples.
 # We discard the meta char <U+2581> for a cleaner output.
@@ -523,7 +530,6 @@ from tensorflow.keras.preprocessing.sequence import make_sampling_table
 # That is, more frequent words come first.
 # SentencePiece does exactly this so we don't need to do any further post-processing.
 
-# We set a higher threshold for dropput since our vocabulary size is rather small.
 sampling_table = make_sampling_table(len(sp), sampling_factor=1e-3)
 ```
 
@@ -538,14 +544,35 @@ where $w_r$ is the frequency rank of word $w$,
 $\gamma$ is the [Euler-Mascheroni constant](https://en.wikipedia.org/wiki/Euler%E2%80%93Mascheroni_constant).
 In this manner the frequency only depends on the ranks but not the exact counts of words in vocabulary.
 
-Let's examine the resulting dropout probabilities given our threshold (`sampling_factor`):
+Let's examine the resulting dropout probabilities given our vocabulary size with some commonly chosen thresholds:
 
 ```{r woprd2vec_keras_dropout_plot}
 # R
-plot(1 - py$sampling_table, type="l",
+sampling_table_1e3 <- py$make_sampling_table(py$vocab_size, 1e-3)
+sampling_table_1e4 <- py$make_sampling_table(py$vocab_size, 1e-4)
+sampling_table_1e5 <- py$make_sampling_table(py$vocab_size, 1e-5)
+
+plot(1 - sampling_table_1e3, type="l",
      xlab="Subword Index", ylab="Dropout Probability",
      main="Zipf's Law Dropout Probabilities (Keras API)",
      sub=bquote(sampling_factor == 1e-3))
+lines(1 - sampling_table_1e4, type="l", col="blue")
+lines(1 - sampling_table_1e5, type="l", col="red")
+```
+
+The blue curve correspond to a factor of `1e-4`,
+and red of `1e-5`.
+We can see that given our not-so-big vocabulary a factor size of `1e-3` may be more appropriate.
+Let's zoom-in the plot:
+
+```{r woprd2vec_keras_dropout_plot_zoom}
+first_n <- 1000
+plot(1 - sampling_table_1e3[1:first_n], type="l",
+     xlab="Subword Index", ylab="Dropout Probability",
+     main="Zipf's Law Dropout Probabilities (Keras API)",
+     sub=sprintf("(First %s Words)", first_n))
+lines(1 - sampling_table_1e4[1:first_n], type="l", col="blue")
+lines(1 - sampling_table_1e5[1:first_n], type="l", col="red")
 ```
 
 We can verify the word-rank-frequency conversion by manually compute the approximation:
@@ -563,8 +590,9 @@ freq_to_drop <- function(fw, t) {
   pmax(0, 1 - sqrt(t / fw))
 }
 
-plot(freq_to_drop(rank_to_freq(1:length(py$sampling_table)), t=1e-3), type="l",
+plot(freq_to_drop(rank_to_freq(1:first_n), t=1e-3), type="l",
      main="Zipf's Law Dropout Probabilities (Verification)",
+     ylab="Dropout Probability",
      sub=bquote(sampling_factor == 1e-3))
 ```
 
@@ -573,7 +601,7 @@ Based on the [source code](https://github.com/keras-team/keras-preprocessing/blo
 it only performs a uniform distribution random draw from the vocabulary as the negative sample.
 For simplicity we will keep it as-is.
 
-##### Further Down-Sampling in Skipgram Generation
+##### Further Down-Sampling in Skipgram
 
 The Keras `skipgrams` module will generate pair of target-context words in an exhaustive manner,
 subect to subsampling of frequent words.
@@ -605,7 +633,13 @@ Instead,
 we build the window in a non-overlapping manner:
 
 ```{python word2vec_downsample_skipgram}
+import numpy as np
+
 def downsample_skipgrams(ids, vocab_size, subsample=1e-3, window=2, neg=2):
+  # Limitation:
+  # If a word in the target position also appears in other positions,
+  # training pairs for those positions are also included.
+  # We still achieve a quite good downsampling anyway.
   w = []
   y = []
   sampling_table = make_sampling_table(vocab_size, sampling_factor=subsample)
@@ -626,32 +660,38 @@ def downsample_skipgrams(ids, vocab_size, subsample=1e-3, window=2, neg=2):
 The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
 dot-products and cross entropy loss optimization.
 It is highly similar to a matrix factorization problem with a log-loss.
-The main difference lies in how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
+The main difference lies in just how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
 
 ```{python word2vec_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
-k = 128
+embedding_size = 128
 
 # We separate target and context word indices as two input layers.
 input_targets = tf.keras.layers.Input(shape=(1,), name="targets")
 input_contexts = tf.keras.layers.Input(shape=(1,), name="contexts")
 
 # Word embeddings are looked up separately for target and context words.
-embeddings = tf.keras.layers.Embedding(len(sp), k, name="word_embeddings")
+embeddings = tf.keras.layers.Embedding(len(sp), embedding_size, name="word_embeddings")
 target_embeddings = embeddings(input_targets)
 context_embeddings = embeddings(input_contexts)
 
 # Dot-product of the target and context word embeddings with sigmoid activation.
 dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
-outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
+outputs = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")(dots)
 outputs = tf.keras.layers.Reshape((1,), input_shape=(1, 1))(outputs)
 
-optimizer = tf.keras.optimizers.SGD(lr=.05, decay=1e-6, momentum=.9)
+optimizer = tf.keras.optimizers.SGD(lr=.5, decay=1e-5, momentum=.9)
 model = tf.keras.Model(inputs=[input_targets, input_contexts], outputs=outputs, name="word2vec")
 model.compile(loss="binary_crossentropy", optimizer=optimizer)
 
 print(model.summary())
 ```
+
+Note that instead of having only the dot-product in the sigmoid activation,
+we include a coefficient and a bias as well.
+This is why we have in total `vocab_size * embedding_size + 2` trainable parameters,
+as pointed out in the model summary.
+It turns out that this help the model learn meaningful embeddings faster.
 
 There is one thing worth noting.
 Since our output label will be a single dimension of binary outcome,
@@ -660,18 +700,24 @@ This can be easily seen from the above model summary.
 
 Even though the model may be extremely simple at the first glance,
 the training time can be very long if we stick to our Keras model implementation.
-This is mainly because number of training examples is HUGE.
-Even only 10k sentences can easily expand to millions of training examples depending on the setup of negative sampling and context window.
+This is mainly because number of training examples is HUGE,
+and our training procedure is sequential.
 
-For such simple factorization there are ways to optimize but won't fit into the high-level APIs we used.
-We will demonstrate in latter section how fast the training can be achieved should we choose to use a library with specific optimization done for this model.
+For such simple factorization there are ways to optimize but won't fit into the high-level APIs we adopted here.
+We will demonstrate in latter section how fast the training can be achieved should we choose to use a library with specific optimization done for this kind of model.
 But as of now,
 for educational purpose,
 let's train the model with a variety of different ways.
 
-#### In-Memory Training
+#### Model Training
 
-```{python word2vec_in_mem_train}
+##### In-Memory Training {-}
+
+Provided that we have enough memory,
+we can parse the entire corpus into memory in skip-gram pairs,
+and use the `fit` method:
+
+```python
 infile = "data/enwiki_sents.txt"
 x = []
 y = []
@@ -684,33 +730,54 @@ with open(infile, "r", encoding="utf-8") as f:
 x = np.array(x)
 y = np.array(y)
 
-x.shape
-
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=5, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=1, verbose=1)
 ```
 
-#### Data Pipeline {-}
+The above will have more than an hour to finish just one epoch.
+With GPU it could be a little bit faster,
+but the general overhead is on data streaming so it won't really boost the performance too much.
 
-Now let's implement the end-to-end data pipeline from raw text to trainable skip-gram pairs.
-Even though previously we already encode the entire corpus into list of sequence of subword indices,
-we can simply fit the entire training data in memory,
-here instead we demonstrate a more production-ready approach with a data iterator via `tf.data.Dataset` module.
+Or to save memory footprint we can train by sentence (varying batch size),
+only parse the skip-grams on the fly with the `train_on_batch` method:
+
+```python
+sent_ids = []
+with open(infile, "r", encoding="utf-8") as f:
+  for i, line in enumerate(f):
+    sent_ids.append(sp.EncodeAsIds(line))
+
+n_epoch = 1
+for epoch in range(n_epoch):
+  total_loss = 0
+  for i, sent in enumerate(sent_ids):
+    if len(sent) >= 5:
+      pairs, labels = downsample_skipgrams(sent, len(sp), window=2, neg=2)
+      if len(pairs):  # May be empty due to dropouts.
+          x = np.array(pairs)
+          loss = model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
+          total_loss += loss
+  print("Epoch {}, total_loss={}".format(epoch, loss))
+```
+
+##### On-Disk Training {-}
+
+A better way to train any neural network model with `tensorflow` is probably through a data generator.
+Let's implement the end-to-end data pipeline from raw text to trainable skip-gram pairs with `tf.data.Dataset` API.
 
 ```{python word2vec_tf_data_pipeline}
 vocab_size = len(sp)
-batch_size = 512
+batch_size = 4
 sampling_table = make_sampling_table(vocab_size, sampling_factor=1e-3)
 
 
 def parse_line(text_tensor):
   """Convert a raw text line (in tensor) into skp-gram training examples."""
   ids = sp.EncodeAsIds(text_tensor.numpy())
-  pairs, labels = skipgrams(
-    ids, vocabulary_size=vocab_size,
-    window_size=3, negative_samples=5,
-    shuffle=True, sampling_table=sampling_table
-  )
-  targets, contexts = list(zip(*pairs))
+  pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
+  if len(pairs):
+    targets, contexts = list(zip(*pairs))
+  else:
+    targets, contexts = [], []
   return targets, contexts, labels
 
 
@@ -727,7 +794,7 @@ def parse_line_map_fn(text_tensor):
 dataset = tf.data.TextLineDataset(outfile)
 dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 20))
 dataset = dataset.flat_map(parse_line_map_fn)
-dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
+dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
@@ -740,12 +807,10 @@ for x, y in dataset:
 ```
 
 Note that since each text line can generate a varying number of training examples due to the nature of skip-gram and the sampling table,
-without actually traversing through the entire corpus we won't know how many training examples are actually generated from out corpus.
-
-
+without actually traversing through the entire corpus we won't know how many training examples are actually generated from our corpus.
 
 Let's verify the operation step-by-step to make sure the model definition is working as expected.
-We can use the actual data from our iterator as testing case for the verification.
+We can use the actual data from our iterator as testing case for the verification:
 
 ```{python check_keras_layer_def}
 x1 = embeddings(x["targets"])
@@ -754,68 +819,83 @@ dot_op = tf.keras.layers.Dot(axes=-1, name="logits")
 act_op = tf.keras.layers.Activation("sigmoid", name="sigmoid")
 
 d = dot_op([x1, x2])
-print(d.numpy()[:3,:])
+print(d.numpy())
 
 a = act_op(d)
-print(a.numpy()[:3,:])
+print(a.numpy())
 
-print((x1.numpy() * x2.numpy()).sum(axis=1)[:3])  # Dot products.
+print((x1.numpy() * x2.numpy()).sum(axis=1, keepdims=True))  # Dot products.
 
-print(tf.sigmoid(d.numpy()[:3]).numpy())  # Activation with sigmoid.
+print(tf.sigmoid(d.numpy()).numpy())  # Activation with sigmoid.
+
+print(tf.keras.losses.binary_crossentropy(
+  tf.cast(y, tf.float32),
+  tf.keras.backend.squeeze(a, 1),
+  from_logits=False))
+
+print(tf.keras.losses.binary_crossentropy(
+  tf.cast(y, tf.float32),
+  tf.keras.backend.squeeze(d, 1),
+  from_logits=True))  # Built-in sigmoid here may have a slightly different smoothing factor.
+
+-np.mean(y.numpy() * np.log(a.numpy()[:,0]) + (1 - y.numpy()) * np.log(1 - a.numpy()[:,0]))  # Log-loss.
 ```
 
 To train the model, ideally we can simply call the `fit_generator` method on our `tf.data.Dataset`,
 just like this:^[As of the notebook is written, `fit()` is buggy in TF 2.0.0 stable release (but not in the 2.0 beta), so we use `fit_generator()` instead.]
 
 ```python
-model.fit_generator(dataset, epochs=1, steps_per_epoch=5000, verbose=0)
+model.fit_generator(dataset, epochs=1, steps_per_epoch=30000, verbose=1)
 ```
 
-But it seems that the gradient only get updates per epoch instead of per batch.
-(Not sure if it has something to do with the inter-play between `tf.data.Dataset` and `tf.keras.Model`, the latter definitely has better support for its own implementation of data iterator which is of class `tf.keras.utils.Sequence`.)
-For our model the training time will hence become prohibitively too long.
-To workaround this,
-let's use `train_on_batch` method instead.
-In this way we need to write our own training loop code:
+But `fit_generator` plays better with Keras' own [`Sequence`](https://www.tensorflow.org/api_docs/python/tf/keras/utils/Sequence) class of data iterator.
+Let's use `train_on_batch` method still.
+In this way we need to write our own training loop:
 
-```{python w2v_tf_model_train_on_batch}
-# Use train_on_batch instead,
-n_steps = 100000
+```python
+batch_size = 512  # Use a larger batch size.
+dataset = tf.data.TextLineDataset(outfile)
+dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 20))
+dataset = dataset.flat_map(parse_line_map_fn)
+dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
+dataset = dataset.batch(batch_size, drop_remainder=True)
+dataset = dataset.prefetch(batch_size)
+
+n_steps = 30000
 losses = []
-%%time
 for i, (x, y) in enumerate(dataset):
   if i < n_steps:
-    loss = model.train_on_batch(x, y, reset_metrics=False)
-    if i % 1000 == 0:
+    loss = model.train_on_batch(x, y, reset_metrics=True)
+    if i % 100 == 0:
       print("Step {}, loss={}".format(i, loss), end="\r")
       losses.append(loss)
   else:
     break
 
-# Check the final learning rate.
+# We can check the final learning rate decayed.
 print(model.optimizer._decayed_lr("float32").numpy())
+
+# Save the entire model.
+model.save("enwiki_w2v.h5")
 ```
 
+(We won't run the code in notebook rendering to save time.)
 
-```{r word2vec_tf_model_loss}
-# R
-plot(unlist(py$model$history$history["loss"]), pch="X", type="o",
-     xlab="Epoch", ylab="Loss", main="Word2vec Model Loss Trace")
-```
+#### Word Similarity
 
-As one can see,
-for such a the small corpus the model quickly converges.
 The learned embeddings can be retrieved from a layer of our neural nets.
-It is simply a matrix of dimension with vocab size by embedding size.
+It is simply a matrix of dimension with vocabulary size by embedding size.
 
 ```{python word2vec_tf_trained_vectors}
+model = tf.keras.models.load_model("enwiki_w2v.h5")
 word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
 print(word_vectors.shape)
 print(word_vectors)
 ```
 
-```{python word2vec_cosine_sim}
-import numpy as np
+Let's examine the learned embeddings with a word similarity task:
+
+```{python word2vec_cosine_sim_func}
 from sklearn.metrics.pairwise import cosine_similarity
 
 def find_similar_words(w, wv, top_k=10):
@@ -826,11 +906,26 @@ def find_similar_words(w, wv, top_k=10):
   sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
   for i, s in zip(sim_ind, scores[sim_ind]):
     print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
+```
 
+Some words are learned quite well even if we only train the model with approximately 1 epoch:
+
+```{python word2vec_good_sim}
+find_similar_words("man", wv=word_vectors)
+find_similar_words("computer", wv=word_vectors)
+find_similar_words("taiwan", wv=word_vectors)
+find_similar_words("1", wv=word_vectors)
+```
+
+But we also see some examples not well represented yet:
+
+```{python word2vec_bad_sim}
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
-find_similar_words("computer", wv=word_vectors)
 ```
+
+With more time and resources,
+we can definitely learn better embeddings than this.
 
 ### Training with High-Level Framework
 
@@ -841,18 +936,17 @@ This is how easy it can be done in just a few lines:
 ```{python gensim_w2v}
 from gensim.models import Word2Vec
 
-# Encode sentences into list of tokens as training input.
-# Here we use our pre-trained sentencepiece model as the tokenizer.
-sp_sents = []
-with open(outfile, "r", encoding="utf-8") as f:
-  for _, line in enumerate(f):
-    sp_sents.append(sp.EncodeAsPieces(line))
-
 # Train word2vec.
 gensim_w2v_model_file = "gensim_w2v.model"
 if os.path.exists(gensim_w2v_model_file):
   gensim_w2v = Word2Vec.load(gensim_w2v_model_file)
 else:
+  # Encode sentences into list of tokens as training input.
+  # Here we use our pre-trained sentencepiece model as the tokenizer.
+  sp_sents = []
+  with open(outfile, "r", encoding="utf-8") as f:
+    for _, line in enumerate(f):
+      sp_sents.append(sp.EncodeAsPieces(line))
   gensim_w2v = Word2Vec(sp_sents, sg=1, size=128, window=3, hs=0, negative=5, min_count=5, workers=4)
   gensim_w2v.save(gensim_w2v_model_file)
 
@@ -867,15 +961,15 @@ for l in gensim_w2v.wv.most_similar(ws_meta + "man"):
 
 for l in gensim_w2v.wv.most_similar(ws_meta + "taiwan"):
   print(l)
+
+for l in gensim_w2v.wv.most_similar(ws_meta + "1"):
+  print(l)
 ```
 
-Again,
-as one can see,
+With the optimized code for `word2vec` in `gensim`,
+we can easily use a shorter training time to achieve much better results.
+As one can see,
 `word2vec` is able to capture words that are used in similar context in terms of their surrounding words.
-
-Also,
-not too surprise,
-by using a framework the training speed is much faster than our simple educational implementation in tensorflow.
 
 ## Word2Bits
 
