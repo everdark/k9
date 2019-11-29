@@ -1,0 +1,71 @@
+---
+title: "On Model Explainability"
+subtitle: "From Shap, Lime, to Interpretable Boosting"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (29 Nov 2019 First Uploaded)"
+output:
+  html_notebook: 
+    highlight: pygments
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: model_explain.bib
+abstract: |
+  TBC.
+---
+<!--For controling code folding by chunk.-->
+<script src="../../site_libs/utils/hide_output.js"></script>
+
+<!--For equation reference in Rmd.-->
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+    '<meta name="author" content="Kyle Chung">',
+    '<meta property="og:title" content="On Model Explainability: From Shap, Lime, to Interpretable Boosting">',
+    '<meta property="og:type" content="article">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/model_explain/model_explain.nb.html">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
+    '<meta property="og:description" content="A data science notebook about machine learning model explainability.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/model_explain")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+# Shap
+
+# Lime
+
+# Interpretable Boosting
+
+# References
