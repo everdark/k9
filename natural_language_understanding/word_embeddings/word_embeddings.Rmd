@@ -709,7 +709,7 @@ But as of now,
 for educational purpose,
 let's train the model with a variety of different ways.
 
-#### Model Training
+#### Model Training {-}
 
 ##### In-Memory Training {-}
 
@@ -866,7 +866,7 @@ losses = []
 for i, (x, y) in enumerate(dataset):
   if i < n_steps:
     loss = model.train_on_batch(x, y, reset_metrics=True)
-    if i % 100 == 0:
+    if i % 1000 == 0:
       print("Step {}, loss={}".format(i, loss), end="\r")
       losses.append(loss)
   else:
@@ -967,7 +967,7 @@ for l in gensim_w2v.wv.most_similar(ws_meta + "1"):
 ```
 
 With the optimized code for `word2vec` in `gensim`,
-we can easily use a shorter training time to achieve much better results.
+we can easily use a shorter training time (a couple of minutes in this case, for ~740k sentences from a partial wikipedia) to achieve much better results.
 As one can see,
 `word2vec` is able to capture words that are used in similar context in terms of their surrounding words.
 
@@ -984,7 +984,7 @@ Readers who are interestefd can refer to the author's [source repository](https:
 
 GloVe stands for "Global Vectors" for word representation,
 proposed by @pennington2014glove as another unsupervised approach to train word embeddings from a large corpus.
-The idea is to combine a global matrix factorization that utilize the co-occurence statistics with a local context window method that utlizes the target-context predictive relatedness.
+The idea is to combine a global *matrix factorization* that utilize the local *co-occurence* statistics with a context window method that utlizes the target-context predictive relatedness.
 Based on a given context window size,
 we first establish a word-word co-occurence matrix,
 then factiorize the sparse matrix by training on only the nonzero elements.^[[Latent Semantic Analysis (LSA)](https://en.wikipedia.org/wiki/Latent_semantic_analysis) also uses matrix factorization in this manner but on a term-document matrix instead.]
@@ -1054,7 +1054,8 @@ $$
 
 By imposing the constraint that $W_i^TW_j = W_j^TW_i$ for target-context inter-exchangability,
 however,
-we need to rewrite the above equation to be:
+due to the general condition that $\ln X_i \ne \ln X_j$,
+we will need to rewrite the above equation to be:
 
 $$
 W_i^TW_j = \ln X_{ij} - \ln X_i - \ln X_j.
@@ -1066,7 +1067,7 @@ Now the term $\ln X_i$ and $\ln X_j$ correspond to the bias terms in the factori
 
 Similar to `word2vec`,
 [GloVe's original implementation](https://github.com/stanfordnlp/GloVe) is written in C.
-Let's also try to implement the model with `tensorflow`.
+Let's also try to implement the model with `tensorflow` for educational purpose.
 
 The code will be highly similar to that of our implementation for `word2vec`.
 The major difference is indeed how we create the data pipeline for our training triplet $(i, j, X_{ij})$.
@@ -1100,7 +1101,7 @@ def count_cooccurrence(seq_list, window_size):
   return cooccur_dict
 
 # Pre-parse corpus into word ids.
-with open(outfile, "r") as f:
+with open(outfile, "r", encoding="utf-8") as f:
   wiki_sents = f.read().split("\n")
 wiki_sents_wids = [sp.EncodeAsIds(s) for s in wiki_sents]
 
@@ -1117,14 +1118,14 @@ head(py$triplets)
 ```
 
 ```{python glove_tf_data_pipeline}
-batch_size = 128
+batch_size = 4
 
 dataset = tf.data.Dataset.from_tensor_slices(
   ({"targets": triplets[:,0].astype(int),
     "contexts": triplets[:,1].astype(int)},
   triplets[:,2]
 ))
-dataset = dataset.shuffle(buffer_size=1000).repeat(count=None)
+dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
@@ -1212,11 +1213,12 @@ def weighted_sum_squared_error(y_true, y_pred):
 Since target and context are inter-exchangable,
 theoretically we are only learning one set of embeddings.
 But instead we will learn for 2 sets separately:
-target and context embeddings.
+one set for target and the other for context embeddings.
 The final embedding of a word can be obtained by summing the two embeddings together.
+Empirically this shows better results than sharing embeddings between target and context words.
 
 ```{python glove_tf_model}
-k = 64  # Dimension of embeddings.
+embedding_size = 64  # Dimension of embeddings.
 vocab_size = len(sp)
 
 # We separate target and context word indices as two input layers.
@@ -1226,8 +1228,10 @@ input_contexts = tf.keras.layers.Input(shape=(1,), name="contexts")
 # Two set of embeddings are leared: target and context word embeddings.
 # Theoretically they are the same thing since the problem is symmetric.
 # But empirically by learning two separate sets of embeddings the results are better.
-embeddings_targets = tf.keras.layers.Embedding(vocab_size, k, name="target_embeddings")
-embeddings_contexts = tf.keras.layers.Embedding(vocab_size, k, name="context_embeddings")
+embeddings_targets = tf.keras.layers.Embedding(
+  vocab_size, embedding_size, name="target_embeddings")
+embeddings_contexts = tf.keras.layers.Embedding(
+  vocab_size, embedding_size, name="context_embeddings")
 target_embed = embeddings_targets(input_targets)
 context_embed = embeddings_contexts(input_contexts)
 
@@ -1236,9 +1240,9 @@ dots = tf.keras.layers.Dot(axes=-1, name="dots")([target_embed, context_embed])
 
 # Bias.
 target_biases = tf.keras.layers.Embedding(
-  input_dim=vocab_size, output_dim=1, name="target_biases")(input_targets)
+  vocab_size, 1, name="target_biases")(input_targets)
 context_biases = tf.keras.layers.Embedding(
-  input_dim=vocab_size, output_dim=1, name="context_biases")(input_contexts)
+  vocab_size, 1, name="context_biases")(input_contexts)
 
 # Model outputs.
 scores = tf.keras.layers.Add(name="scores")([dots, target_biases, context_biases])
@@ -1249,18 +1253,44 @@ glove.compile(loss=weighted_sum_squared_error, optimizer="sgd")
 print(glove.summary())
 ```
 
-```{python glove_tf_model_train}
-# We train only 1 epoch to save time.
-glove.fit_generator(dataset, epochs=1, steps_per_epoch=100000, verbose=0)
+#### Model Training {-}
+
+Here is a training loop implementation with `train_on_batch` method:
+(We don't run it in notebook to save rendering time.)
+
+```python
+batch_size = 512
+dataset = tf.data.Dataset.from_tensor_slices(
+  ({"targets": triplets[:,0].astype(int),
+    "contexts": triplets[:,1].astype(int)},
+  triplets[:,2]
+))
+dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
+dataset = dataset.batch(batch_size, drop_remainder=True)
+dataset = dataset.prefetch(batch_size)
+
+n_epoch = 5
+n_steps = len(triplets) // batch_size
+for epoch in range(n_epoch):
+  losses = []
+  for i, (x, y) in enumerate(dataset):
+    if i < n_steps:
+      loss = glove.train_on_batch(x, y, reset_metrics=True)
+      if i % 1000 == 0:
+        print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss), end="\r")
+        losses.append(loss)
+    else:
+      print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
+      continue
+
+# Save model.
+glove.save("enwiki_glove.h5")
 ```
 
-```{r glove_tf_model_loss}
-# R
-plot(unlist(py$glove$history$history["loss"]), pch="X", type="o",
-     xlab="Epoch", ylab="Loss", main="GloVe Model Loss Trace")
-```
+#### Word Similarity {-}
 
 ```{python glove_tf_trained_vectors}
+glove = tf.keras.models.load_model("enwiki_glove.h5")
 target_word_vectors = glove.get_layer("target_embeddings").weights[0].numpy()
 context_word_vectors = glove.get_layer("context_embeddings").weights[0].numpy()
 glove_vectors = target_word_vectors + context_word_vectors
@@ -1268,24 +1298,23 @@ print(glove_vectors.shape)
 ```
 
 ```{python glove_cosine_sim}
-ws_meta = "\u2581"
-i = sp.PieceToId(ws_meta + "man")
+find_similar_words("man", wv=glove_vectors)
+find_similar_words("computer", wv=glove_vectors)
+find_similar_words("taiwan", wv=glove_vectors)
+find_similar_words("1", wv=glove_vectors)
 
-scores = cosine_similarity(glove_vectors[i,np.newaxis], glove_vectors)
-scores = np.squeeze(scores)
-
-top_k = 10
-sim_ind = np.squeeze(scores).argsort()[-top_k:][::-1]
-
-for i, s in zip(sim_ind, scores[sim_ind]):
-  print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
+find_similar_words("love", wv=glove_vectors)
+find_similar_words("girl", wv=glove_vectors)
+find_similar_words("elephant", wv=glove_vectors)
 ```
 
-### `text2vec`
+### Training with High-Level Framework
 
-[`text2vec`](https://github.com/dselivanov/text2vec) (@dmitriy2018text2vec) is a high-level R package with efficient C++ implementation of GloVe.
+`gensim` does not support training GloVe from scratch.
+In this section instead we will explore [`text2vec`](https://github.com/dselivanov/text2vec) (@dmitriy2018text2vec),
+a high-level R package with very efficient C++ implementation of GloVe.
 The APIs are elegantly designed and easy to use.
-In this section we will spend some time exploring its [GloVe-related APIs](http://text2vec.org/glove.html).
+We will focus on its [GloVe-related APIs](http://text2vec.org/glove.html).
 
 Do note that all code chunks in this section is in the R language.
 
@@ -1351,6 +1380,7 @@ Here is an example of window size = 2:
 #### Train GloVe {-}
 
 Let's use the wiki texts again for a quick demo.
+Note that we didn't use the pre-trained subwords but re-build the vocabulary with `text2vec`'s simple tokenization API.
 
 ```{r text2vec_shakes}
 sents <- readLines("data/enwiki_sents.txt")
@@ -1369,12 +1399,32 @@ target_embeddings <- glove$fit_transform(tcm, n_iter=20)
 # Merge target and context embeddings as the final embeddings.
 glove_embeddings <- target_embeddings + t(glove$components)
 str(glove_embeddings)
+```
 
+```{r text2vece_sim}
 # Calculate similarity.
 query <- sim2(glove_embeddings, glove_embeddings["man",,drop=FALSE])
 tail(sort(query[,1]))
 
+query <- sim2(glove_embeddings, glove_embeddings["love",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["girl",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["elephant",,drop=FALSE])
+tail(sort(query[,1]))
+
 query <- sim2(glove_embeddings, glove_embeddings["taiwan",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["computer",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["1",,drop=FALSE])
+tail(sort(query[,1]))
+
+query <- sim2(glove_embeddings, glove_embeddings["10",,drop=FALSE])
 tail(sort(query[,1]))
 ```
 
@@ -1383,8 +1433,12 @@ apparently "hong" should be "hong kong" instead,
 but our naive tokenizer fails to make it as one single word.
 Extension to a bigram approach could be a cure.
 
-One should also realize that the training speed is considerably faster with `text2vec` (even with a larger vocabulary size) than our previous hand-crafted `tensorflow` implementation.
-This is totally expected since our implementation is really for educational purpose and is not optimized at all.
+Additionally,
+the word "love" seems not learned well in our simple setup.
+
+Anyway,
+one should notice that the training speed is considerably faster with `text2vec` than our educational `tensorflow` implementation.
+(To re-imeplement the model in `tensorflow` with comparable performance a huge effort will be involved including porting key operation to C++ and customize data pipeline...)
 
 ## FastText
 
