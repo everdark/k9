@@ -41,7 +41,7 @@ meta <- c(
     '<meta property="og:title" content="Context-Free Word Embeddings: From word2vec, GloVe, to fastText">',
     '<meta property="og:type" content="article">',
     '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
-    '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
+    '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
     '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
 )
 contents <- meta
