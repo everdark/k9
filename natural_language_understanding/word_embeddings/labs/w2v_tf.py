@@ -147,7 +147,7 @@ losses = []
 for i, (x, y) in enumerate(dataset):
   if i < n_steps:
     loss = model.train_on_batch(x, y, reset_metrics=True)
-    if i % 100 == 0:
+    if i % 1000 == 0:
       print("Step {}, loss={}".format(i, loss))#, end="\r")
       losses.append(loss)
   else:
