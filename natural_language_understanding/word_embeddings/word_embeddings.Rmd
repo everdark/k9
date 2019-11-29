@@ -1246,6 +1246,7 @@ context_biases = tf.keras.layers.Embedding(
 
 # Model outputs.
 scores = tf.keras.layers.Add(name="scores")([dots, target_biases, context_biases])
+scores = tf.keras.layers.Reshape((1,), input_shape=(1, 1))(scores)
 
 glove = tf.keras.Model(inputs=[input_targets, input_contexts], outputs=scores, name="glove")
 glove.compile(loss=weighted_sum_squared_error, optimizer="sgd")
