@@ -37,11 +37,10 @@ target_embeddings = embeddings(input_targets)
 context_embeddings = embeddings(input_contexts)
 
 dots = tf.keras.layers.Dot(axes=-1, name="logits")([target_embeddings, context_embeddings])
-#outputs = tf.keras.layers.Activation("sigmoid", name="sigmoid")(dots)
 outputs = tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")(dots)
 outputs = tf.keras.layers.Reshape((1,), input_shape=(1, 1))(outputs)
 
-optimizer = tf.keras.optimizers.SGD(lr=.5, decay=1e-4, momentum=.9)
+optimizer = tf.keras.optimizers.SGD(lr=.5, decay=1e-5, momentum=.9)
 model = tf.keras.Model(inputs=[input_targets, input_contexts],
                        outputs=outputs,
                        name="word2vec")
@@ -84,13 +83,13 @@ with open(infile, "r", encoding="utf-8") as f:
 x = np.array(x)
 y = np.array(y)
 
-x.shape
+x.shape  # This is huge!
 
-model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=10, verbose=1)
-#model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, initial_epoch=10, epochs=20, verbose=1)
+model.fit(x=[x[:,0], x[:,1]], y=y, batch_size=512, epochs=1, verbose=1)
 
 
 # On-the-fly. Batch by sentence.
+# The result is worse for one epoch, and also take longer to finish training.
 sent_ids = []
 with open(infile, "r", encoding="utf-8") as f:
   for i, line in enumerate(f):
@@ -98,16 +97,18 @@ with open(infile, "r", encoding="utf-8") as f:
 
 len(sent_ids)
 
-for epoch in range(10):
+for epoch in range(1):
   total_loss = 0
   for i, sent in enumerate(sent_ids):
     if len(sent) >= 5:
-      pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
-      x = np.array(pairs)
-      loss = model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
-      total_loss += loss
-      if i % 100 == 0:
-        print("Step {}, loss={}".format(i, loss), end="\r")
+      pairs, labels = downsample_skipgrams(sent, len(sp), window=2, neg=2)
+      if len(pairs):  # May be empty due to dropouts.
+          x = np.array(pairs)
+          loss = model.train_on_batch(x=[x[:,0], x[:,1]], y=np.array(labels))
+          total_loss += loss
+          if i % 1000 == 0:
+            # Batch loss will fluctuate a lot.
+            print("Step {}, loss={}".format(i, loss), end="\r")
   print("Epoch {}, total_loss={}".format(epoch, loss))
 
 
@@ -115,12 +116,11 @@ for epoch in range(10):
 def parse_line(text_tensor):
   """Convert a raw text line (in tensor) into skp-gram training examples."""
   ids = sp.EncodeAsIds(text_tensor.numpy())
-  pairs, labels = skipgrams(
-    ids, vocabulary_size=vocab_size,
-    window_size=3, negative_samples=5,
-    shuffle=True, sampling_table=sampling_table
-  )
-  targets, contexts = list(zip(*pairs))
+  pairs, labels = downsample_skipgrams(ids, len(sp), window=2, neg=2)
+  if len(pairs):
+    targets, contexts = list(zip(*pairs))
+  else:
+    targets, contexts = [], []
   return targets, contexts, labels
 
 
@@ -134,32 +134,20 @@ def parse_line_map_fn(text_tensor):
 
 
 # For simplicity we drop text lines that are too short.
-dataset = tf.data.TextLineDataset(outfile)
+batch_size = 512
+dataset = tf.data.TextLineDataset(infile)
 dataset = dataset.filter(lambda line: tf.greater(tf.strings.length(line), 20))
 dataset = dataset.flat_map(parse_line_map_fn)
 dataset = dataset.shuffle(buffer_size=10000).repeat(None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
-# Test.
-for x, y in dataset:
-  print(x)
-  print(y)
-  break
-
-
-# It seems that fit_generator only updates gradient per epoch with dataset api.
-# This will be too slow to train our model
-model.fit_generator(dataset, epochs=10, steps_per_epoch=100, shuffle=True, workers=4, use_multiprocessing=True, verbose=1)
-
-
-# Use train_on_batch instead,
-n_steps = 100000
+n_steps = 30000
 losses = []
 for i, (x, y) in enumerate(dataset):
   if i < n_steps:
     loss = model.train_on_batch(x, y, reset_metrics=True)
-    if i % 1000 == 0:
+    if i % 100 == 0:
       print("Step {}, loss={}".format(i, loss))#, end="\r")
       losses.append(loss)
   else:
@@ -167,7 +155,7 @@ for i, (x, y) in enumerate(dataset):
 
 # check if the learning rate is indeed decayed.
 model.optimizer._decayed_lr("float32").numpy()
-
+model.save("enwiki_w2v.h5")
 
 
 # Test similarity.
@@ -175,7 +163,7 @@ word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
 print(word_vectors.shape)
 
 
-def find_similar_words(w, wv, top_k=10):
+def find_similar_words(w, wv, top_k=10):# Use a larger batch size.# Use a larger batch size.
   ws_meta = "\u2581"  # The sentencepiece special meta char.
   i = sp.PieceToId(ws_meta + w)
   scores = cosine_similarity(wv[i,np.newaxis], wv)
@@ -184,12 +172,14 @@ def find_similar_words(w, wv, top_k=10):
   for i, s in zip(sim_ind, scores[sim_ind]):
     print("{:10} | {}".format(sp.IdToPiece(int(i)).replace(ws_meta, ""), s))
 
+
 find_similar_words("man", wv=word_vectors)
+find_similar_words("computer", wv=word_vectors)
+find_similar_words("taiwan", wv=word_vectors)
 find_similar_words("1", wv=word_vectors)
 
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
-find_similar_words("computer", wv=word_vectors)
 find_similar_words("elephants", wv=word_vectors)
 find_similar_words("elephant", wv=word_vectors)
 find_similar_words("and", wv=word_vectors)
