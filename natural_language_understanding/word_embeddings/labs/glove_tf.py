@@ -130,9 +130,8 @@ for epoch in range(n_epoch):
   print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
 
 
-
 # Save model.
-glove.save("enwiki_glove.h5")
+glove.save("models/enwiki_glove.h5")
 
 
 # Test word similarity.

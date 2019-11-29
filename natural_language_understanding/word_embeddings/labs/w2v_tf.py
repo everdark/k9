@@ -155,7 +155,7 @@ for i, (x, y) in enumerate(dataset):
 
 # check if the learning rate is indeed decayed.
 model.optimizer._decayed_lr("float32").numpy()
-model.save("enwiki_w2v.h5")
+model.save("models/enwiki_w2v.h5")
 
 
 # Test similarity.
