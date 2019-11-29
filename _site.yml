@@ -20,6 +20,8 @@ navbar:
         - text: "---"
         - text: "Introduction to Learning-to-Rank"
           href: learning_to_rank/learning_to_rank.html
+        - text: "---"
+        - text: "On Model Explainability (WIP)"
     - text: "Natural Language Understanding"
       menu:
         - text: "On Subword Units"
