@@ -64,8 +64,16 @@ if ( is(r, "try-error") ) {
 
 # Shap
 
+https://github.com/slundberg/shap#citations
+
 # Lime
 
-# Interpretable Boosting
+https://github.com/marcotcr/lime
+
+# Explainable Boosting Machine
+
+https://github.com/interpretml/interpret
+
+generalized additive models with pairwise interactions
 
 # References
