@@ -1,12 +1,12 @@
 ---
 title: "On Model Explainability"
-subtitle: "From Shap, Lime, to Interpretable Boosting"
+subtitle: "From LIME, SHAP, to Interpretable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (29 Nov 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (02 Dec 2019 First Uploaded)"
 output:
-  html_notebook: 
+  html_notebook:
     highlight: pygments
     number_sections: yes
     theme: paper
@@ -17,6 +17,10 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 bibliography: model_explain.bib
+nocite: |
+  @reticulate
+  @scikit-learn
+  @tensorflow2015-whitepaper
 abstract: |
   TBC.
 ---
@@ -62,17 +66,219 @@ if ( is(r, "try-error") ) {
 }
 ```
 
-# Shap
+---
 
-https://github.com/slundberg/shap#citations
+This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate),
+a package that allows inter-operation between R and Python.
 
-# Lime
+---
 
-https://github.com/marcotcr/lime
+# Motivation
+
+Why do we need to explain a machine learning model?
+The benefit of an explanable model against a black-box model is for the model to be *trusted*.
+Trust can be important in many real applications where the successful deployment of a machine learning model requires the trust from end users.
+Sometimes trust plays a even bigger role than model accuracy.
+
+Other than trust,
+model explainability (or interpretability, interchangeably used hereafter) may also guide us in the correct direction to further improve the model.
+
+In general,
+linear model is more interpretable than non-linear model.
+But the former also suffers from lower accuracy.
+More advanced and hence complicated model usually has worse interpretability.
+
+One should not confuse model explainability with the actual causality.
+Being able to explain a model doesn't mean that we can identify any ground-truth causal relation behind the model.
+Model explainability is for and only for the model,
+but not for the facts we'd like to model.
+Nevertheless,
+understand how we can reason the model definitely will help us better model the actual pattern behind the scence.
+
+In this notebook we will walk through 3 popular approaches of model prediction explanation,
+each of them comes with a dedicated Python package:
+
+1. [`shap`](https://github.com/slundberg/shap)
+2. [`lime`](https://github.com/marcotcr/lime)
+3. [`interpret`](https://github.com/interpretml/interpret)
+
+# Explanation Models
+
+An explanation model $g(x)$ is an *interpretable approximation* of the original model $f(x)$.
+Its sole purpose is to give extra explainability the original model fails to provide,
+due to its own complexity.
+
+The general idea is to use a simplified input $x\prime$ such that $x = h_x(x\prime)$,
+where $h_x(\cdot)$ is a mapping function for any given raw input $x$.
+Then the interpretable approximation can be written as:
+
+$$
+g(x\prime) \approx f(h_x(x\prime)).
+$$
+
+The *additive feature attribution methods* specify the explanation model of the following form:
+
+$$
+g(x\prime) = \phi_0 + \sum_{i = 1}^m \phi_i x_i\prime,
+$$
+
+where $m$ is total number of simplified features,
+$x\prime \in \{0, 1\}$ simply an indicator.^[In many such methods, the simplified input is the indicator of feature presence. One example: Shapley regression values.]
+Apparently,
+the choice of an additive model is for (linear) intrepretability.
+
+# LIME
+
+One very popular such above additive model is LIME (@ribeiro2016should).
+LIME stands for Local Interpretable Model-Agnostic Explanations.
+As its full name suggests,
+LIME can be applied to *any* machine learning model.
+LIME achieves prediction-level interpretability by approxmiating the original model with an explanation model locally around that prediction.
+
+## On Text Classifiers
+
+### Random Forest with TF-IDF Vectorization
+
+This section is based on the [official demo script](https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html),
+with minor modifications.
+
+```{python lime_rf}
+import lime
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score, classification_report
+
+categories = ["alt.atheism", "soc.religion.christian"]
+newsgroups_train = fetch_20newsgroups(subset="train", categories=categories)
+newsgroups_test = fetch_20newsgroups(subset="test", categories=categories)
+
+vectorizer = TfidfVectorizer(lowercase=True)
+train_vectors = vectorizer.fit_transform(newsgroups_train.data)
+test_vectors = vectorizer.transform(newsgroups_test.data)
+
+rf = RandomForestClassifier(n_estimators=300)
+rf.fit(train_vectors, newsgroups_train.target)
+
+pred = rf.predict(test_vectors)
+f1_score(newsgroups_test.target, pred, average="binary")
+
+print(classification_report(newsgroups_test.target, pred))
+```
+
+
+```{python lime_on_rf}
+from lime.lime_text import LimeTextExplainer
+from sklearn.pipeline import make_pipeline
+
+clf_pipe = make_pipeline(vectorizer, rf)
+explainer = LimeTextExplainer(class_names=categories)
+
+idx = 83
+exp = explainer.explain_instance(newsgroups_test.data[idx], clf_pipe.predict_proba, num_features=6)
+
+fig = exp.as_pyplot_figure()
+fig
+
+exp.show_in_notebook(text=False)
+
+exp.show_in_notebook(text=True)
+```
+
+### Neural Nets with Word Embeddings
+
+Instead of a random forest with TF-IDF vectorization,
+let's try a neural network model with word embeddings trained from scratch.
+
+```{python lime_nn}
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+tokenizer = Tokenizer(lower=True)
+tokenizer.fit_on_texts(newsgroups_train.data)
+vocab_size = len(tokenizer.index_word) + 1
+
+seq_train = tokenizer.texts_to_sequences(newsgroups_train.data)
+seq_train_padded = pad_sequences(seq_train, padding="post")
+seq_test = tokenizer.texts_to_sequences(newsgroups_test.data)
+seq_test_padded = pad_sequences(seq_test, padding="post")
+
+embedding_size = 32
+
+# This will fail if mask_zero=True.
+model = tf.keras.Sequential([
+  tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True),
+  tf.keras.layers.GlobalAveragePooling1D(),
+  tf.keras.layers.Dense(16, activation="relu"),
+  tf.keras.layers.Dense(1, activation="sigmoid")
+])
+
+model = tf.keras.Sequential()
+model.add(tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True))
+model.add(tf.keras.layers.GlobalAveragePooling1D())
+
+
+print(model.summary())
+
+model.compile(optimizer="adam",
+              loss="binary_crossentropy",
+              metrics=["accuracy"])
+
+model.fit(
+  x=seq_train_padded, y=newsgroups_train.target,
+  batch_size=32, epochs=50,
+  validation_data=(seq_test_padded, newsgroups_test.target),
+  validation_steps=20)
+
+
+# With masking.
+embeddings = tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True)
+masked_output = embeddings(seq_train_padded)
+```
+
+```{python lime_on_nn}
+model.predict_proba(seq_test_padded[idx, None])
+
+def nn_predict_fn(text):
+  seq = tokenizer.texts_to_sequences(text)
+  seq = pad_sequences(seq, padding="post", maxlen=5194)
+  p = model.predict_proba(seq)[0]
+  return np.array([1 - p, p]).transpose()
+
+
+clf_pipe.predict_proba([newsgroups_test.data[idx]])
+nn_predict_fn([newsgroups_test.data[idx]])
+
+# TODO:
+# The padding size will affect the prediction.
+# We should stick to a masking solution.
+
+explainer = LimeTextExplainer(class_names=categories)
+model_exp = explainer.explain_instance(newsgroups_test.data[idx], nn_predict_fn, num_features=6)
+```
+
+# Shapley Regression Values
+
+# SHAP
+
+@NIPS2017_7062 propose SHAP (SHapley Additive exPlanations),
+yet another additive feature attribution method for model explainability.
+It can be applied to *any* machine learning model,
+but comes with a customized fast implementation particularly for gradient boosting trees (GBT).
+It supports APIs of well-known GBT libraries such as
+[`xgboost`](https://github.com/dmlc/xgboost),
+[`lightgbm`](https://github.com/microsoft/LightGBM),
+and [`catboost`](https://github.com/catboost/catboost).
+
+The interpretability provided by SHAP is *local*.
+It assigns each feature an importance value *for a particular prediction.*
+Hence it provides for any given model prediction what may be the driving force for the model to make such prediction.
+
 
 # Explainable Boosting Machine
 
-https://github.com/interpretml/interpret
+@caruana2015intelligible
 
 generalized additive models with pairwise interactions
 
