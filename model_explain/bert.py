@@ -1,4 +1,7 @@
+import numpy as np
+import tensorflow as tf
 import tensorflow_hub as hub
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tokenization import FullTokenizer
 # https://github.com/tensorflow/models/blob/master/official/nlp/bert/tokenization.py
 
