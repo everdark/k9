@@ -195,11 +195,11 @@ idx = 83
 exp = explainer.explain_instance(
   newsgroups_test.data[idx], rf_pipe.predict_proba, num_features=6)
 
-exp.save_to_file("explain_text_rf.html")
+exp.save_to_file("/tmp/explain_text_rf.html")
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("explain_text_rf.html")
+htmltools::includeHTML("/tmp/explain_text_rf.html")
 ```
 
 ### Neural Nets with Word Embeddings
@@ -274,11 +274,11 @@ def nn_predict_fn(text):
 
 explainer = LimeTextExplainer(class_names=categories)
 model_exp = explainer.explain_instance(newsgroups_test.data[idx], nn_predict_fn, num_features=6)
-model_exp.save_to_file("explain_text_nn.html")
+model_exp.save_to_file("/tmp/explain_text_nn.html")
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("explain_text_nn.html")
+htmltools::includeHTML("/tmp/explain_text_nn.html")
 ```
 
 # Shapley Regression Values
