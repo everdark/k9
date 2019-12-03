@@ -4,7 +4,7 @@ subtitle: "From LIME, SHAP, to Interpretable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (02 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (03 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: pygments
@@ -25,7 +25,7 @@ abstract: |
   TBC.
 ---
 <!--For controling code folding by chunk.-->
-<script src="../../site_libs/utils/hide_output.js"></script>
+<script src="../site_libs/utils/hide_output.js"></script>
 
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -126,6 +126,7 @@ where $m$ is total number of simplified features,
 $x\prime \in \{0, 1\}$ simply an indicator.^[In many such methods, the simplified input is the indicator of feature presence. One example: Shapley regression values.]
 Apparently,
 the choice of an additive model is for (linear) intrepretability.
+The simplified features are an *interpretable representation* of the original model features.
 
 # LIME
 
@@ -137,21 +138,36 @@ LIME achieves prediction-level interpretability by approxmiating the original mo
 
 ## On Text Classifiers
 
+For text classification problem,
+the most straightforward interpretable representation of the model features will be a binary indicator vector of bag of words.
+So the explanation model will try to reason which word or token is driving the prediction in what direction.
+And this is true no matter the form of the original model feature.
+May it be a word count matrix,
+a term frequency-inverse document frequency (TF-IDF) matrix,
+or numerical embeddings.
+
+In the following we experiment LIME with two binary classifiers on a small text dataset,
+one using random forest with TF-IDF representation,
+another using a neural network with word embeddings.
+
 ### Random Forest with TF-IDF Vectorization
 
 This section is based on the [official demo script](https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html),
-with minor modifications.
+with only minor modifications.
 
-```{python lime_rf}
-import lime
+```{python lime_rf_tfidf}
+import os
+
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, classification_report
+from sklearn.metrics import classification_report
 
+home = os.path.expanduser("~")
+data_home = os.path.join(home, "scikit_learn_data")
 categories = ["alt.atheism", "soc.religion.christian"]
-newsgroups_train = fetch_20newsgroups(subset="train", categories=categories)
-newsgroups_test = fetch_20newsgroups(subset="test", categories=categories)
+newsgroups_train = fetch_20newsgroups(subset="train", categories=categories, data_home=data_home)
+newsgroups_test = fetch_20newsgroups(subset="test", categories=categories, data_home=data_home)
 
 vectorizer = TfidfVectorizer(lowercase=True)
 train_vectors = vectorizer.fit_transform(newsgroups_train.data)
@@ -159,103 +175,110 @@ test_vectors = vectorizer.transform(newsgroups_test.data)
 
 rf = RandomForestClassifier(n_estimators=300)
 rf.fit(train_vectors, newsgroups_train.target)
+rf_pred = rf.predict(test_vectors)
 
-pred = rf.predict(test_vectors)
-f1_score(newsgroups_test.target, pred, average="binary")
-
-print(classification_report(newsgroups_test.target, pred))
+print(classification_report(newsgroups_test.target, rf_pred))
 ```
 
+For the tiny dataset RF seems to work well.
+Now move on to model explanation with LIME:
 
 ```{python lime_on_rf}
 from lime.lime_text import LimeTextExplainer
 from sklearn.pipeline import make_pipeline
 
-clf_pipe = make_pipeline(vectorizer, rf)
+# We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
+rf_pipe = make_pipeline(vectorizer, rf)
 explainer = LimeTextExplainer(class_names=categories)
 
 idx = 83
-exp = explainer.explain_instance(newsgroups_test.data[idx], clf_pipe.predict_proba, num_features=6)
+exp = explainer.explain_instance(
+  newsgroups_test.data[idx], rf_pipe.predict_proba, num_features=6)
 
-fig = exp.as_pyplot_figure()
-fig
+exp.save_to_file("explain_text_rf.html")
+```
 
-exp.show_in_notebook(text=False)
-
-exp.show_in_notebook(text=True)
+```{r, echo=FALSE}
+htmltools::includeHTML("explain_text_rf.html")
 ```
 
 ### Neural Nets with Word Embeddings
 
-Instead of a random forest with TF-IDF vectorization,
-let's try a neural network model with word embeddings trained from scratch.
+Now let's try a neural network model with word embeddings trained from scratch.
+We use `tensorflow.keras` API to quickly build and train a neural net:
 
-```{python lime_nn}
+```{python import_tf}
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 import tensorflow as tf
+print(tf.__version__)
+if tf.test.is_gpu_available():
+  print(tf.test.gpu_device_name())
+```
+
+```{python lime_nn_embeddings}
+import numpy as np
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+# Build vocabulary.
 tokenizer = Tokenizer(lower=True)
 tokenizer.fit_on_texts(newsgroups_train.data)
 vocab_size = len(tokenizer.index_word) + 1
 
+# Encode text with Padding.
 seq_train = tokenizer.texts_to_sequences(newsgroups_train.data)
 seq_train_padded = pad_sequences(seq_train, padding="post")
+maxlen = seq_train_padded.shape[1]
 seq_test = tokenizer.texts_to_sequences(newsgroups_test.data)
-seq_test_padded = pad_sequences(seq_test, padding="post")
+seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 
-embedding_size = 32
+# Wrap Keras Sequential model with scikit-learn API.
+# This is because LimeTextExplainer seems buggy with native Keras model.
+def model_fn():
+  embedding_size = 32
+  model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(maxlen,)),
+    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True),
+    tf.keras.layers.GlobalAveragePooling1D(),
+    tf.keras.layers.Dense(embedding_size / 2, activation="relu"),
+    tf.keras.layers.Dense(1, activation="sigmoid")
+  ])
+  model.compile(optimizer="adam",
+                loss="binary_crossentropy",
+                metrics=["accuracy"])
+  return model
 
-# This will fail if mask_zero=True.
-model = tf.keras.Sequential([
-  tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True),
-  tf.keras.layers.GlobalAveragePooling1D(),
-  tf.keras.layers.Dense(16, activation="relu"),
-  tf.keras.layers.Dense(1, activation="sigmoid")
-])
-
-model = tf.keras.Sequential()
-model.add(tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True))
-model.add(tf.keras.layers.GlobalAveragePooling1D())
-
-
-print(model.summary())
-
-model.compile(optimizer="adam",
-              loss="binary_crossentropy",
-              metrics=["accuracy"])
+model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
 
 model.fit(
   x=seq_train_padded, y=newsgroups_train.target,
-  batch_size=32, epochs=50,
+  batch_size=32, epochs=10,
   validation_data=(seq_test_padded, newsgroups_test.target),
-  validation_steps=20)
+  validation_steps=20,
+  verbose=0)
 
-
-# With masking.
-embeddings = tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True)
-masked_output = embeddings(seq_train_padded)
+nn_pred = (np.squeeze(model.predict(seq_test_padded)) > .5).astype(int)
+print(classification_report(newsgroups_test.target, nn_pred))
 ```
 
 ```{python lime_on_nn}
-model.predict_proba(seq_test_padded[idx, None])
-
 def nn_predict_fn(text):
+  # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
-  seq = pad_sequences(seq, padding="post", maxlen=5194)
-  p = model.predict_proba(seq)[0]
-  return np.array([1 - p, p]).transpose()
-
-
-clf_pipe.predict_proba([newsgroups_test.data[idx]])
-nn_predict_fn([newsgroups_test.data[idx]])
-
-# TODO:
-# The padding size will affect the prediction.
-# We should stick to a masking solution.
+  seq = pad_sequences(seq, padding="post", maxlen=maxlen)
+  return model.predict_proba(seq)
 
 explainer = LimeTextExplainer(class_names=categories)
 model_exp = explainer.explain_instance(newsgroups_test.data[idx], nn_predict_fn, num_features=6)
+model_exp.save_to_file("explain_text_nn.html")
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("explain_text_nn.html")
 ```
 
 # Shapley Regression Values
@@ -277,6 +300,9 @@ Hence it provides for any given model prediction what may be the driving force f
 
 
 # Explainable Boosting Machine
+
+As of 2019-12-03,
+`interpret` is still in its alpha release.
 
 @caruana2015intelligible
 
