@@ -174,7 +174,7 @@ train_vectors = vectorizer.fit_transform(newsgroups_train.data)
 test_vectors = vectorizer.transform(newsgroups_test.data)
 
 rf = RandomForestClassifier(n_estimators=300)
-rf.fit(train_vectors, newsgroups_train.target)
+_ = rf.fit(train_vectors, newsgroups_train.target)
 rf_pred = rf.predict(test_vectors)
 
 print(classification_report(newsgroups_test.target, rf_pred))
@@ -229,7 +229,7 @@ tokenizer = Tokenizer(lower=True)
 tokenizer.fit_on_texts(newsgroups_train.data)
 vocab_size = len(tokenizer.index_word) + 1
 
-# Encode text with Padding.
+# Encode text with padding.
 seq_train = tokenizer.texts_to_sequences(newsgroups_train.data)
 seq_train_padded = pad_sequences(seq_train, padding="post")
 maxlen = seq_train_padded.shape[1]
@@ -265,7 +265,7 @@ nn_pred = (np.squeeze(model.predict(seq_test_padded)) > .5).astype(int)
 print(classification_report(newsgroups_test.target, nn_pred))
 ```
 
-```{python lime_on_nn}
+```{python lime_on_nn_embeddings}
 def nn_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
@@ -279,6 +279,17 @@ model_exp.save_to_file("/tmp/explain_text_nn.html")
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/explain_text_nn.html")
+```
+
+### Neural Nets with Transfer Learning
+
+One step further,
+let's use pre-trained word embeddings for the neural nets and build another explanation model.
+
+```{python lime_transfer_learning}
+```
+
+```{python lime_on_transfer_learning}
 ```
 
 # Shapley Regression Values
