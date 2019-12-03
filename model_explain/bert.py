@@ -1,13 +1,23 @@
+import os
+
 import numpy as np
+from sklearn.datasets import fetch_20newsgroups
 import tensorflow as tf
 import tensorflow_hub as hub
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tokenization import FullTokenizer
 # https://github.com/tensorflow/models/blob/master/official/nlp/bert/tokenization.py
 
+
+home = os.path.expanduser("~")
+data_home = os.path.join(home, "scikit_learn_data")
+categories = ["alt.atheism", "soc.religion.christian"]
+newsgroups_train = fetch_20newsgroups(subset="train", categories=categories, data_home=data_home)
+newsgroups_test = fetch_20newsgroups(subset="test", categories=categories, data_home=data_home)
+
 # Extract pre-trained BERT as a Keras layer.
 bert_model_path = "https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/1"
-bert_layer = hub.KerasLayer(model_path, trainable=True)
+bert_layer = hub.KerasLayer(bert_model_path, trainable=True)
 
 # Build tokenizer from pre-trained BERT vocabulary.
 bert_tokenizer = FullTokenizer(
@@ -19,17 +29,15 @@ bert_tokenizer = FullTokenizer(
 # Document longer than 512 words wont be able to be encoded by BERT,
 # since its positional encoding has a hard limit for 512 words.
 # We need to summarize the document into <= 512 tokens, or encode sentence by sentence then pool together.
+maxlen = 512
 
 # Encode text with padding, masking, and segmentation (required by BERT even if we don't use it).
-tok_seq_train = [bert_tokenizer.tokenize(text) for text in newsgroups_train.data]
-wid_seq_train = [bert_tokenizer.convert_tokens_to_ids(toks) for toks in tok_seq_train]
-wid_seq_train_padded = pad_sequences(wid_seq_train, padding="post")
+wid_seq_train = [bert_tokenizer.convert_tokens_to_ids(toks)[:maxlen] for toks in tok_seq_train]
+wid_seq_train_padded = pad_sequences(wid_seq_train, padding="post", maxlen=maxlen)
 wid_seq_train_mask = (wid_seq_train_padded > 0).astype(int)
 segment_ids_train = np.zeros_like(wid_seq_train_mask)
-maxlen = wid_seq_train_padded.shape[1]
 
-tok_seq_test = [bert_tokenizer.tokenize(text) for text in newsgroups_test.data]
-wid_seq_test = [bert_tokenizer.convert_tokens_to_ids(toks) for toks in tok_seq_test]
+wid_seq_test = [bert_tokenizer.convert_tokens_to_ids(toks)[:maxlen] for toks in tok_seq_test]
 wid_seq_test_padded = pad_sequences(wid_seq_test, padding="post", maxlen=maxlen)
 wid_seq_test_mask = (wid_seq_test_padded > 0).astype(int)
 segment_ids_test = np.zeros_like(wid_seq_test_mask)
@@ -51,6 +59,6 @@ bert.fit(
   x=[wid_seq_train_padded, wid_seq_train_mask, segment_ids_train],
   y=newsgroups_train.target,
   batch_size=32, epochs=10,
-  #validation_data=([wid_seq_test_padded, wid_seq_test_mask, segment_ids_test], newsgroups_test.target),
-  #validation_steps=20,
+  validation_data=([wid_seq_test_padded, wid_seq_test_mask, segment_ids_test], newsgroups_test.target),
+  validation_steps=20,
   verbose=1)
