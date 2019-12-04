@@ -7,7 +7,7 @@ author:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (03 Dec 2019 First Uploaded)"
 output:
   html_notebook:
-    highlight: pygments
+    highlight: tango
     number_sections: yes
     theme: paper
     toc: yes
@@ -154,6 +154,8 @@ another using a neural network with word embeddings.
 
 This section is based on the [official demo script](https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html),
 with only minor modifications.
+Particularly,
+we restrict the vocabulary size to avoid potential overfitting simply due to extremely rare word.
 
 ```{python lime_rf_tfidf}
 import os
@@ -169,9 +171,10 @@ categories = ["alt.atheism", "soc.religion.christian"]
 newsgroups_train = fetch_20newsgroups(subset="train", categories=categories, data_home=data_home)
 newsgroups_test = fetch_20newsgroups(subset="test", categories=categories, data_home=data_home)
 
-vectorizer = TfidfVectorizer(lowercase=True)
+vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
 train_vectors = vectorizer.fit_transform(newsgroups_train.data)
 test_vectors = vectorizer.transform(newsgroups_test.data)
+print(len(vectorizer.vocabulary_))  # Without OOV token.
 
 rf = RandomForestClassifier(n_estimators=300)
 _ = rf.fit(train_vectors, newsgroups_train.target)
@@ -225,11 +228,15 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # Build vocabulary.
-tokenizer = Tokenizer(lower=True)
+# Since we will use zero padding, 0 cannot be used as OOV index.
+# Keras tokenizer by default reserves 0 already. OOV token, if used, will be indexed at 1.
+# And len(tokenizer.index_word) will be all vocabulary instead of `num_words`.
+vocab_size = 3001  # +1 for 0 index used for padding.
+oov_token = "<unk>"
+tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size - 1)
 tokenizer.fit_on_texts(newsgroups_train.data)
-vocab_size = len(tokenizer.index_word) + 1
 
-# Encode text with padding.
+# Encode text with padding to ensure fixed-length input.
 seq_train = tokenizer.texts_to_sequences(newsgroups_train.data)
 seq_train_padded = pad_sequences(seq_train, padding="post")
 maxlen = seq_train_padded.shape[1]
@@ -241,20 +248,22 @@ seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 def model_fn():
   embedding_size = 32
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,)),
-    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True),
-    tf.keras.layers.GlobalAveragePooling1D(),
-    tf.keras.layers.Dense(embedding_size / 2, activation="relu"),
-    tf.keras.layers.Dense(1, activation="sigmoid")
-  ])
+    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
+    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
+    tf.keras.layers.Dense(embedding_size / 2, activation="relu", name="relu"),
+    tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
+  ], name="nn_classifier")
   model.compile(optimizer="adam",
                 loss="binary_crossentropy",
                 metrics=["accuracy"])
   return model
 
+print(model_fn().summary(line_length=90))
+
 model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
 
-model.fit(
+losses = model.fit(
   x=seq_train_padded, y=newsgroups_train.target,
   batch_size=32, epochs=10,
   validation_data=(seq_test_padded, newsgroups_test.target),
@@ -281,15 +290,104 @@ model_exp.save_to_file("/tmp/explain_text_nn.html")
 htmltools::includeHTML("/tmp/explain_text_nn.html")
 ```
 
-### Neural Nets with Transfer Learning
+### Transfer Learning
 
 One step further,
 let's use pre-trained word embeddings for the neural nets and build another explanation model.
+We will use [GloVe](https://nlp.stanford.edu/projects/glove/) (@pennington2014glove).
+We use just the smaller GloVe model since our dataset is quite small.
+In building the GloVe embeddings we need to take special care about out-of-vocabulary token AND padding index since we will be using the Keras API.
 
-```{python lime_transfer_learning}
+```{python lime_transfer_learning_vocab}
+import pandas as pd
+
+# Download GloVe pre-trained embeddings.
+cache_dir = os.path.join(home, ".keras")
+glove6b_path = "http://nlp.stanford.edu/data/glove.6B.zip"
+glove6b_50_model_path = os.path.join(cache_dir, "datasets", "glove.6B.50d.txt")
+
+if not os.path.exists(glove6b_50_model_path):
+  _ = tf.keras.utils.get_file(fname="glove.6B.zip", origin=glove6b_path,
+                              extract=True, cache_dir=cache_dir)
+
+glove_all = pd.read_csv(glove6b_50_model_path, sep=" ", header=None, index_col=0, quoting=3)
+
+# Map vocabulary to pre-trained embeddings.
+matched_toks = []
+for i, w in tokenizer.index_word.items():
+  if i < vocab_size:
+    if w in glove_all.index:
+      matched_toks.append(w)
+    else:
+      matched_toks.append(oov_token)
+
+# How many OOVs?
+print(len([t for t in matched_toks if t == oov_token]))
+
+# Note that GloVe pre-trained embeddings does not include its own OOV token.
+# We will use a global average embedding to represent OOV token.
+glove_all.loc[oov_token] = glove_all.values.mean(axis=0)
+glove = glove_all.loc[matched_toks].values
+
+# Append dummy 0-index vector to support padding.
+glove = np.vstack([np.zeros((1, glove.shape[1])), glove])
+print(glove.shape)
+```
+
+Now let's build the neural network.
+Most of the code will be the same as before,
+only the `Embedding` layer now we will use a constant matrix for initialization.
+We will freeze the GloVe embeddings and only train the subsequent layers.
+We expect the accuracy will be lower than our previous models.
+But will the model be more reasonable?
+
+```{python lime_transfer_learning_model}
+def tr_model_fn():
+  embedding_size = glove.shape[1]
+  model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
+    tf.keras.layers.Embedding(
+      vocab_size, embedding_size,
+      embeddings_initializer=tf.keras.initializers.Constant(glove),
+      trainable=False, mask_zero=True, name="glove_embedding"),
+    tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
+    tf.keras.layers.Dense(embedding_size / 2, activation="relu", name="relu"),
+    tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
+  ], name="tr_classifier")
+  model.compile(optimizer="adam",
+                loss="binary_crossentropy",
+                metrics=["accuracy"])
+  return model
+
+print(tr_model_fn().summary(line_length=90))
+
+tr_model = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
+
+losses = tr_model.fit(
+  x=seq_train_padded, y=newsgroups_train.target,
+  batch_size=32, epochs=50,
+  validation_data=(seq_test_padded, newsgroups_test.target),
+  validation_steps=20,
+  verbose=0)
+
+tr_pred = (np.squeeze(tr_model.predict(seq_test_padded)) > .5).astype(int)
+print(classification_report(newsgroups_test.target, tr_pred))
 ```
 
 ```{python lime_on_transfer_learning}
+def tr_predict_fn(text):
+  # This is for sklearn wrapper only.
+  seq = tokenizer.texts_to_sequences(text)
+  seq = pad_sequences(seq, padding="post", maxlen=maxlen)
+  return tr_model.predict_proba(seq)
+
+explainer = LimeTextExplainer(class_names=categories)
+model_exp = explainer.explain_instance(newsgroups_test.data[idx], tr_predict_fn, num_features=6)
+model_exp.save_to_file("/tmp/explain_text_tr.html")
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/explain_text_tr.html")
 ```
 
 # Shapley Regression Values
