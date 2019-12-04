@@ -4,7 +4,7 @@ subtitle: "From LIME, SHAP, to Interpretable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (03 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (04 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -22,11 +22,8 @@ nocite: |
   @scikit-learn
   @tensorflow2015-whitepaper
 abstract: |
-  TBC.
+  Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of use cases.
 ---
-<!--For controling code folding by chunk.-->
-<script src="../site_libs/utils/hide_output.js"></script>
-
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
 MathJax.Hub.Config({
@@ -131,7 +128,7 @@ The simplified features are an *interpretable representation* of the original mo
 # LIME
 
 One very popular such above additive model is LIME (@ribeiro2016should).
-LIME stands for Local Interpretable Model-Agnostic Explanations.
+LIME stands for **Local Interpretable Model-Agnostic Explanations.**
 As its full name suggests,
 LIME can be applied to *any* machine learning model.
 LIME achieves prediction-level interpretability by approxmiating the original model with an explanation model locally around that prediction.
@@ -151,6 +148,8 @@ one using random forest with TF-IDF representation,
 another using a neural network with word embeddings.
 
 ### Random Forest with TF-IDF Vectorization
+
+**TODO: Switch to a more meaningful dataset for demo throughout the notebook.**
 
 This section is based on the [official demo script](https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html),
 with only minor modifications.
@@ -197,7 +196,7 @@ explainer = LimeTextExplainer(class_names=categories)
 idx = 83
 exp = explainer.explain_instance(
   newsgroups_test.data[idx], rf_pipe.predict_proba, num_features=6)
-
+# For ipynb, one can simply call exp.show_in_notebook(text=True) to embed the html output.
 exp.save_to_file("/tmp/explain_text_rf.html")
 ```
 
@@ -263,12 +262,12 @@ print(model_fn().summary(line_length=90))
 
 model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
 
-losses = model.fit(
+metrics = model.fit(
   x=seq_train_padded, y=newsgroups_train.target,
   batch_size=32, epochs=10,
   validation_data=(seq_test_padded, newsgroups_test.target),
   validation_steps=20,
-  verbose=0)
+  verbose=2)
 
 nn_pred = (np.squeeze(model.predict(seq_test_padded)) > .5).astype(int)
 print(classification_report(newsgroups_test.target, nn_pred))
@@ -321,11 +320,10 @@ for i, w in tokenizer.index_word.items():
     else:
       matched_toks.append(oov_token)
 
-# How many OOVs?
-print(len([t for t in matched_toks if t == oov_token]))
-
 # Note that GloVe pre-trained embeddings does not include its own OOV token.
 # We will use a global average embedding to represent OOV token.
+print(len([t for t in matched_toks if t == oov_token]))  # How many OOVs?
+
 glove_all.loc[oov_token] = glove_all.values.mean(axis=0)
 glove = glove_all.loc[matched_toks].values
 
@@ -363,12 +361,12 @@ print(tr_model_fn().summary(line_length=90))
 
 tr_model = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
 
-losses = tr_model.fit(
+metrics = tr_model.fit(
   x=seq_train_padded, y=newsgroups_train.target,
   batch_size=32, epochs=50,
   validation_data=(seq_test_padded, newsgroups_test.target),
   validation_steps=20,
-  verbose=0)
+  verbose=2)
 
 tr_pred = (np.squeeze(tr_model.predict(seq_test_padded)) > .5).astype(int)
 print(classification_report(newsgroups_test.target, tr_pred))
@@ -390,23 +388,173 @@ model_exp.save_to_file("/tmp/explain_text_tr.html")
 htmltools::includeHTML("/tmp/explain_text_tr.html")
 ```
 
+##
+
+```{python}
+from lime.lime_tabular import LimeTabularExplainer
+
+
+```
+
 # Shapley Regression Values
 
 # SHAP
 
-@NIPS2017_7062 propose SHAP (SHapley Additive exPlanations),
+@NIPS2017_7062 propose SHAP (**SHapley Additive exPlanations**),
 yet another additive feature attribution method for model explainability.
-It can be applied to *any* machine learning model,
+It is a more general approach where LIME is indeed only a special case of it.
+Just like LIME,
+in theory it can be applied to *any* machine learning model,
 but comes with a customized fast implementation particularly for gradient boosting trees (GBT).
 It supports APIs of well-known GBT libraries such as
 [`xgboost`](https://github.com/dmlc/xgboost),
 [`lightgbm`](https://github.com/microsoft/LightGBM),
 and [`catboost`](https://github.com/catboost/catboost).
 
-The interpretability provided by SHAP is *local*.
+The interpretability provided by SHAP is again *local*.
 It assigns each feature an importance value *for a particular prediction.*
 Hence it provides for any given model prediction what may be the driving force for the model to make such prediction.
 
+`shap` also comes with more visualization methods for feature investigation,
+especially for feature interaction exploration.
+
+## On Text Classifiers
+
+### Random Forest with TF-IDF Vectorization
+
+For exactly the same model we build in the previous section about `lime`,
+this time we use `shap` to build the explanation model.
+
+```{python shap_on_rf}
+import shap
+
+sorted_vocab = sorted(vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
+sorted_vocab = [w for w, i in sorted_vocab]
+
+# shap doesn't support sparse matrix input for scikit-learn model.
+test_vectors_d = test_vectors.toarray()
+
+# Run explanation approximation for all testing examples at once.
+rf_shape_explainer = shap.TreeExplainer(rf)
+rf_shap_values = rf_shape_explainer.shap_values(test_vectors_d)
+
+rf_shap_p = shap.force_plot(
+  rf_shape_explainer.expected_value[1],
+  rf_shap_values[1][idx,:],
+  test_vectors_d[idx,:],
+  feature_names=sorted_vocab
+)
+shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/rf_shap_val.html")
+```
+
+```{python shap_on_rf_summary_plot}
+top_k = 20
+shap.summary_plot(rf_shap_values, test_vectors_d, feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
+```
+
+```{python rf_feat_imp}
+rf_feat_imp = pd.Series(rf.feature_importances_, index=sorted_vocab).sort_values()
+rf_feat_imp.tail(top_k).plot(kind="barh")
+# TODO:
+# How to show this plot in rmd?
+```
+
+### Gradient Boosting Trees
+
+Gradient boosting trees (GBT) is a powerful model family proven to work exceptionally well in many different applications.
+Yet due to its ensembling nature,
+GBT is also hard to intrepret in general.
+Like random forest,
+after building a model we will have access to the overall feature importance.
+But at per-instance prediction level there is nothing much to say about why the outcome is what it is.
+
+Let's quickly build a GBT using `lightgbm`:
+
+```{python shap_lgb}
+import lightgbm as lgb
+
+d_train = lgb.Dataset(train_vectors, label=newsgroups_train.target,
+                      feature_name=sorted_vocab)
+d_test = lgb.Dataset(test_vectors, label=newsgroups_test.target,
+                     feature_name=sorted_vocab)
+
+lgb_params = {
+  "learning_rate": .05,
+  "boosting_type": "gbdt",
+  "objective": "binary",
+  "metric": ["binary_logloss", "auc"],
+  "first_metric_only": True,
+  "num_leaves": 6,
+  "max_depth": 3,
+  "min_data_per_leaf": 5,
+  "verbose": -1
+}
+
+lgbooster = lgb.train(
+  params=lgb_params,
+  num_boost_round=300, early_stopping_rounds=20,
+  train_set=d_train, valid_sets=[d_test],
+  verbose_eval=50)
+
+lgb_pred = (lgbooster.predict(test_vectors) > .5).astype(int)
+print(classification_report(newsgroups_test.target, lgb_pred))
+```
+
+For the overall feature importance derived by GBT:
+
+```{python shap_lgb_feat_imp}
+lgb.plot_importance(lgbooster, max_num_features=20)
+```
+
+```{python shap_on_lgb}
+# Sparse matrix is supported for lightgbm model.
+lgb_explainer = shap.TreeExplainer(lgbooster)
+lgb_shap_values = lgb_explainer.shap_values(test_vectors)
+
+lgb_shap_p = shap.force_plot(
+  lgb_explainer.expected_value[1],
+  lgb_shap_values[1][idx,:],
+  test_vectors[idx,:].toarray(),  # We still need a dense matrix here.
+  feature_names=sorted_vocab
+)
+shap.save_html("/tmp/lgb_shap_val.html", lgb_shap_p)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/lgb_shap_val.html")
+```
+
+```{python verify_log_odds}
+# Note that by default shap for lightgbm reports log-odds rather than probability.
+# To verify this:
+p = lgbooster.predict(test_vectors[idx,:].toarray())
+print(np.log(p / (1 - p)))
+```
+
+### Neural Nets with Word Embeddings
+
+Encountered a bug for TF 2.0:
++ https://github.com/slundberg/shap/issues/850
++ https://github.com/slundberg/shap/issues/885
+
+```python
+# shap does not support keras model in scikit-learn wrapper.
+# Let's re-build the model and retain its Sequental class.
+
+dl_model = model_fn()
+metrics = dl_model.fit(
+  x=seq_train_padded, y=newsgroups_train.target,
+  batch_size=32, epochs=10,
+  validation_data=(seq_test_padded, newsgroups_test.target),
+  validation_steps=20,
+  verbose=0)
+
+dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
+```
 
 # Explainable Boosting Machine
 
