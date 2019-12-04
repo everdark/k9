@@ -61,6 +61,10 @@ if ( is(r, "try-error") ) {
   r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
   if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
 }
+
+# Auto show matplotlib plots.
+matplotlib <- import("matplotlib")
+matplotlib$use("Agg", force=TRUE)
 ```
 
 ---
