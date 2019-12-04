@@ -392,12 +392,12 @@ model_exp.save_to_file("/tmp/explain_text_tr.html")
 htmltools::includeHTML("/tmp/explain_text_tr.html")
 ```
 
-##
+## On Tabular Data Classifier
+
+**TODD: Find am interesting tabular dataset for demo.**
 
 ```{python}
 from lime.lime_tabular import LimeTabularExplainer
-
-
 ```
 
 # Shapley Regression Values
@@ -560,6 +560,9 @@ metrics = dl_model.fit(
 dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 ```
 
+## On Tabular Data Classifier
+
+
 # Explainable Boosting Machine
 
 As of 2019-12-03,
@@ -568,5 +571,27 @@ As of 2019-12-03,
 @caruana2015intelligible
 
 generalized additive models with pairwise interactions
+
+```{python}
+from interpret.glassbox import ExplainableBoostingClassifier
+
+#ebm = ExplainableBoostingClassifier()
+#ebm.fit(X_train, y_train)
+
+# EBM supports pandas dataframes, numpy arrays, and handles "string" data natively.
+```
+
+```{python}
+from interpret import show
+
+#ebm_global = ebm.explain_global()
+#show(ebm_global)
+
+#ebm_local = ebm.explain_local(X_test, y_test)
+#show(ebm_local)
+```
+
+# For cross comparison.
+# https://nbviewer.jupyter.org/github/interpretml/interpret/blob/master/examples/python/notebooks/Explaining%20Blackbox%20Classifiers.ipynb
 
 # References
