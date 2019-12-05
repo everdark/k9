@@ -4,7 +4,7 @@ subtitle: "From LIME, SHAP, to Interpretable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (04 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -19,6 +19,7 @@ output:
 bibliography: model_explain.bib
 nocite: |
   @reticulate
+  @maas-EtAl:2011:ACL-HLT2011
   @scikit-learn
   @tensorflow2015-whitepaper
 abstract: |
@@ -147,46 +148,99 @@ May it be a word count matrix,
 a term frequency-inverse document frequency (TF-IDF) matrix,
 or numerical embeddings.
 
-In the following we experiment LIME with two binary classifiers on a small text dataset,
-one using random forest with TF-IDF representation,
-another using a neural network with word embeddings.
+In the following we will use [Large Movie Review Dataset](https://ai.stanford.edu/~amaas/data/sentiment/) to do a binary sentiment classification exercise.
+We will use machine learning libraries such as `scikit-learn` and `tensorflow` to quickly build models and use `lime` to experiment explanation modeling.
 
-### Random Forest with TF-IDF Vectorization
-
-**TODO: Switch to a more meaningful dataset for demo throughout the notebook.**
-
-This section is based on the [official demo script](https://marcotcr.github.io/lime/tutorials/Lime%20-%20basic%20usage%2C%20two%20class%20case.html),
-with only minor modifications.
-Particularly,
-we restrict the vocabulary size to avoid potential overfitting simply due to extremely rare word.
-
-```{python lime_rf_tfidf}
+```{python import_some}
 import os
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
-from sklearn.datasets import fetch_20newsgroups
+import tensorflow as tf
+print(tf.__version__)
+if tf.test.is_gpu_available():
+  print(tf.test.gpu_device_name())
+
+import sklearn
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
+import joblib
 
-home = os.path.expanduser("~")
-data_home = os.path.join(home, "scikit_learn_data")
-categories = ["alt.atheism", "soc.religion.christian"]
-newsgroups_train = fetch_20newsgroups(subset="train", categories=categories, data_home=data_home)
-newsgroups_test = fetch_20newsgroups(subset="test", categories=categories, data_home=data_home)
-
-vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
-train_vectors = vectorizer.fit_transform(newsgroups_train.data)
-test_vectors = vectorizer.transform(newsgroups_test.data)
-print(len(vectorizer.vocabulary_))  # Without OOV token.
-
-rf = RandomForestClassifier(n_estimators=300)
-_ = rf.fit(train_vectors, newsgroups_train.target)
-rf_pred = rf.predict(test_vectors)
-
-print(classification_report(newsgroups_test.target, rf_pred))
+print(sklearn.__version__)
 ```
 
-For the tiny dataset RF seems to work well.
+First,
+we prepare the movie review dataset.^[Keras comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
+
+```{python prepare_text_data}
+import numpy as np
+import tensorflow_datasets as tfds
+
+# Load the data as tf.data.Dataset.
+imdb = tfds.load(name="imdb_reviews", as_supervised=True)
+
+# Extract all texts as list since we want to use libraries other than tensorflow as well.
+# And since this is a small dataset, we don't care about memory usage.
+imdb_reviews_train = []
+imdb_reviews_test = []
+y_train = []
+y_test = []
+for x, y in imdb["train"].batch(128):
+  imdb_reviews_train.extend(x.numpy())
+  y_train.extend(y.numpy())
+for x, y in imdb["test"].batch(128):
+  imdb_reviews_test.extend(x.numpy())
+  y_test.extend(y.numpy())
+
+# tf works on bytes, but other packages mostly work on decoded str.
+imdb_reviews_train = [b.decode("utf8") for b in imdb_reviews_train]
+imdb_reviews_test = [b.decode("utf8") for b in imdb_reviews_test]
+y_train = np.array(y_train)
+y_test = np.array(y_test)
+
+# Take one.
+print(imdb_reviews_train[87])
+```
+
+We use the data prepared by `tensorflow-datasets` here just to save some time.
+For those who want to process the data in its very original format (where one review is one `.txt` file):
+
+```python
+home = os.path.expanduser("~")
+cache_dir = os.path.join(home, ".keras")
+imdb_remote_path = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
+imdb_local_path = os.path.join(cache_dir, "datasets", "aclImdb_v1.tar.gz")
+imdb_fname = os.path.basename(imdb_local_path)
+if not os.path.exists(imdb_local_path):
+  _ = tf.keras.utils.get_file(fname=imdb_fname, origin=imdb_remote_path,
+                              extract=True, cache_dir=cache_dir)
+```
+
+### Random Forest with TF-IDF Vectorization
+
+```{python text_clf_rf}
+rf_model_file = "models/text_rf.joblib"
+
+vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
+X_train = vectorizer.fit_transform(imdb_reviews_train)
+X_test = vectorizer.transform(imdb_reviews_test)
+print(len(vectorizer.vocabulary_))  # Without OOV token.
+
+# Save/reload the model to save notebook rendering time.
+if os.path.exists(rf_model_file):
+  rf = joblib.load(rf_model_file)
+else:
+  rf = RandomForestClassifier(n_estimators=300)
+  _ = rf.fit(X_train, y_train)
+  _ = joblib.dump(rf, rf_model_file)
+rf_pred = rf.predict(X_test)
+
+print(classification_report(y_test, rf_pred))
+```
+
 Now move on to model explanation with LIME:
 
 ```{python lime_on_rf}
@@ -195,11 +249,11 @@ from sklearn.pipeline import make_pipeline
 
 # We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
 rf_pipe = make_pipeline(vectorizer, rf)
-explainer = LimeTextExplainer(class_names=categories)
+explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
-idx = 83
+test_id = 64
 exp = explainer.explain_instance(
-  newsgroups_test.data[idx], rf_pipe.predict_proba, num_features=6)
+  imdb_reviews_test[test_id].decode("utf8"), rf_pipe.predict_proba, num_features=6)
 # For ipynb, one can simply call exp.show_in_notebook(text=True) to embed the html output.
 exp.save_to_file("/tmp/explain_text_rf.html")
 ```
@@ -213,20 +267,7 @@ htmltools::includeHTML("/tmp/explain_text_rf.html")
 Now let's try a neural network model with word embeddings trained from scratch.
 We use `tensorflow.keras` API to quickly build and train a neural net:
 
-```{python import_tf}
-import logging
-logging.getLogger("tensorflow").setLevel(logging.ERROR)
-import warnings
-warnings.simplefilter(action="ignore", category=FutureWarning)
-
-import tensorflow as tf
-print(tf.__version__)
-if tf.test.is_gpu_available():
-  print(tf.test.gpu_device_name())
-```
-
 ```{python lime_nn_embeddings}
-import numpy as np
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
@@ -234,22 +275,24 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Since we will use zero padding, 0 cannot be used as OOV index.
 # Keras tokenizer by default reserves 0 already. OOV token, if used, will be indexed at 1.
 # And len(tokenizer.index_word) will be all vocabulary instead of `num_words`.
-vocab_size = 3001  # +1 for 0 index used for padding.
+vocab_size = 20001  # +1 for 0 index used for padding.
 oov_token = "<unk>"
 tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size - 1)
-tokenizer.fit_on_texts(newsgroups_train.data)
+tokenizer.fit_on_texts(imdb_reviews_train)
 
 # Encode text with padding to ensure fixed-length input.
-seq_train = tokenizer.texts_to_sequences(newsgroups_train.data)
+seq_train = tokenizer.texts_to_sequences(imdb_reviews_train)
 seq_train_padded = pad_sequences(seq_train, padding="post")
 maxlen = seq_train_padded.shape[1]
-seq_test = tokenizer.texts_to_sequences(newsgroups_test.data)
+seq_test = tokenizer.texts_to_sequences(imdb_reviews_test)
 seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 
 # Wrap Keras Sequential model with scikit-learn API.
 # This is because LimeTextExplainer seems buggy with native Keras model.
+nn_model_file = "models/text_clf_nn.h5"
+
 def model_fn():
-  embedding_size = 32
+  embedding_size = 64
   model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
     tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
@@ -264,17 +307,22 @@ def model_fn():
 
 print(model_fn().summary(line_length=90))
 
-model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
-
-metrics = model.fit(
-  x=seq_train_padded, y=newsgroups_train.target,
-  batch_size=32, epochs=10,
-  validation_data=(seq_test_padded, newsgroups_test.target),
+nn_model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
+metrics = nn_model.fit(
+  x=seq_train_padded, y=y_train,
+  batch_size=256, epochs=10,
+  validation_data=(seq_test_padded, y_test),
   validation_steps=20,
+  callbacks=[
+    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+    tf.keras.callbacks.ModelCheckpoint(nn_model_file, monitor="val_loss", save_best_only=True)
+  ],
   verbose=2)
 
-nn_pred = (np.squeeze(model.predict(seq_test_padded)) > .5).astype(int)
-print(classification_report(newsgroups_test.target, nn_pred))
+# TODO: tf.keras.models.load_model(nn_model_file) fails??? Not related to KerasClassifier wrapper.
+
+nn_pred = (np.squeeze(nn_model.predict(seq_test_padded)) > .5).astype(int)
+print(classification_report(y_test, nn_pred))
 ```
 
 ```{python lime_on_nn_embeddings}
@@ -282,10 +330,10 @@ def nn_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
-  return model.predict_proba(seq)
+  return nn_model.predict_proba(seq)
 
-explainer = LimeTextExplainer(class_names=categories)
-model_exp = explainer.explain_instance(newsgroups_test.data[idx], nn_predict_fn, num_features=6)
+explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+model_exp = explainer.explain_instance(imdb_reviews_test[test_id], nn_predict_fn, num_features=6)
 model_exp.save_to_file("/tmp/explain_text_nn.html")
 ```
 
@@ -305,15 +353,16 @@ In building the GloVe embeddings we need to take special care about out-of-vocab
 import pandas as pd
 
 # Download GloVe pre-trained embeddings.
+home = os.path.expanduser("~")
 cache_dir = os.path.join(home, ".keras")
-glove6b_path = "http://nlp.stanford.edu/data/glove.6B.zip"
-glove6b_50_model_path = os.path.join(cache_dir, "datasets", "glove.6B.50d.txt")
-
-if not os.path.exists(glove6b_50_model_path):
-  _ = tf.keras.utils.get_file(fname="glove.6B.zip", origin=glove6b_path,
+glove6b_remote_path = "http://nlp.stanford.edu/data/glove.6B.zip"
+glove6b_local_path = os.path.join(cache_dir, "datasets", "glove.6B.50d.txt")
+glove6b_fname = os.path.basename(glove6b_local_path)
+if not os.path.exists(glove6b_local_path):
+  _ = tf.keras.utils.get_file(fname=glove6b_fname, origin=glove6b_remote_path,
                               extract=True, cache_dir=cache_dir)
 
-glove_all = pd.read_csv(glove6b_50_model_path, sep=" ", header=None, index_col=0, quoting=3)
+glove_all = pd.read_csv(glove6b_local_path, sep=" ", header=None, index_col=0, quoting=3)
 
 # Map vocabulary to pre-trained embeddings.
 matched_toks = []
@@ -339,11 +388,10 @@ print(glove.shape)
 Now let's build the neural network.
 Most of the code will be the same as before,
 only the `Embedding` layer now we will use a constant matrix for initialization.
-We will freeze the GloVe embeddings and only train the subsequent layers.
-We expect the accuracy will be lower than our previous models.
-But will the model be more reasonable?
 
 ```{python lime_transfer_learning_model}
+tr_model_file = "models/text_clf_tr.h5"
+
 def tr_model_fn():
   embedding_size = glove.shape[1]
   model = tf.keras.Sequential([
@@ -351,7 +399,7 @@ def tr_model_fn():
     tf.keras.layers.Embedding(
       vocab_size, embedding_size,
       embeddings_initializer=tf.keras.initializers.Constant(glove),
-      trainable=False, mask_zero=True, name="glove_embedding"),
+      trainable=True, mask_zero=True, name="glove_embedding"),
     tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
     tf.keras.layers.Dense(embedding_size / 2, activation="relu", name="relu"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
@@ -364,16 +412,21 @@ def tr_model_fn():
 print(tr_model_fn().summary(line_length=90))
 
 tr_model = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
-
 metrics = tr_model.fit(
-  x=seq_train_padded, y=newsgroups_train.target,
-  batch_size=32, epochs=50,
-  validation_data=(seq_test_padded, newsgroups_test.target),
+  x=seq_train_padded, y=y_train,
+  batch_size=256, epochs=20,
+  validation_data=(seq_test_padded, y_test),
   validation_steps=20,
+  callbacks=[
+    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+    tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
+  ],
   verbose=2)
 
+# TODO: tf.keras.models.load_model(tr_model_file) fails??? Not related to KerasClassifier wrapper.
+
 tr_pred = (np.squeeze(tr_model.predict(seq_test_padded)) > .5).astype(int)
-print(classification_report(newsgroups_test.target, tr_pred))
+print(classification_report(y_test, tr_pred))
 ```
 
 ```{python lime_on_transfer_learning}
@@ -383,8 +436,8 @@ def tr_predict_fn(text):
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
   return tr_model.predict_proba(seq)
 
-explainer = LimeTextExplainer(class_names=categories)
-model_exp = explainer.explain_instance(newsgroups_test.data[idx], tr_predict_fn, num_features=6)
+explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+model_exp = explainer.explain_instance(imdb_reviews_test[test_id], tr_predict_fn, num_features=6)
 model_exp.save_to_file("/tmp/explain_text_tr.html")
 ```
 
@@ -394,7 +447,7 @@ htmltools::includeHTML("/tmp/explain_text_tr.html")
 
 ## On Tabular Data Classifier
 
-**TODD: Find am interesting tabular dataset for demo.**
+**TODO: Find am interesting tabular dataset for demo.**
 
 ```{python}
 from lime.lime_tabular import LimeTabularExplainer
@@ -436,16 +489,17 @@ sorted_vocab = sorted(vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
 sorted_vocab = [w for w, i in sorted_vocab]
 
 # shap doesn't support sparse matrix input for scikit-learn model.
-test_vectors_d = test_vectors.toarray()
+X_test_d = X_test.toarray()
 
 # Run explanation approximation for all testing examples at once.
+explain_top_k = 1000  # Save some time.
 rf_shape_explainer = shap.TreeExplainer(rf)
-rf_shap_values = rf_shape_explainer.shap_values(test_vectors_d)
+rf_shap_values = rf_shape_explainer.shap_values(X_test_d)
 
 rf_shap_p = shap.force_plot(
   rf_shape_explainer.expected_value[1],
-  rf_shap_values[1][idx,:],
-  test_vectors_d[idx,:],
+  rf_shap_values[1][test_id,:],
+  X_test_d[test_id,:],
   feature_names=sorted_vocab
 )
 shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
@@ -457,14 +511,12 @@ htmltools::includeHTML("/tmp/rf_shap_val.html")
 
 ```{python shap_on_rf_summary_plot}
 top_k = 20
-shap.summary_plot(rf_shap_values, test_vectors_d, feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
+shap.summary_plot(rf_shap_values, X_test_d, feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
 ```
 
 ```{python rf_feat_imp}
 rf_feat_imp = pd.Series(rf.feature_importances_, index=sorted_vocab).sort_values()
 rf_feat_imp.tail(top_k).plot(kind="barh")
-# TODO:
-# How to show this plot in rmd?
 ```
 
 ### Gradient Boosting Trees
@@ -481,10 +533,8 @@ Let's quickly build a GBT using `lightgbm`:
 ```{python shap_lgb}
 import lightgbm as lgb
 
-d_train = lgb.Dataset(train_vectors, label=newsgroups_train.target,
-                      feature_name=sorted_vocab)
-d_test = lgb.Dataset(test_vectors, label=newsgroups_test.target,
-                     feature_name=sorted_vocab)
+d_train = lgb.Dataset(X_train, label=y_train, feature_name=sorted_vocab)
+d_test = lgb.Dataset(X_test, label=y_test, feature_name=sorted_vocab)
 
 lgb_params = {
   "learning_rate": .05,
@@ -504,8 +554,8 @@ lgbooster = lgb.train(
   train_set=d_train, valid_sets=[d_test],
   verbose_eval=50)
 
-lgb_pred = (lgbooster.predict(test_vectors) > .5).astype(int)
-print(classification_report(newsgroups_test.target, lgb_pred))
+lgb_pred = (lgbooster.predict(X_test) > .5).astype(int)
+print(classification_report(y_test, lgb_pred))
 ```
 
 For the overall feature importance derived by GBT:
@@ -517,7 +567,7 @@ lgb.plot_importance(lgbooster, max_num_features=20)
 ```{python shap_on_lgb}
 # Sparse matrix is supported for lightgbm model.
 lgb_explainer = shap.TreeExplainer(lgbooster)
-lgb_shap_values = lgb_explainer.shap_values(test_vectors)
+lgb_shap_values = lgb_explainer.shap_values(X_test)
 
 lgb_shap_p = shap.force_plot(
   lgb_explainer.expected_value[1],
