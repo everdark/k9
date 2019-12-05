@@ -22,7 +22,6 @@ nocite: |
   @maas-EtAl:2011:ACL-HLT2011
   @scikit-learn
   @tensorflow2015-whitepaper
-  @caruana2015intelligible
 abstract: |
   Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of use cases.
 ---
@@ -502,27 +501,27 @@ X_test_d = X_test.toarray()
 
 # Run explanation approximation for all testing examples at once.
 # TODO: Performance issue here for shap on sklearn RF.
-explain_top_k = 5
-rf_shape_explainer = shap.TreeExplainer(rf)
-rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
-
-rf_shap_p = shap.force_plot(
-  rf_shape_explainer.expected_value[1],
-  rf_shap_values[1][0,:],
-  X_test_d[0,:],
-  feature_names=sorted_vocab
-)
-shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
+explain_top_k = 100
+#rf_shape_explainer = shap.TreeExplainer(rf)
+#rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
+#
+#rf_shap_p = shap.force_plot(
+#  rf_shape_explainer.expected_value[1],
+#  rf_shap_values[1][0,:],
+#  X_test_d[0,:],
+#  feature_names=sorted_vocab
+#)
+#shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/rf_shap_val.html")
+#htmltools::includeHTML("/tmp/rf_shap_val.html")
 ```
 
 ```{python shap_on_rf_summary_plot}
 top_k = 20
-shap.summary_plot(rf_shap_values, X_test_d[:explain_top_k],
-                  feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
+#shap.summary_plot(rf_shap_values, X_test_d[:explain_top_k],
+#                  feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
 ```
 
 ```{python rf_feat_imp}
@@ -560,7 +559,6 @@ lgb_params = {
   "boosting_type": "gbdt",
   "objective": "binary",
   "metric": ["binary_logloss", "auc"],
-  "first_metric_only": True,
   "num_leaves": 16,
   "max_depth": 4,
   "min_data_per_leaf": 20,
@@ -571,6 +569,9 @@ lgb_model_file = "models/text_clf_lgb.txt"
 
 # Save/reload model to save notebook rendering time.
 if os.path.exists(lgb_model_file):
+  # TODO:
+  # Parameters are not loaded back? A bug? (Which cause the subsequent call to shap_values fail.)
+  # https://github.com/microsoft/LightGBM/pull/1495/files
   lgbooster = lgb.Booster(model_file=lgb_model_file)
 else:
   lgbooster = lgb.train(
@@ -649,7 +650,7 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 # Explainable Boosting Machine
 
-@nori2019interpretml open source the pacakge `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions** (GA<sup>2</sup>M).
+@nori2019interpretml open source the package `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions** (GA<sup>2</sup>M, @lou2013accurate).
 As of `r format(Sys.time(), '%Y-%m-%d')`, `interpret` is still in its alpha release with limited documentation.
 The library contains two groups of modeling frameworks:
 
@@ -661,6 +662,23 @@ i.e.,
 models that approximate (locally) the original model (supposed to be a blackbox) for better explainability.
 The more interesting part of `interpret` is to bring about another type of model that is readily interpretable from its very origin,
 and yet still competitively accurate.
+
+Explainable boosting machine (EBM hereafter) is an additive model of the form:
+
+$$
+g(E(y)) = \beta_0 + \sum f_j (x_j) + \sum f_{ij}(x_i, x_j),
+$$
+
+where $g(\cdot)$ is a link function (sigmoid for binary classification, for an example),
+$f_j$ is the *feature function* for the $j$-th feature,
+learned by a gradient boosting machine with only that feature at a time and in a round-robin fashion for all features.
+$f_{ij}$ is a *pairwise interaction* feature function to further boost the accuracy of the model while remain interpretability.
+
+The model is interpretable since the contribution of any individual feature can be directly quantified by their corresponding feature function $f_j$.
+Such explanation can extend up to pairwise interaction if pairwise feature functions are also estimated.
+
+
+**TODO: How to detect pairwise interaction?**
 
 ```{python interpret_model}
 from interpret.glassbox import ExplainableBoostingClassifier
