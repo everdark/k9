@@ -142,16 +142,19 @@ dataset = dataset.shuffle(buffer_size=10000).repeat(None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
+n_epoch = 5
 n_steps = 30000
-losses = []
-for i, (x, y) in enumerate(dataset):
-  if i < n_steps:
-    loss = model.train_on_batch(x, y, reset_metrics=True)
-    if i % 1000 == 0:
-      print("Step {}, loss={}".format(i, loss))#, end="\r")
-      losses.append(loss)
-  else:
-    break
+for epoch in range(n_epoch):
+  losses = []
+  for i, (x, y) in enumerate(dataset):
+    if i < n_steps:
+      loss = model.train_on_batch(x, y, reset_metrics=True)
+      if i % 1000 == 0:
+        print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss))
+        losses.append(loss)
+    else:
+      break
+  print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
 
 # check if the learning rate is indeed decayed.
 model.optimizer._decayed_lr("float32").numpy()
@@ -177,7 +180,9 @@ find_similar_words("man", wv=word_vectors)
 find_similar_words("computer", wv=word_vectors)
 find_similar_words("taiwan", wv=word_vectors)
 find_similar_words("1", wv=word_vectors)
+find_similar_words("king", wv=word_vectors)
 
+find_similar_words("boy", wv=word_vectors)
 find_similar_words("love", wv=word_vectors)
 find_similar_words("girl", wv=word_vectors)
 find_similar_words("elephants", wv=word_vectors)
