@@ -50,7 +50,6 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
     + Sequence-to-Sequence Models
     + GANs
     + Reinforcement Learning Basics
-    + Model Explanation
 + Statistics
     + Linear and Logistic Models: Econometrics v.s. Machine Learning
     + Naive Bayes
