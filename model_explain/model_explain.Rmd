@@ -175,12 +175,15 @@ print(sklearn.__version__)
 First,
 we prepare the movie review dataset.^[Keras comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
 
-```{python prepare_text_data}
-import numpy as np
+```{python maybe_download, results="hide"}
 import tensorflow_datasets as tfds
 
 # Load the data as tf.data.Dataset.
 imdb = tfds.load(name="imdb_reviews", as_supervised=True)
+```
+
+```{python prepare_text_data}
+import numpy as np
 
 # Extract all texts as list since we want to use libraries other than tensorflow as well.
 # And since this is a small dataset, we don't care about memory usage.
@@ -223,13 +226,15 @@ if not os.path.exists(imdb_local_path):
 
 Let's build a random forest with TF-IDF as our feature space.
 
-```{python text_clf_rf}
-rf_model_file = "models/text_rf.joblib"
-
+```{python text_tfidf}
 vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
 X_train = vectorizer.fit_transform(imdb_reviews_train)
 X_test = vectorizer.transform(imdb_reviews_test)
 print(len(vectorizer.vocabulary_))  # Without OOV token.
+```
+
+```{python text_clf_rf}
+rf_model_file = "models/text_rf.joblib"
 
 # Save/reload the model to save notebook rendering time.
 if os.path.exists(rf_model_file):
@@ -589,7 +594,7 @@ print(classification_report(y_test, lgb_pred))
 For the overall feature importance derived by GBT:
 
 ```{python shap_lgb_feat_imp}
-lgb.plot_importance(lgbooster, max_num_features=20)
+lgb.plot_importance(lgbooster, max_num_features=20)  # TODO: This won't show.
 ```
 
 ```{python shap_on_lgb}
@@ -622,6 +627,7 @@ print(np.log(p / (1 - p)))
 ### Explain Neural Nets with Word Embeddings
 
 Encountered a bug for DeepExplainer with TF 2.0:
+
 + https://github.com/slundberg/shap/issues/850
 + https://github.com/slundberg/shap/issues/885
 
@@ -653,7 +659,7 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 # Explainable Boosting Machine
 
-@nori2019interpretml open source the package `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions** (GA<sup>2</sup>M, @lou2013accurate).
+@nori2019interpretml open source the package `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions, or GA<sup>2</sup>M** (@lou2013accurate).
 As of `r format(Sys.time(), '%Y-%m-%d')`, `interpret` is still in its alpha release with limited documentation.
 The library contains two groups of modeling frameworks:
 
@@ -689,7 +695,7 @@ from interpret.perf import ROC
 from interpret import show
 
 # interpret does not support sparse matrix.
-X_train_d = X_train.toarray()
+#X_train_d = X_train.toarray()
 
 # TODO: OOM...
 #ebm = ExplainableBoostingClassifier(feature_names=sorted_vocab, n_estimators=16)
