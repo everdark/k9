@@ -650,8 +650,16 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 @nori2019interpretml open source the pacakge `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions** (GA<sup>2</sup>M).
 As of `r format(Sys.time(), '%Y-%m-%d')`, `interpret` is still in its alpha release with limited documentation.
-Nevertheless,
-let's explore its capability.
+The library contains two groups of modeling frameworks:
+
++ `glassbox`: explanable machine learning models
++ `blackbox`: machine learning explanation models (such as LIME and SHAP)
+
+We've already covered the mainstream approach in the second group,
+i.e.,
+models that approximate (locally) the original model for better explainability.
+The more interesting part of `interpret` is to bring about another type of model that is readily interpretable from its very origin,
+and yet still competitively accurate.
 
 ```{python interpret_model}
 from interpret.glassbox import ExplainableBoostingClassifier
