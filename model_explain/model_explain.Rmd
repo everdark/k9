@@ -494,7 +494,7 @@ X_test_d = X_test.toarray()
 # Run explanation approximation for all testing examples at once.
 explain_top_k = 1000  # Save some time.
 rf_shape_explainer = shap.TreeExplainer(rf)
-rf_shap_values = rf_shape_explainer.shap_values(X_test_d)
+rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
 
 rf_shap_p = shap.force_plot(
   rf_shape_explainer.expected_value[1],
@@ -511,7 +511,8 @@ htmltools::includeHTML("/tmp/rf_shap_val.html")
 
 ```{python shap_on_rf_summary_plot}
 top_k = 20
-shap.summary_plot(rf_shap_values, X_test_d, feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
+shap.summary_plot(rf_shap_values, X_test_d[:explain_top_k],
+                  feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
 ```
 
 ```{python rf_feat_imp}
@@ -567,12 +568,12 @@ lgb.plot_importance(lgbooster, max_num_features=20)
 ```{python shap_on_lgb}
 # Sparse matrix is supported for lightgbm model.
 lgb_explainer = shap.TreeExplainer(lgbooster)
-lgb_shap_values = lgb_explainer.shap_values(X_test)
+lgb_shap_values = lgb_explainer.shap_values(X_test[:explain_top_k])
 
 lgb_shap_p = shap.force_plot(
   lgb_explainer.expected_value[1],
-  lgb_shap_values[1][idx,:],
-  test_vectors[idx,:].toarray(),  # We still need a dense matrix here.
+  lgb_shap_values[1][test_id,:],
+  X_test[test_id,:].toarray(),  # We still need a dense matrix here.
   feature_names=sorted_vocab
 )
 shap.save_html("/tmp/lgb_shap_val.html", lgb_shap_p)
@@ -591,7 +592,7 @@ print(np.log(p / (1 - p)))
 
 ### Neural Nets with Word Embeddings
 
-Encountered a bug for TF 2.0:
+Encountered a bug for DeepExplainer with TF 2.0:
 + https://github.com/slundberg/shap/issues/850
 + https://github.com/slundberg/shap/issues/885
 
