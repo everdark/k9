@@ -22,6 +22,7 @@ nocite: |
   @maas-EtAl:2011:ACL-HLT2011
   @scikit-learn
   @tensorflow2015-whitepaper
+  @caruana2015intelligible
 abstract: |
   Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of use cases.
 ---
@@ -219,7 +220,9 @@ if not os.path.exists(imdb_local_path):
                               extract=True, cache_dir=cache_dir)
 ```
 
-### Random Forest with TF-IDF Vectorization
+### Explain Random Forest
+
+Let's build a random forest with TF-IDF as our feature space.
 
 ```{python text_clf_rf}
 rf_model_file = "models/text_rf.joblib"
@@ -262,19 +265,21 @@ exp.save_to_file("/tmp/explain_text_rf.html")
 htmltools::includeHTML("/tmp/explain_text_rf.html")
 ```
 
-### Neural Nets with Word Embeddings
+### Explain Neural Nets with Word Embeddings
 
 Now let's try a neural network model with word embeddings trained from scratch.
-We use `tensorflow.keras` API to quickly build and train a neural net:
+We use `tensorflow.keras` API to quickly build and train a neural net.
+We average word embeddings as the document embeddings for each review,
+then feed-forward a ReLU layer before the sigmoid activation for cross-entropy optimization.
 
 ```{python lime_nn_embeddings}
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-# Build vocabulary.
+# Build vocabulary. We use similar size as in our previous TfidfVectorizer.
 # Since we will use zero padding, 0 cannot be used as OOV index.
 # Keras tokenizer by default reserves 0 already. OOV token, if used, will be indexed at 1.
-# And len(tokenizer.index_word) will be all vocabulary instead of `num_words`.
+# Note that len(tokenizer.index_word) will be all vocabulary instead of `num_words`.
 vocab_size = 20001  # +1 for 0 index used for padding.
 oov_token = "<unk>"
 tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size - 1)
@@ -341,7 +346,7 @@ model_exp.save_to_file("/tmp/explain_text_nn.html")
 htmltools::includeHTML("/tmp/explain_text_nn.html")
 ```
 
-### Transfer Learning
+### Explain Transfer Learning
 
 One step further,
 let's use pre-trained word embeddings for the neural nets and build another explanation model.
@@ -453,6 +458,10 @@ htmltools::includeHTML("/tmp/explain_text_tr.html")
 from lime.lime_tabular import LimeTabularExplainer
 ```
 
+## On Image Classifier
+
+**TODO: Use a pre-trained model?**
+
 # Shapley Regression Values
 
 # SHAP
@@ -477,7 +486,7 @@ especially for feature interaction exploration.
 
 ## On Text Classifiers
 
-### Random Forest with TF-IDF Vectorization
+### Explain Random Forest
 
 For exactly the same model we build in the previous section about `lime`,
 this time we use `shap` to build the explanation model.
@@ -520,7 +529,7 @@ rf_feat_imp = pd.Series(rf.feature_importances_, index=sorted_vocab).sort_values
 rf_feat_imp.tail(top_k).plot(kind="barh")
 ```
 
-### Gradient Boosting Trees
+### Explain Gradient Boosting Trees
 
 Gradient boosting trees (GBT) is a powerful model family proven to work exceptionally well in many different applications.
 Yet due to its ensembling nature,
@@ -529,13 +538,21 @@ Like random forest,
 after building a model we will have access to the overall feature importance.
 But at per-instance prediction level there is nothing much to say about why the outcome is what it is.
 
-Let's quickly build a GBT using `lightgbm`:
+Let's quickly build a GBT using `lightgbm` (with the same TF-IDF vectorization as we did for the random forest model):
 
 ```{python shap_lgb}
 import lightgbm as lgb
 
-d_train = lgb.Dataset(X_train, label=y_train, feature_name=sorted_vocab)
-d_test = lgb.Dataset(X_test, label=y_test, feature_name=sorted_vocab)
+# lightgbm does not allow utf-8 encoded feature names.
+# Since important tokens are most likely ascii-compatible for our dataset,
+# we simply strip non-ascii as a workaround for this exercise.
+def remove_non_ascii(s):
+  return ''.join([i if ord(i) < 128 else " " for i in s])
+
+sorted_vocab_ascii = [remove_non_ascii(v) for v in sorted_vocab]
+
+d_train = lgb.Dataset(X_train, label=y_train, feature_name=sorted_vocab_ascii)
+d_test = lgb.Dataset(X_test, label=y_test, feature_name=sorted_vocab_ascii)
 
 lgb_params = {
   "learning_rate": .05,
@@ -543,17 +560,24 @@ lgb_params = {
   "objective": "binary",
   "metric": ["binary_logloss", "auc"],
   "first_metric_only": True,
-  "num_leaves": 6,
-  "max_depth": 3,
-  "min_data_per_leaf": 5,
+  "num_leaves": 16,
+  "max_depth": 4,
+  "min_data_per_leaf": 20,
   "verbose": -1
 }
 
-lgbooster = lgb.train(
-  params=lgb_params,
-  num_boost_round=300, early_stopping_rounds=20,
-  train_set=d_train, valid_sets=[d_test],
-  verbose_eval=50)
+lgb_model_file = "models/text_clf_lgb.txt"
+
+# Save/reload model to save notebook rendering time.
+if os.path.exists(lgb_model_file):
+  lgbooster = lgb.Booster(model_file=lgb_model_file)
+else:
+  lgbooster = lgb.train(
+    params=lgb_params,
+    num_boost_round=1000, early_stopping_rounds=20,
+    train_set=d_train, valid_sets=[d_test],
+    verbose_eval=100)
+  _ = lgbooster.save_model(lgb_model_file)
 
 lgb_pred = (lgbooster.predict(X_test) > .5).astype(int)
 print(classification_report(y_test, lgb_pred))
@@ -590,7 +614,7 @@ p = lgbooster.predict(test_vectors[idx,:].toarray())
 print(np.log(p / (1 - p)))
 ```
 
-### Neural Nets with Word Embeddings
+### Explain Neural Nets with Word Embeddings
 
 Encountered a bug for DeepExplainer with TF 2.0:
 + https://github.com/slundberg/shap/issues/850
@@ -599,13 +623,16 @@ Encountered a bug for DeepExplainer with TF 2.0:
 ```python
 # shap does not support keras model in scikit-learn wrapper.
 # Let's re-build the model and retain its Sequental class.
-
 dl_model = model_fn()
 metrics = dl_model.fit(
-  x=seq_train_padded, y=newsgroups_train.target,
-  batch_size=32, epochs=10,
-  validation_data=(seq_test_padded, newsgroups_test.target),
+  x=seq_train_padded, y=y_train,
+  batch_size=256, epochs=20,
+  validation_data=(seq_test_padded, y_test),
   validation_steps=20,
+  callbacks=[
+    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+    tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
+  ],
   verbose=0)
 
 dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
@@ -613,36 +640,47 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 ## On Tabular Data Classifier
 
+**TBC.**
+
+## On Image Classifier
+
+**TODO: Use a pre-trained model?**
 
 # Explainable Boosting Machine
 
-As of 2019-12-03,
-`interpret` is still in its alpha release.
+@nori2019interpretml open source the pacakge `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions** (GA<sup>2</sup>M).
+As of `r format(Sys.time(), '%Y-%m-%d')`, `interpret` is still in its alpha release with limited documentation.
+Nevertheless,
+let's explore its capability.
 
-@caruana2015intelligible
-
-generalized additive models with pairwise interactions
-
-```{python}
+```{python interpret_model}
 from interpret.glassbox import ExplainableBoostingClassifier
+from interpret.perf import ROC
+from interpret import show
 
-#ebm = ExplainableBoostingClassifier()
-#ebm.fit(X_train, y_train)
+# interpret does not support sparse matrix.
+X_train_d = X_train.toarray()
 
-# EBM supports pandas dataframes, numpy arrays, and handles "string" data natively.
+# TODO: OOM...
+#ebm = ExplainableBoostingClassifier(feature_names=sorted_vocab, n_estimators=16)
+#ebm.fit(X_train_d, y_train)
+
+#ebm = ExplainableBoostingClassifier(n_estimators=16)
+#ebm.fit(X_train[:100].toarray(), y_train[:100])
+
+#data = X_train[:100].toarray()
+#new_data = data
+
+#ebm_perf = ROC(ebm.predict_proba).explain_perf(X_test, y_test, name="EBM")
+#show(ebm_perf)
 ```
 
 ```{python}
-from interpret import show
-
 #ebm_global = ebm.explain_global()
 #show(ebm_global)
 
 #ebm_local = ebm.explain_local(X_test, y_test)
 #show(ebm_local)
 ```
-
-# For cross comparison.
-# https://nbviewer.jupyter.org/github/interpretml/interpret/blob/master/examples/python/notebooks/Explaining%20Blackbox%20Classifiers.ipynb
 
 # References
