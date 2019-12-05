@@ -572,7 +572,8 @@ if os.path.exists(lgb_model_file):
   # TODO:
   # Parameters are not loaded back? A bug? (Which cause the subsequent call to shap_values fail.)
   # https://github.com/microsoft/LightGBM/pull/1495/files
-  lgbooster = lgb.Booster(model_file=lgb_model_file)
+  # https://github.com/microsoft/LightGBM/issues/2613
+  lgbooster = lgb.Booster(model_file=lgb_model_file, params=lgb_params)
 else:
   lgbooster = lgb.train(
     params=lgb_params,
@@ -592,6 +593,8 @@ lgb.plot_importance(lgbooster, max_num_features=20)
 ```
 
 ```{python shap_on_lgb}
+explain_top_k = 1000
+
 # Sparse matrix is supported for lightgbm model.
 lgb_explainer = shap.TreeExplainer(lgbooster)
 lgb_shap_values = lgb_explainer.shap_values(X_test[:explain_top_k])
@@ -612,7 +615,7 @@ htmltools::includeHTML("/tmp/lgb_shap_val.html")
 ```{python verify_log_odds}
 # Note that by default shap for lightgbm reports log-odds rather than probability.
 # To verify this:
-p = lgbooster.predict(test_vectors[idx,:].toarray())
+p = lgbooster.predict(X_test[test_id,:].toarray())
 print(np.log(p / (1 - p)))
 ```
 
