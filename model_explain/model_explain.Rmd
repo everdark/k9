@@ -256,7 +256,7 @@ explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
 test_id = 64
 exp = explainer.explain_instance(
-  imdb_reviews_test[test_id].decode("utf8"), rf_pipe.predict_proba, num_features=6)
+  imdb_reviews_test[test_id], rf_pipe.predict_proba, num_features=6)
 # For ipynb, one can simply call exp.show_in_notebook(text=True) to embed the html output.
 exp.save_to_file("/tmp/explain_text_rf.html")
 ```
@@ -501,14 +501,15 @@ sorted_vocab = [w for w, i in sorted_vocab]
 X_test_d = X_test.toarray()
 
 # Run explanation approximation for all testing examples at once.
-explain_top_k = 1000  # Save some time.
+# TODO: Performance issue here for shap on sklearn RF.
+explain_top_k = 5
 rf_shape_explainer = shap.TreeExplainer(rf)
 rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
 
 rf_shap_p = shap.force_plot(
   rf_shape_explainer.expected_value[1],
-  rf_shap_values[1][test_id,:],
-  X_test_d[test_id,:],
+  rf_shap_values[1][0,:],
+  X_test_d[0,:],
   feature_names=sorted_vocab
 )
 shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
@@ -657,7 +658,7 @@ The library contains two groups of modeling frameworks:
 
 We've already covered the mainstream approach in the second group,
 i.e.,
-models that approximate (locally) the original model for better explainability.
+models that approximate (locally) the original model (supposed to be a blackbox) for better explainability.
 The more interesting part of `interpret` is to bring about another type of model that is readily interpretable from its very origin,
 and yet still competitively accurate.
 
@@ -673,7 +674,7 @@ X_train_d = X_train.toarray()
 #ebm = ExplainableBoostingClassifier(feature_names=sorted_vocab, n_estimators=16)
 #ebm.fit(X_train_d, y_train)
 
-#ebm = ExplainableBoostingClassifier(n_estimators=16)
+#ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=sorted_vocab)
 #ebm.fit(X_train[:100].toarray(), y_train[:100])
 
 #data = X_train[:100].toarray()
