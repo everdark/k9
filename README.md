@@ -13,10 +13,10 @@ You may find me sometimes interoperate the two langauges in a single notebook.
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html)
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
-    + [On Model Explainability]
+    + [On Model Explainability (W.I.P.)](https://everdark.github.io/k9/model_explain/model_explain.nb.html)
 + Natural Language Understanding
     + [On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html)
-    + [Contex-Free Word Embeddings]
+    + [Contex-Free Word Embeddings (W.I.P.)](https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
     + [Contex-Aware Word Embeddings]
 + Programming
     + R
@@ -24,7 +24,7 @@ You may find me sometimes interoperate the two langauges in a single notebook.
         + [High Performance Computing in R using Rcpp](https://everdark.github.io/k9/programming/r/rcpp/rcpp.nb.html)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
-    + [A General-Purpose Neural Ranking Model]
+    + [A General-Purpose Neural Ranking Model (W.I.P.)]
 
 ## [Optional] Setup Python Environment
 

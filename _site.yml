@@ -22,12 +22,13 @@ navbar:
           href: learning_to_rank/learning_to_rank.html
         - text: "---"
         - text: "On Model Explainability (WIP)"
+          href: model_explain/model_explain.nb.html
     - text: "Natural Language Understanding"
       menu:
         - text: "On Subword Units"
           href: natural_language_understanding/subword_units/subword_units.nb.html
         - text: "---"
-        - text: "Context-Free Word Embeddings"
+        - text: "Context-Free Word Embeddings (WIP)"
           href: natural_language_understanding/word_embeddings/word_embeddings.nb.html
         - text: "---"
         - text: "Context-Aware Word Embeddings (WIP)"
