@@ -175,6 +175,11 @@ import joblib
 print(sklearn.__version__)
 ```
 
+```{bash mkdir}
+# Create model dir to cache all models trained in the notebook.
+mkdir -p models
+```
+
 First,
 we prepare the movie review dataset.^[Keras comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
 
@@ -184,6 +189,9 @@ import tensorflow_datasets as tfds
 # Load the data as tf.data.Dataset.
 imdb = tfds.load(name="imdb_reviews", as_supervised=True)
 ```
+
+The dataset is a perfectly balanced dataset with 50,000 examples,
+half for positive and half for negative sentiment.
 
 ```{python prepare_text_data}
 import numpy as np
@@ -212,7 +220,8 @@ print(imdb_reviews_train[87])
 ```
 
 We use the data prepared by `tensorflow-datasets` here just to save some time.
-For those who want to process the data in its very original format (where one review is one `.txt` file):
+For those who want to process the data in its very original format (where one review is in one `.txt` file),
+the files can be downloaded by this piece of code:
 
 ```python
 home = os.path.expanduser("~")
@@ -228,6 +237,7 @@ if not os.path.exists(imdb_local_path):
 ### Explain Random Forest
 
 Let's build a random forest with TF-IDF as our feature space.
+We will use the popular `scikit-learn` library for implementation.^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest. However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
 
 ```{python text_tfidf}
 vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
@@ -251,6 +261,9 @@ rf_pred = rf.predict(X_test)
 print(classification_report(y_test, rf_pred))
 ```
 
+As a baseline without extensive tuning (we didn't tune anything indeed!),
+random forest seems to perform fairly well on this dataset judged by the classification report above.
+
 Now move on to model explanation with LIME:
 
 ```{python lime_on_rf}
@@ -261,16 +274,21 @@ from sklearn.pipeline import make_pipeline
 rf_pipe = make_pipeline(vectorizer, rf)
 explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
-test_id = 64
+test_id = 0
 exp = explainer.explain_instance(
   imdb_reviews_test[test_id], rf_pipe.predict_proba, num_features=6)
 # For ipynb, one can simply call exp.show_in_notebook(text=True) to embed the html output.
 exp.save_to_file("/tmp/explain_text_rf.html")
+
+# True label of the tested example.
+print(y_test[test_id])
 ```
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/explain_text_rf.html")
 ```
+
+**TODO: Discuss the result.**
 
 ### Explain Neural Nets with Word Embeddings
 
@@ -278,6 +296,11 @@ Now let's try a neural network model with word embeddings trained from scratch.
 We use `tensorflow.keras` API to quickly build and train a neural net.
 We average word embeddings as the document embeddings for each review,
 then feed-forward a ReLU layer before the sigmoid activation for cross-entropy optimization.
+
+As an exercise,
+instead of re-using the vocabulary built by `TfidfVectorizer` with `scikit-learn`,
+we will re-tokenize the text data with `keras.preprocessing` module.
+The inherent consistency under the Keras framework will also simplify our latter works on network layering.
 
 ```{python lime_nn_embeddings}
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -300,7 +323,7 @@ seq_test = tokenizer.texts_to_sequences(imdb_reviews_test)
 seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 
 # Wrap Keras Sequential model with scikit-learn API.
-# This is because LimeTextExplainer seems buggy with native Keras model.
+# This is because LimeTextExplainer seems buggy with a native Keras model.
 nn_model_file = "models/text_clf_nn.h5"
 
 def model_fn():
@@ -331,7 +354,8 @@ metrics = nn_model.fit(
   ],
   verbose=2)
 
-# TODO: tf.keras.models.load_model(nn_model_file) fails??? Not related to KerasClassifier wrapper.
+# TODO: tf.keras.models.load_model(nn_model_file) fails?
+# https://github.com/tensorflow/tensorflow/issues/34901
 
 nn_pred = (np.squeeze(nn_model.predict(seq_test_padded)) > .5).astype(int)
 print(classification_report(y_test, nn_pred))
@@ -352,6 +376,8 @@ model_exp.save_to_file("/tmp/explain_text_nn.html")
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/explain_text_nn.html")
 ```
+
+**TODO: Discuss the difference between RF and NN.**
 
 ### Explain Transfer Learning
 
@@ -435,8 +461,6 @@ metrics = tr_model.fit(
   ],
   verbose=2)
 
-# TODO: tf.keras.models.load_model(tr_model_file) fails??? Not related to KerasClassifier wrapper.
-
 tr_pred = (np.squeeze(tr_model.predict(seq_test_padded)) > .5).astype(int)
 print(classification_report(y_test, tr_pred))
 ```
@@ -457,6 +481,8 @@ model_exp.save_to_file("/tmp/explain_text_tr.html")
 htmltools::includeHTML("/tmp/explain_text_tr.html")
 ```
 
+**TODO: Summarize all models.**
+
 ## On Tabular Data Classifier
 
 **TODO: Find am interesting tabular dataset for demo.**
@@ -470,6 +496,8 @@ from lime.lime_tabular import LimeTabularExplainer
 **TODO: Use a pre-trained model?**
 
 # Shapley Regression Values
+
+**TBC**
 
 # SHAP
 
@@ -555,7 +583,7 @@ import lightgbm as lgb
 # Since important tokens are most likely ascii-compatible for our dataset,
 # we simply strip non-ascii as a workaround for this exercise.
 def remove_non_ascii(s):
-  return ''.join([i if ord(i) < 128 else " " for i in s])
+  return "".join([i if ord(i) < 128 else " " for i in s])
 
 sorted_vocab_ascii = [remove_non_ascii(v) for v in sorted_vocab]
 
@@ -621,6 +649,8 @@ shap.save_html("/tmp/lgb_shap_val.html", lgb_shap_p)
 htmltools::includeHTML("/tmp/lgb_shap_val.html")
 ```
 
+**TODO: Discuss the result. Any thing different from RF explained by LIME?**
+
 ```{python verify_log_odds}
 # Note that by default shap for lightgbm reports log-odds rather than probability.
 # To verify this:
@@ -655,7 +685,7 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 ## On Tabular Data Classifier
 
-**TBC.**
+**TBC**
 
 ## On Image Classifier
 
@@ -663,7 +693,7 @@ dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
 
 # Explainable Boosting Machine
 
-@nori2019interpretml open source the package `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions, or GA<sup>2</sup>M** (@lou2013accurate).
+@nori2019interpretml publish the open source package `interpret` for a fast implementation of **Generalized Additive Models with Pairwise Interactions, or GA<sup>2</sup>M** (@lou2013accurate).
 As of `r format(Sys.time(), '%Y-%m-%d')`, `interpret` is still in its alpha release with limited documentation.
 The library contains two groups of modeling frameworks:
 
@@ -674,9 +704,10 @@ We've already covered the mainstream approach in the second group,
 i.e.,
 models that approximate (locally) the original model (supposed to be a blackbox) for better explainability.
 The more interesting part of `interpret` is to bring about another type of model that is readily interpretable from its very origin,
-and yet still competitively accurate.
+and yet still competitively accurate:
+**the Explainable Boosting Machine**, or EBM.
 
-Explainable boosting machine (EBM hereafter) is an additive model of the form:
+EBM is an additive model of the form:
 
 $$
 g(E(y)) = \beta_0 + \sum f_j (x_j) + \sum f_{ij}(x_i, x_j),
@@ -690,13 +721,16 @@ $f_{ij}$ is a *pairwise interaction* feature function to further boost the accur
 The model is interpretable since the contribution of any individual feature can be directly quantified by their corresponding feature function $f_j$.
 Such explanation can extend up to pairwise interaction if pairwise feature functions are also estimated.
 
-
 **TODO: How to detect pairwise interaction?**
 
 ```{python interpret_model}
 from interpret.glassbox import ExplainableBoostingClassifier
 from interpret.perf import ROC
 from interpret import show
+
+# EBM seems not suitable for bag of words model since too many "categorical" variables.
+# Also it won't be able to fit a image model for the same reason.
+# Maybe try a tabular dataset for the demo.
 
 # interpret does not support sparse matrix.
 #X_train_d = X_train.toarray()
