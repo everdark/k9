@@ -1,6 +1,6 @@
 ---
 title: "On Model Explainability"
-subtitle: "From LIME, SHAP, to Interpretable Boosting"
+subtitle: "From LIME, SHAP, to Explainable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
