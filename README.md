@@ -3,9 +3,12 @@
 The repository is a collection of my self-taught notebooks for data science theories and practices.
 A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
 The major programming languages used for most of the notebooks are [Python](https://www.python.org/) and/or [R](https://www.r-project.org/).
-You may find me sometimes interoperate the two langauges in a single notebook.
+You may find me sometimes inter-operate the two langauges in a single notebook.
+This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate).
 
-## Notebooks
+Here to visit my web site hosting all the notebooks in nicely rendered HTML: [Hello, Data Science!](https://everdark.github.io/k9/)
+
+## Notebooks Summary
 
 + Statistics
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html)
@@ -29,7 +32,6 @@ You may find me sometimes interoperate the two langauges in a single notebook.
 ## [Optional] Setup Python Environment
 
 To ensure reproducibility it is recommended to use [`pyenv`](https://github.com/pyenv/pyenv) along with [`pyenv-virtualenv`](https://github.com/pyenv/pyenv-virtualenv) to control both Python and package version.
-
 To use `virtualenv` with `reticulate` in Rmd,
 the involved Python must be installed with shared library:
 
@@ -62,6 +64,8 @@ For Windows user it is recommended to use [`conda`](https://github.com/conda/con
 + Programming
     + R
         + Production Quality Shiny App Development
+    + Python
+        + Dash for Interactive Dashboarding
 + Projects
     + Model Deployment with gRRC
 
