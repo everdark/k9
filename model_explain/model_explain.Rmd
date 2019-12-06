@@ -156,7 +156,10 @@ import os
 import logging
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import warnings
+warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
+import matplotlib.pyplot as plt
 
 import tensorflow as tf
 print(tf.__version__)
@@ -576,7 +579,6 @@ lgb_model_file = "models/text_clf_lgb.txt"
 if os.path.exists(lgb_model_file):
   # TODO:
   # Parameters are not loaded back? A bug? (Which cause the subsequent call to shap_values fail.)
-  # https://github.com/microsoft/LightGBM/pull/1495/files
   # https://github.com/microsoft/LightGBM/issues/2613
   lgbooster = lgb.Booster(model_file=lgb_model_file, params=lgb_params)
 else:
@@ -594,15 +596,17 @@ print(classification_report(y_test, lgb_pred))
 For the overall feature importance derived by GBT:
 
 ```{python shap_lgb_feat_imp}
-lgb.plot_importance(lgbooster, max_num_features=20)  # TODO: This won't show.
+ax = lgb.plot_importance(lgbooster, max_num_features=20)
+plt.show()
 ```
 
-```{python shap_on_lgb}
-explain_top_k = 1000
+Since `shap.TreeExplainer` is customized for GBT for speed,
+unlike the previous random forest example here we can feed in all testing examples to calculate all shap values at once.
 
+```{python shap_on_lgb}
 # Sparse matrix is supported for lightgbm model.
 lgb_explainer = shap.TreeExplainer(lgbooster)
-lgb_shap_values = lgb_explainer.shap_values(X_test[:explain_top_k])
+lgb_shap_values = lgb_explainer.shap_values(X_test)
 
 lgb_shap_p = shap.force_plot(
   lgb_explainer.expected_value[1],
