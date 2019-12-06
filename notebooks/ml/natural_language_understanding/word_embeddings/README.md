@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
+[Link](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
 
 Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks.
 In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application,

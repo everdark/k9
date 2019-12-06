@@ -48,15 +48,15 @@ meta <- c(
   '<meta name="author" content="Kyle Chung">',
   '<meta property="og:title" content="High Performance Computing in R using Rcpp">',
   '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/programming/rcpp/rcpp.nb.html">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/eng/programming/rcpp/rcpp.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/rlang.png">',
   '<meta property="og:description" content="A Showcase of high performance computing in R using Rcpp.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../../../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/rcpp")
+github_corner_svg <- "../../../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/eng/programming/r/rcpp")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

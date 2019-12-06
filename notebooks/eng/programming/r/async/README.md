@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://everdark.github.io/k9/programming/r/async/async_r.nb.html)
+[Link](https://everdark.github.io/k9/notebooks/eng/programming/r/async/async_r.nb.html)
 
 The notebook is a practical walk-through of implementing asynchronous programming in R using package `future` and `promises`,
 mainly for the purpose of kick-starting developing a scalable `shiny` application.

@@ -21,7 +21,7 @@ abstract: |
   Matrix factorization is a useful technique for building practical recommender systems at scale. In this notebook we review a family of different factorization models with built-from-scratch Python coding examples to thoroughly understand the inner working of each of the underlying optimization problem. We also include a survey and short hands-on on several open-sourced libraries that efficiently implement factorization models for large-scale application.
 ---
 <!--For controling code folding by chunk.-->
-<script src="../site_libs/utils/hide_output.js"></script>
+<script src="../../../site_libs/utils/hide_output.js"></script>
 
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -36,15 +36,15 @@ meta <- c(
   '<meta name="author" content="Kyle Chung">',
   '<meta property="og:title" content="Matrix Factorization for Recommender Systems">',
   '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
   '<meta property="og:description" content="A data science notebook about matrix factorization for recommender systems.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/matrix_factorization")
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/ml/matrix_factorization")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

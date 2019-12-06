@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html)
+[Link](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
 
 This is a practical tutorial on Bayesian inference for readers who are already knowledged with basic statistics.
 The tutorial is practical in a sense that it focuses more on implementation and reasoning than on mathematical artifacts.

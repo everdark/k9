@@ -29,15 +29,15 @@ meta <- c(
   '<meta name="author" content="Kyle Chung">',
   '<meta property="og:title" content="Asynchronous Programming in R">',
   '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/programming/async/async_r.nb.html">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/eng/programming/async/async_r.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
   '<meta property="og:description" content="One-stop quick hands-on for developing scalable shiny application with asynchronous programming.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../../../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/async")
+github_corner_svg <- "../../../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/eng/programming/r/async")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

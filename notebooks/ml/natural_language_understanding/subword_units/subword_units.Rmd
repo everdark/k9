@@ -22,7 +22,7 @@ abstract: |
   Langauge segmentation or tokenization is the very first step toward a natural language understanding (NLU) task. The state-of-the-art NLU model usually involves neural networks with word embeddings as the workhorse to encode raw text onto vector space. A fixed vocabulary is pre-determined in order to facilitate such setup. With the challenge of out-of-vocabulary issue and non-whitespace-delimited language, we use subword units to further decompose raw texts into substrings. In this notebook we summarize the technique of subword segmentation in details with Python coding examples. We also provide a general usage walk-through for Google's open source library *SentencePiece*, a powerful language-agnostic unsupervised subword segmentation tool.
 ---
 <!--For controling code folding by chunk.-->
-<script src="../../site_libs/utils/hide_output.js"></script>
+<script src="../../../../site_libs/utils/hide_output.js"></script>
 
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -39,15 +39,15 @@ meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="On Subword Units: Segmentation for Natural Language Modeling">',
     '<meta property="og:type" content="article">',
-    '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/viterbi.png">',
     '<meta property="og:description" content="A data science notebook about natural language understanding.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/natural_language_understanding/subword_units")
+github_corner_svg <- "../../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/ml/natural_language_understanding/subword_units")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

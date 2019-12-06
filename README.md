@@ -11,20 +11,20 @@ Here to visit my web site hosting all the notebooks in nicely rendered HTML: [He
 ## Notebooks Summary
 
 + Statistics
-    + [Bayesian Modeling Explained](https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html)
+    + [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
 + Machine Learning
-    + [Neural Networks Fundamentals](https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html)
-    + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html)
-    + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/learning_to_rank/learning_to_rank.html)
-    + [On Model Explainability (W.I.P.)](https://everdark.github.io/k9/model_explain/model_explain.nb.html)
+    + [Neural Networks Fundamentals](https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html)
+    + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
+    + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/notebooks/ml/learning_to_rank/learning_to_rank.html)
+    + [On Model Explainability (W.I.P.)](https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html)
 + Natural Language Understanding
-    + [On Subword Units](https://everdark.github.io/k9/natural_language_understanding/subword_units/subword_units.nb.html)
-    + [Contex-Free Word Embeddings (W.I.P.)](https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
+    + [On Subword Units](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html)
+    + [Contex-Free Word Embeddings (W.I.P.)](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
     + [Contex-Aware Word Embeddings]
 + Programming
     + R
-        + [Asynchronous Programming in R](https://everdark.github.io/k9/programming/r/async/async_r.nb.html)
-        + [High Performance Computing in R using Rcpp](https://everdark.github.io/k9/programming/r/rcpp/rcpp.nb.html)
+        + [Asynchronous Programming in R](https://everdark.github.io/k9/notebooks/eng/programming/r/async/async_r.nb.html)
+        + [High Performance Computing in R using Rcpp](https://everdark.github.io/k9/notebooks/eng/programming/r/rcpp/rcpp.nb.html)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model (W.I.P.)]

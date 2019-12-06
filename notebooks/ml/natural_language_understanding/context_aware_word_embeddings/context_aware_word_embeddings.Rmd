@@ -28,14 +28,14 @@ MathJax.Hub.Config({
 </script>
 
 <!--For controling code folding by chunk.-->
-<script src="../../site_libs/utils/hide_output.js"></script>
+<script src="../../../../site_libs/utils/hide_output.js"></script>
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
 meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="On Word Embeddings: Vector Representation for Language Modeling">',
-    '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/context_aware_word_embeddings/context_aware_word_embeddings.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
     '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
 )

@@ -32,7 +32,7 @@ MathJax.Hub.Config({
 </script>
 
 <!--For controling code folding by chunk.-->
-<script src="../../site_libs/utils/hide_output.js"></script>
+<script src="../../../../site_libs/utils/hide_output.js"></script>
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
@@ -40,15 +40,15 @@ meta <- c(
     '<meta name="author" content="Kyle Chung">',
     '<meta property="og:title" content="Context-Free Word Embeddings: From word2vec, GloVe, to fastText">',
     '<meta property="og:type" content="article">',
-    '<meta property="og:url" content="https://everdark.github.io/k9/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
+    '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html">',
     '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
     '<meta property="og:description" content="A data science notebook about word embeddings for natural language modeling.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/programming/r/rcpp")
+github_corner_svg <- "../../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/ml/natural_language_understanding/word_embeddings")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

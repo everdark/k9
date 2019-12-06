@@ -9,27 +9,27 @@ navbar:
     - text: "Statistics"
       menu:
         - text: "Bayesian Modeling Explained"
-          href: bayesian/bayesian_modeling_explained.nb.html
+          href: notebooks/stats/bayesian/bayesian_modeling_explained.nb.html
     - text: "Machine Learning"
       menu:
         - text: "Neural Networks Fundamentals"
-          href: neural_nets/neural_networks_fundamentals.nb.html
+          href: notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html
         - text: "---"
         - text: "Matrix Factorization for Recommender Systems"
-          href: matrix_factorization/matrix_factorization.nb.html
+          href: notebooks/ml/matrix_factorization/matrix_factorization.nb.html
         - text: "---"
         - text: "Introduction to Learning-to-Rank"
-          href: learning_to_rank/learning_to_rank.html
+          href: notebooks/ml/learning_to_rank/learning_to_rank.html
         - text: "---"
         - text: "On Model Explainability (WIP)"
-          href: model_explain/model_explain.nb.html
+          href: notebooks/ml/model_explain/model_explain.nb.html
     - text: "Natural Language Understanding"
       menu:
         - text: "On Subword Units"
-          href: natural_language_understanding/subword_units/subword_units.nb.html
+          href: notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html
         - text: "---"
         - text: "Context-Free Word Embeddings (WIP)"
-          href: natural_language_understanding/word_embeddings/word_embeddings.nb.html
+          href: notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html
         - text: "---"
         - text: "Context-Aware Word Embeddings (WIP)"
   right:
@@ -40,10 +40,10 @@ navbar:
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"
-            href: programming/r/async/async_r.nb.html
+            href: notebooks/eng/programming/r/async/async_r.nb.html
           - text: "---"
           - text: "High Performance Computing in R using Rcpp"
-            href: programming/r/rcpp/rcpp.nb.html
+            href: notebooks/eng/programming/r/rcpp/rcpp.nb.html
     - icon: fa-linkedin
       href: https://www.linkedin.com/in/kylechung
     - icon: fa-github

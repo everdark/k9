@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://everdark.github.io/k9/programming/r/rcpp/rcpp.nb.html)
+[Link](https://everdark.github.io/k9/notebooks/eng/programming/r/rcpp/rcpp.nb.html)
 
 R is inherently a high-performance scripting language since its core is written in C.
 Writing a high-performance R program,

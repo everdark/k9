@@ -22,13 +22,13 @@ abstract: |
   The topics include 1.) an important section revisiting what is linear and logistic regression and how we can train these models using first-order numerical optimizer. Followed by 2.) a quick demonstration of automatic differnetiation which is considered as the computing workhorse for training modern neural networks. And 3.) a simple neural network solver is built and examined. Finally 4.) the regularization techinque to overcome overfitting problem followed by discussion on batch normalization and gradient clipping.
 ---
 <!--For controling code folding by chunk.-->
-<script src="../site_libs/utils/hide_output.js"></script>
+<script src="../../../site_libs/utils/hide_output.js"></script>
 
 <!-- Embed plotly javascript library.
   The preview of plotly output in RStudio won't work
   since we don't include the plotly.js in each individual plot (to reduce file size).
 -->
-<script src="../site_libs/utils/plotly-latest.min.js"></script>
+<script src="../../../site_libs/utils/plotly-latest.min.js"></script>
 
 <!-- Link to mathjax javascript library.
   This is for latex notation in plotly output.
@@ -74,15 +74,15 @@ meta <- c(
   '<meta name="author" content="Kyle Chung">',
   '<meta property="og:title" content="Neural Networks Fundamentals">',
   '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
   '<meta property="og:description" content="A data science notebook about foundations of neural network modeling with built-from-scratch Python examples.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/neural_nets")
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/ml/neural_nets")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

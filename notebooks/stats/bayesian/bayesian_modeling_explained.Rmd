@@ -37,15 +37,15 @@ meta <- c(
   '<meta name="author" content="Kyle Chung">',
   '<meta property="og:title" content="Bayesian Modeling Explained">',
   '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">',
   '<meta property="og:description" content="A data science notebook about Bayesian modeling with examples using R and Stan.">'
 )
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../assets/github_corner.html"
-github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/bayesian")
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/bayesian")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
 

@@ -2,7 +2,7 @@
 
 ## Notebook
 
-[Link](https://everdark.github.io/k9/model_explain/model_explain.nb.html)
+[Link](https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html)
 
 Model explainability has gained more and more attention recently among machine learning practitioners.
 Especially with the popularization of deep learning frameworks,
