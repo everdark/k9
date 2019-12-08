@@ -4,7 +4,7 @@ subtitle: "From LIME, SHAP, to Explainable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (08 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -31,6 +31,9 @@ MathJax.Hub.Config({
   TeX: { equationNumbers: { autoNumber: "AMS" } }
 });
 </script>
+
+<!-- Embed lime javascript library for explanation visualization. -->
+<script src="lime.js"></script>
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
@@ -63,9 +66,27 @@ if ( is(r, "try-error") ) {
   if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
 }
 
-# Auto show matplotlib plots.
-matplotlib <- import("matplotlib")
-matplotlib$use("Agg", force=TRUE)
+# Utility to post-process html output.
+library(xml2)
+
+write_lime_js <- function(infile) {
+  # lime html output contains a huge js string,
+  # to reduce notebook file size we only want to declare the js once.
+  outfile <- "lime.js"
+  doc <- as_list(read_html(infile))
+  js_str <- doc$html$head$script[[1]]
+  # Use h4 for text example header to avoid being included in rmd toc.
+  js_str <- gsub("h3", "h4", js_str)
+  writeLines(js_str, outfile, useBytes=TRUE)
+}
+
+parse_lime_html_output <- function(infile, exclude_js=TRUE) {
+  outfile <- tempfile()
+  doc <- read_html(infile)
+  if ( exclude_js ) xml_remove(xml_child(doc))
+  write_html(doc, outfile)
+  outfile
+}
 ```
 
 ---
@@ -138,6 +159,8 @@ As its full name suggests,
 LIME can be applied to *any* machine learning model.
 LIME achieves prediction-level interpretability by approxmiating the original model with an explanation model locally around that prediction.
 
+**TODO: Add theory briefing here.**
+
 ## On Text Classifiers
 
 For text classification problem,
@@ -165,7 +188,6 @@ import tensorflow as tf
 print(tf.__version__)
 if tf.test.is_gpu_available():
   print(tf.test.gpu_device_name())
-  os.system("nvidia-smi -L")
 
 import sklearn
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -202,20 +224,20 @@ import numpy as np
 # And since this is a small dataset, we don't care about memory usage.
 imdb_reviews_train = []
 imdb_reviews_test = []
-y_train = []
-y_test = []
+imdb_y_train = []
+imdb_y_test = []
 for x, y in imdb["train"].batch(128):
   imdb_reviews_train.extend(x.numpy())
-  y_train.extend(y.numpy())
+  imdb_y_train.extend(y.numpy())
 for x, y in imdb["test"].batch(128):
   imdb_reviews_test.extend(x.numpy())
-  y_test.extend(y.numpy())
+  imdb_y_test.extend(y.numpy())
 
 # tf works on bytes, but other packages mostly work on decoded str.
 imdb_reviews_train = [b.decode("utf8") for b in imdb_reviews_train]
 imdb_reviews_test = [b.decode("utf8") for b in imdb_reviews_test]
-y_train = np.array(y_train)
-y_test = np.array(y_test)
+imdb_y_train = np.array(imdb_y_train)
+imdb_y_test = np.array(imdb_y_test)
 
 # Take one.
 print(imdb_reviews_train[87])
@@ -242,29 +264,32 @@ Let's build a random forest with TF-IDF as our feature space.
 We will use the popular `scikit-learn` library for implementation.^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest. However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
 
 ```{python text_tfidf}
-vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
-X_train = vectorizer.fit_transform(imdb_reviews_train)
-X_test = vectorizer.transform(imdb_reviews_test)
-print(len(vectorizer.vocabulary_))  # Without OOV token.
+imdb_vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
+imdb_X_train = imdb_vectorizer.fit_transform(imdb_reviews_train)
+imdb_X_test = imdb_vectorizer.transform(imdb_reviews_test)
+print(len(imdb_vectorizer.vocabulary_))  # Without OOV token.
 ```
 
 ```{python text_clf_rf}
-rf_model_file = "models/text_rf.joblib"
+imdb_rf_model_file = "models/text_rf.joblib"
 
 # Save/reload the model to save notebook rendering time.
-if os.path.exists(rf_model_file):
-  rf = joblib.load(rf_model_file)
+if os.path.exists(imdb_rf_model_file):
+  imdb_rf = joblib.load(imdb_rf_model_file)
 else:
-  rf = RandomForestClassifier(n_estimators=300)
-  _ = rf.fit(X_train, y_train)
-  _ = joblib.dump(rf, rf_model_file)
+  imdb_rf = RandomForestClassifier(n_estimators=300)
+  _ = imdb_rf.fit(imdb_X_train, imdb_y_train)
+  _ = joblib.dump(rf, imdb_rf_model_file)
 
-rf_pred = rf.predict(X_test)
-print(classification_report(y_test, rf_pred))
+imdb_rf_pred = imdb_rf.predict(imdb_X_test)
+imdb_rf_yhat = imdb_rf.predict_proba(imdb_X_test)[:,1]
+
+print(classification_report(imdb_y_test, imdb_rf_pred))
+print(roc_auc_score(imdb_y_test, imdb_rf_yhat))
 ```
 
 As a baseline without extensive tuning (we didn't tune anything indeed!),
-random forest seems to perform fairly well on this dataset judged by the classification report above.
+random forest seems to perform fairly well on this dataset.
 
 Now move on to model explanation with LIME:
 
@@ -273,21 +298,36 @@ from lime.lime_text import LimeTextExplainer
 from sklearn.pipeline import make_pipeline
 
 # We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
-rf_pipe = make_pipeline(vectorizer, rf)
-explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+imdb_rf_pipe = make_pipeline(imdb_vectorizer, imdb_rf)
+imdb_rf_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
-test_id = 0
-exp = explainer.explain_instance(
-  imdb_reviews_test[test_id], rf_pipe.predict_proba, num_features=6)
-# For ipynb, one can simply call exp.show_in_notebook(text=True) to embed the html output.
-exp.save_to_file("/tmp/explain_text_rf.html")
+imdb_rf_tp_idx = np.where(np.logical_and(imdb_rf_pred == 1, imdb_y_test == 1))[0]
+imdb_rf_fp_idx = np.where(np.logical_and(imdb_rf_pred == 1, imdb_y_test == 0))[0]
 
-# True label of the tested example.
-print(y_test[test_id])
+# We take one true positive and one false positive example to demo explanation.
+imdb_rf_tp_exp = imdb_rf_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_tp_idx[0]], imdb_rf_pipe.predict_proba, num_features=6)
+imdb_rf_fp_exp = imdb_rf_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_fp_idx[0]], imdb_rf_pipe.predict_proba, num_features=6)
+# For ipynb, one can simply call imdb_tp_exp.show_in_notebook(text=True) to embed the html output.
+
+imdb_rf_tp_exp.save_to_file("/tmp/explain_text_rf_tp.html")
+imdb_rf_fp_exp.save_to_file("/tmp/explain_text_rf_fp.html")
 ```
 
+#### A True Positive Prediction Explained {-}
+
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_text_rf.html")
+if ( !file.exists("lime.js") ) {
+  write_lime_js("/tmp/explain_text_rf_tp.html")
+}
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_tp.html"))
+```
+
+#### A False Positive Prediction Explained {-}
+
+```{r, echo=FALSE}
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_fp.html"))
 ```
 
 **TODO: Discuss the result.**
@@ -346,9 +386,9 @@ print(model_fn().summary(line_length=90))
 
 nn_model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
 metrics = nn_model.fit(
-  x=seq_train_padded, y=y_train,
+  x=seq_train_padded, y=imdb_y_train,
   batch_size=256, epochs=10,
-  validation_data=(seq_test_padded, y_test),
+  validation_data=(seq_test_padded, imdb_y_test),
   validation_steps=20,
   callbacks=[
     tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
@@ -359,8 +399,11 @@ metrics = nn_model.fit(
 # TODO: tf.keras.models.load_model(nn_model_file) fails?
 # https://github.com/tensorflow/tensorflow/issues/34901
 
-nn_pred = (np.squeeze(nn_model.predict(seq_test_padded)) > .5).astype(int)
-print(classification_report(y_test, nn_pred))
+nn_yhat = np.squeeze(nn_model.predict(seq_test_padded))
+nn_pred = (nn_yhat > .5).astype(int)
+
+print(classification_report(imdb_y_test, nn_pred))
+print(roc_auc_score(imdb_y_test, nn_pred))
 ```
 
 ```{python lime_on_nn_embeddings}
@@ -370,13 +413,21 @@ def nn_predict_fn(text):
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
   return nn_model.predict_proba(seq)
 
-explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
-model_exp = explainer.explain_instance(imdb_reviews_test[test_id], nn_predict_fn, num_features=6)
-model_exp.save_to_file("/tmp/explain_text_nn.html")
+imdb_nn_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+
+# Explain the same examples as in RF.
+imdb_nn_tp_exp = imdb_nn_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_tp_idx[0]], nn_predict_fn, num_features=6)
+imdb_nn_fp_exp = imdb_nn_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_fp_idx[0]], nn_predict_fn, num_features=6)
+
+imdb_nn_tp_exp.save_to_file("/tmp/explain_text_nn_tp.html")
+imdb_nn_fp_exp.save_to_file("/tmp/explain_text_nn_fp.html")
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_text_nn.html")
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_tp.html"))
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_fp.html"))
 ```
 
 **TODO: Discuss the difference between RF and NN.**
@@ -453,9 +504,9 @@ print(tr_model_fn().summary(line_length=90))
 
 tr_model = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
 metrics = tr_model.fit(
-  x=seq_train_padded, y=y_train,
+  x=seq_train_padded, y=imdb_y_train,
   batch_size=256, epochs=20,
-  validation_data=(seq_test_padded, y_test),
+  validation_data=(seq_test_padded, imdb_y_test),
   validation_steps=20,
   callbacks=[
     tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
@@ -463,8 +514,11 @@ metrics = tr_model.fit(
   ],
   verbose=2)
 
-tr_pred = (np.squeeze(tr_model.predict(seq_test_padded)) > .5).astype(int)
-print(classification_report(y_test, tr_pred))
+imdb_tr_yhat = np.squeeze(tr_model.predict(seq_test_padded))
+imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
+
+print(classification_report(imdb_y_test, imdb_tr_pred))
+print(roc_auc_score(imdb_y_test, imdb_tr_yhat))
 ```
 
 ```{python lime_on_transfer_learning}
@@ -474,13 +528,21 @@ def tr_predict_fn(text):
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
   return tr_model.predict_proba(seq)
 
-explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
-model_exp = explainer.explain_instance(imdb_reviews_test[test_id], tr_predict_fn, num_features=6)
-model_exp.save_to_file("/tmp/explain_text_tr.html")
+imdb_tr_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+
+# Explain the same examples as in RF.
+imdb_tr_tp_exp = imdb_tr_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_tp_idx[0]], tr_predict_fn, num_features=6)
+imdb_tr_fp_exp = imdb_tr_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_fp_idx[0]], tr_predict_fn, num_features=6)
+
+imdb_tr_tp_exp.save_to_file("/tmp/explain_text_tr_tp.html")
+imdb_tr_fp_exp.save_to_file("/tmp/explain_text_tr_fp.html")
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_text_tr.html")
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 ```
 
 **TODO: Summarize all models.**
@@ -544,14 +606,17 @@ ucihd_2.loc[ucihd_2["ca"].isna(), "ca"] = -1  # Encode missing numerical.
 # One-hot encode all categorical features.
 ucihd_2 = pd.get_dummies(ucihd_2, columns=categorical_attr, dummy_na=True)
 ucihd_y = ucihd_2.pop("label")
-X_train, X_test, y_train, y_test = train_test_split(
+ucihd_X_train, ucihd_X_test, ucihd_y_train, ucihd_y_test = train_test_split(
   ucihd_2, ucihd_y.values, test_size=.3, random_state=64)
 
-hd_rf = RandomForestClassifier(n_estimators=100)
-_ = hd_rf.fit(X_train, y_train)
+ucihd_rf = RandomForestClassifier(n_estimators=100)
+_ = ucihd_rf.fit(ucihd_X_train, ucihd_y_train)
 
-print(classification_report(y_test, hd_rf.predict(X_test)))
-print(roc_auc_score(y_test, hd_rf.predict_proba(X_test)[:,1]))
+ucihd_rf_yhat = ucihd_rf.predict_proba(ucihd_X_test)[:,1]
+ucihd_rf_pred = ucihd_rf.predict(ucihd_X_test)
+
+print(classification_report(ucihd_y_test, ucihd_rf_pred))
+print(roc_auc_score(ucihd_y_test, ucihd_rf_yhat))
 ```
 
 As one can see RF performs very well on this dataset.
@@ -564,33 +629,34 @@ Discretization is done using statistics derived from the training dataset.
 from lime.lime_tabular import LimeTabularExplainer
 
 cat_ind = [i for i, col in enumerate(ucihd_2.columns) if "_" in col]
-rf_tab_explainer = LimeTabularExplainer(
-  X_train.values, class_names=["Negative", "Positive"],
+ucihd_rf_explainer = LimeTabularExplainer(
+  ucihd_X_train.values, class_names=["Negative", "Positive"],
   feature_names=ucihd_2.columns,
   categorical_features=cat_ind)
 
-tp_idx = np.where(np.logical_and(hd_rf.predict(X_test) == 1, y_test == 1))[0]
-fp_idx = np.where(np.logical_and(hd_rf.predict(X_test) == 1, y_test == 0))[0]
+ucihd_rf_tp_idx = np.where(np.logical_and(ucihd_rf_pred == 1, ucihd_y_test == 1))[0]
+ucihd_rf_fp_idx = np.where(np.logical_and(ucihd_rf_pred == 1, ucihd_y_test == 0))[0]
 
 # We take one true positive and one false positive for examples.
-tp_exp = rf_tab_explainer.explain_instance(
-  X_test.iloc[tp_idx[0]], hd_rf.predict_proba, num_features=4)
-fp_exp = rf_tab_explainer.explain_instance(
-  X_test.iloc[fp_idx[0]], hd_rf.predict_proba, num_features=4)
-tp_exp.save_to_file("/tmp/explain_tab_rf_tp.html")
-fp_exp.save_to_file("/tmp/explain_tab_rf_fp.html")
+ucihd_rf_tp_exp = ucihd_rf_explainer.explain_instance(
+  ucihd_X_test.iloc[ucihd_rf_tp_idx[0]], ucihd_rf.predict_proba, num_features=4)
+ucihd_rf_fp_exp = ucihd_rf_explainer.explain_instance(
+  ucihd_X_test.iloc[ucihd_rf_fp_idx[0]], ucihd_rf.predict_proba, num_features=4)
+
+ucihd_rf_tp_exp.save_to_file("/tmp/explain_tab_rf_tp.html")
+ucihd_rf_fp_exp.save_to_file("/tmp/explain_tab_rf_fp.html")
 ```
 
 #### A True Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_tab_rf_tp.html")
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_tp.html"))
 ```
 
 #### A False Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_tab_rf_fp.html")
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_fp.html"))
 ```
 
 **Discuss the two explanations.**
@@ -606,10 +672,10 @@ Here we demo `lightgbm`'s implementation of GBT with LIME explanation.
 ```{python tabular_lgb}
 import lightgbm as lgb
 
-ucihd_tr = lgb.Dataset(X_train, label=y_train)
-ucihd_te = lgb.Dataset(X_test, label=y_test)
+ucihd_tr = lgb.Dataset(ucihd_X_train, label=ucihd_y_train)
+ucihd_te = lgb.Dataset(ucihd_X_test, label=ucihd_y_test)
 
-hd_lgb_params = {
+ucihd_lgb_params = {
   "learning_rate": .01,
   "boosting_type": "gbdt",
   "objective": "binary",
@@ -620,16 +686,17 @@ hd_lgb_params = {
   "verbose": -1
 }
 
-hd_bst = lgb.train(
-  params=hd_lgb_params,
+ucihd_bst = lgb.train(
+  params=ucihd_lgb_params,
   num_boost_round=300, early_stopping_rounds=20,
   train_set=ucihd_tr, valid_sets=[ucihd_te],
-  verbose_eval=5)
+  verbose_eval=10)
 
-hd_lgb_yhat = hd_bst.predict(ucihd_test.iloc[:,:-1])
-hd_lgb_pred = (hd_lgb_yhat > .5).astype(int)
-print(classification_report(y_test, hd_lgb_pred))
-print(roc_auc_score(y_test, hd_lgb_yhat))
+ucihd_lgb_yhat = ucihd_bst.predict(ucihd_X_test)
+ucihd_lgb_pred = (ucihd_lgb_yhat > .5).astype(int)
+
+print(classification_report(ucihd_y_test, ucihd_lgb_pred))
+print(roc_auc_score(ucihd_y_test, ucihd_lgb_yhat))
 ```
 
 In this particular (rather small) dataset RF indeed outperforms GBT.
@@ -638,40 +705,36 @@ a simple logistic regression may have a even higher score for this problem.
 Nevertheless, let's move on to our explanation model with LIME:
 
 ```{python lime_tabular_gbt}
-def lgb_predict_fn(x):
+def ucihd_lgb_predict_fn(x):
   # We need to output 2 columns for binary prob prediction.
-  p = hd_bst_2.predict(x).reshape(-1, 1)
+  p = ucihd_bst.predict(x).reshape(-1, 1)
   return np.hstack((1 - p, p))
 
-lgb_tab_explainer = LimeTabularExplainer(
-  X_train.values, class_names=["Negative", "Positive"],
+ucihd_lgb_explainer = LimeTabularExplainer(
+  ucihd_X_train.values, class_names=["Negative", "Positive"],
   feature_names=ucihd_2.columns,
   categorical_features=cat_ind)
 
 # We take the same examples previously explained in our RF explanation model.
-tp_exp = lgb_tab_explainer.explain_instance(
-  X_test.iloc[tp_idx[0]], lgb_predict_fn, num_features=4)
-fp_exp = lgb_tab_explainer.explain_instance(
-  X_test.iloc[fp_idx[0]], lgb_predict_fn, num_features=4)
-tp_exp.save_to_file("/tmp/explain_tab_lgb_tp.html")
-fp_exp.save_to_file("/tmp/explain_tab_lgb_fp.html")
+ucihd_lgb_tp_exp = ucihd_lgb_explainer.explain_instance(
+  ucihd_X_test.iloc[ucihd_rf_tp_idx[0]], ucihd_lgb_predict_fn, num_features=4)
+ucihd_lgb_fp_exp = ucihd_lgb_explainer.explain_instance(
+  ucihd_X_test.iloc[ucihd_rf_fp_idx[0]], ucihd_lgb_predict_fn, num_features=4)
+
+ucihd_lgb_tp_exp.save_to_file("/tmp/explain_tab_lgb_tp.html")
+ucihd_lgb_fp_exp.save_to_file("/tmp/explain_tab_lgb_fp.html")
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_tab_lgb_tp.html")
-```
-
-```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/explain_tab_lgb_fp.html")
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_tp.html"))
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 ```
 
 **TODO: Discussion on the explanation.**
 
-#### Optimized Categorical Encoding in `lightgbm`{-}
+#### Optimized Categorical Encoding in `lightgbm` {-}
 
----
-This section is a digression on `lightgbm` usage.
----
+**This section is a digression on `lightgbm` usage.**
 
 Since `lime`'s API requires us to prepare our dataset in one-hot encoding representation,
 our `lightgbm` code use the same data pipeline as in `scikit-learn` random forest.
@@ -682,23 +745,25 @@ We don't encode them at all!
 ```{python lgb_best_practice}
 # We leave both missings and categoricals as-is in the dataset.
 ucihd_train, ucihd_test = train_test_split(ucihd, test_size=.3, random_state=64)
-ucihd_tr = lgb.Dataset(ucihd_train.iloc[:,:-1], label=ucihd_train["label"],
-                       categorical_feature=categorical_attr,
-                       free_raw_data=False)
-ucihd_te = lgb.Dataset(ucihd_test.iloc[:,:-1], label=ucihd_test["label"],
-                       categorical_feature=categorical_attr,
-                       free_raw_data=False)
+ucihd_tr = lgb.Dataset(
+  ucihd_train.drop("label", axis=1), label=ucihd_train["label"],
+  categorical_feature=categorical_attr,
+  free_raw_data=False)
+ucihd_te = lgb.Dataset(
+  ucihd_test.drop("label", axis=1), label=ucihd_test["label"],
+  categorical_feature=categorical_attr,
+  free_raw_data=False)
 
-hd_bst = lgb.train(
-  params=hd_lgb_params,
+ucihd_bst_2 = lgb.train(
+  params=ucihd_lgb_params,
   num_boost_round=300, early_stopping_rounds=20,
   train_set=ucihd_tr, valid_sets=[ucihd_te],
-  verbose_eval=5)
+  verbose_eval=-1)
 
-hd_lgb_yhat = hd_bst.predict(ucihd_test.iloc[:,:-1])
-hd_lgb_pred = (hd_lgb_yhat > .5).astype(int)
-print(classification_report(ucihd_test["label"], hd_lgb_pred))
-print(roc_auc_score(ucihd_test["label"], hd_lgb_yhat))
+ucihd_lgb_yhat = ucihd_bst_2.predict(ucihd_test.drop("label", axis=1))
+ucihd_lgb_pred = (ucihd_lgb_yhat > .5).astype(int)
+
+print(roc_auc_score(ucihd_test["label"], ucihd_lgb_yhat))
 ```
 
 To summarize,
@@ -719,7 +784,7 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 # Shapley Regression Values
 
-**Theory Briefing here.**
+**TODO: Theory Briefing here.**
 
 # SHAP
 
@@ -741,6 +806,8 @@ Hence it provides for any given model prediction what may be the driving force f
 `shap` also comes with more visualization methods for feature investigation,
 especially for feature interaction exploration.
 
+**TODO: Theory Briefing here.**
+
 ## On Text Classifiers
 
 ### Explain Random Forest
@@ -751,15 +818,15 @@ this time we use `shap` to build the explanation model.
 ```{python shap_on_rf}
 import shap
 
-sorted_vocab = sorted(vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
+sorted_vocab = sorted(imdb_vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
 sorted_vocab = [w for w, i in sorted_vocab]
 
 # shap doesn't support sparse matrix input for scikit-learn model.
-X_test_d = X_test.toarray()
+imdb_X_test_d = imdb_X_test.toarray()
 
 # Run explanation approximation for all testing examples at once.
 # TODO: Performance issue here for shap on sklearn RF.
-explain_top_k = 100
+#explain_top_k = 100
 #rf_shape_explainer = shap.TreeExplainer(rf)
 #rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
 #
@@ -783,8 +850,9 @@ top_k = 20
 ```
 
 ```{python rf_feat_imp}
-rf_feat_imp = pd.Series(rf.feature_importances_, index=sorted_vocab).sort_values()
-rf_feat_imp.tail(top_k).plot(kind="barh")
+rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
+ax = rf_feat_imp.tail(top_k).plot(kind="barh")
+plt.show()
 ```
 
 ### Explain Gradient Boosting Trees
@@ -804,10 +872,10 @@ def remove_non_ascii(s):
 
 sorted_vocab_ascii = [remove_non_ascii(v) for v in sorted_vocab]
 
-d_train = lgb.Dataset(X_train, label=y_train, feature_name=sorted_vocab_ascii)
-d_test = lgb.Dataset(X_test, label=y_test, feature_name=sorted_vocab_ascii)
+imdb_tr = lgb.Dataset(imdb_X_train, label=imdb_y_train, feature_name=sorted_vocab_ascii)
+imdb_te = lgb.Dataset(imdb_X_test, label=imdb_y_test, feature_name=sorted_vocab_ascii)
 
-lgb_params = {
+imdb_lgb_params = {
   "learning_rate": .05,
   "boosting_type": "gbdt",
   "objective": "binary",
@@ -818,30 +886,33 @@ lgb_params = {
   "verbose": -1
 }
 
-lgb_model_file = "models/text_clf_lgb.txt"
+imdb_lgb_model_file = "models/text_clf_lgb.txt"
 
 # Save/reload model to save notebook rendering time.
-if os.path.exists(lgb_model_file):
+if os.path.exists(imdb_lgb_model_file):
   # TODO:
   # Parameters are not loaded back? A bug? (Which cause the subsequent call to shap_values fail.)
   # https://github.com/microsoft/LightGBM/issues/2613
-  lgbooster = lgb.Booster(model_file=lgb_model_file, params=lgb_params)
+  imdb_bst = lgb.Booster(model_file=imdb_lgb_model_file, params=imdb_lgb_params)
 else:
-  lgbooster = lgb.train(
-    params=lgb_params,
+  imdb_bst = lgb.train(
+    params=imdb_lgb_params,
     num_boost_round=1000, early_stopping_rounds=20,
-    train_set=d_train, valid_sets=[d_test],
+    train_set=imdb_tr, valid_sets=[imdb_te],
     verbose_eval=100)
-  _ = lgbooster.save_model(lgb_model_file)
+  _ = imdb_bst.save_model(imdb_lgb_model_file)
 
-lgb_pred = (lgbooster.predict(X_test) > .5).astype(int)
-print(classification_report(y_test, lgb_pred))
+imdb_lgb_yhat = imdb_bst.predict(imdb_X_test)
+imdb_lgb_pred = (imdb_lgb_yhat > .5).astype(int)
+
+print(classification_report(imdb_y_test, imdb_lgb_pred))
+print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 ```
 
 For the overall feature importance derived by GBT:
 
 ```{python shap_lgb_feat_imp}
-ax = lgb.plot_importance(lgbooster, max_num_features=20)
+ax = lgb.plot_importance(imdb_bst, max_num_features=20)
 plt.show()
 ```
 
@@ -850,20 +921,29 @@ unlike the previous random forest example here we can feed in all testing exampl
 
 ```{python shap_on_lgb}
 # Sparse matrix is supported for lightgbm model.
-lgb_explainer = shap.TreeExplainer(lgbooster)
-lgb_shap_values = lgb_explainer.shap_values(X_test)
+imdb_lgb_explainer = shap.TreeExplainer(imdb_bst)
+imdb_lgb_shap_values = imdb_lgb_explainer.shap_values(imdb_X_test)
 
-lgb_shap_p = shap.force_plot(
-  lgb_explainer.expected_value[1],
-  lgb_shap_values[1][test_id,:],
-  X_test[test_id,:].toarray(),  # We still need a dense matrix here.
-  feature_names=sorted_vocab
-)
-shap.save_html("/tmp/lgb_shap_val.html", lgb_shap_p)
+def imdb_lgb_shap_plot(test_id):
+  lgb_shap_plt = shap.force_plot(
+    imdb_lgb_explainer.expected_value[1],
+    imdb_lgb_shap_values[1][test_id,:],
+    imdb_X_test[test_id,:].toarray(),  # We still need a dense matrix here.
+    feature_names=sorted_vocab
+  )
+  return lgb_shap_plt
+
+
+imdb_lgb_tp_shap = imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
+imdb_lgb_fp_shap = imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
+
+shap.save_html("/tmp/imdb_lgb_shap_tp.html", imdb_lgb_tp_shap)
+shap.save_html("/tmp/imdb_lgb_shap_fp.html", imdb_lgb_fp_shap)
 ```
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/lgb_shap_val.html")
+htmltools::includeHTML("/tmp/imdb_lgb_shap_tp.html")
+htmltools::includeHTML("/tmp/imdb_lgb_shap_fp.html")
 ```
 
 **TODO: Discuss the result. Any thing different from RF explained by LIME?**
@@ -871,7 +951,8 @@ htmltools::includeHTML("/tmp/lgb_shap_val.html")
 ```{python verify_log_odds}
 # Note that by default shap for lightgbm reports log-odds rather than probability.
 # To verify this:
-p = lgbooster.predict(X_test[test_id,:].toarray())
+p = imdb_bst.predict(imdb_X_test[imdb_rf_tp_idx[0],:].toarray())
+print(p)
 print(np.log(p / (1 - p)))
 ```
 
@@ -887,9 +968,9 @@ Encountered a bug for DeepExplainer with TF 2.0:
 # Let's re-build the model and retain its Sequental class.
 dl_model = model_fn()
 metrics = dl_model.fit(
-  x=seq_train_padded, y=y_train,
+  x=seq_train_padded, y=imdb_y_train,
   batch_size=256, epochs=20,
-  validation_data=(seq_test_padded, y_test),
+  validation_data=(seq_test_padded, imdb_y_test),
   validation_steps=20,
   callbacks=[
     tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
