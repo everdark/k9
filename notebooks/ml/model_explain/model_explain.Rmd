@@ -35,6 +35,11 @@ MathJax.Hub.Config({
 <!-- Embed lime javascript library for explanation visualization. -->
 <script src="lime.js"></script>
 
+<!-- Embed plotly javascript library.
+  This is the backend for interpretML visualization.
+-->
+<script src="../../../site_libs/utils/plotly-1.51.1.min.js"></script>
+
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
 
@@ -1025,40 +1030,66 @@ $f_{ij}$ is a *pairwise interaction* feature function to further boost the accur
 The model is interpretable since the contribution of any individual feature can be directly quantified by their corresponding feature function $f_j$.
 Such explanation can extend up to pairwise interaction if pairwise feature functions are also estimated.
 
-**TODO: How to detect pairwise interaction?**
+**TODO: How to detect pairwise interaction? Brief the FAST algorithm.**
 
-```{python interpret_model}
+## On Text/Image Data
+
+EBM is not efficient for text dataset.
+Due to the algorithm's design it will run too long for bag-of-words model since there are too many feature functions to estimate.
+If we fit a EBM with the movie review dataset,
+even if not a large dataset,
+we will encounter OOM (out-of-memory) issue.
+As a result,
+we will skip the discussion of EBM on a text classifier.
+(The same restriction applies to image dataset.)
+
+## On Tabular Data
+
+`ExplainableBoostingClassifier` has a `scikit-learn` fashion API and hence is straightforward to use.
+
+```{python ebm_tabular_model}
 from interpret.glassbox import ExplainableBoostingClassifier
-from interpret.perf import ROC
-from interpret import show
 
-# EBM seems not suitable for bag of words model since too many "categorical" variables.
-# Also it won't be able to fit a image model for the same reason.
-# Maybe try a tabular dataset for the demo.
+ucihd_ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=ucihd_2.columns)
+_ = ucihd_ebm.fit(ucihd_X_train, ucihd_y_train)
 
-# interpret does not support sparse matrix.
-#X_train_d = X_train.toarray()
+ucihd_ebm_yhat = ucihd_ebm.predict_proba(ucihd_X_test)[:,1]
+ucihd_ebm_pred = (ucihd_ebm_yhat > .5).astype(int)
 
-# TODO: OOM...
-#ebm = ExplainableBoostingClassifier(feature_names=sorted_vocab, n_estimators=16)
-#ebm.fit(X_train_d, y_train)
-
-#ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=sorted_vocab)
-#ebm.fit(X_train[:100].toarray(), y_train[:100])
-
-#data = X_train[:100].toarray()
-#new_data = data
-
-#ebm_perf = ROC(ebm.predict_proba).explain_perf(X_test, y_test, name="EBM")
-#show(ebm_perf)
+print(classification_report(ucihd_y_test, ucihd_ebm_pred))
+print(roc_auc_score(ucihd_y_test, ucihd_ebm_yhat))
 ```
 
-```{python}
-#ebm_global = ebm.explain_global()
-#show(ebm_global)
+The model performs very well on the heart disease dataset,
+outperforming both RF and GBT.
 
-#ebm_local = ebm.explain_local(X_test, y_test)
-#show(ebm_local)
+### Global Explanation
+
+```{python ebm_tabular_global_explain}
+ucihd_ebm_global = ucihd_ebm.explain_global()
+# All feature info:
+print(ucihd_ebm_global.selector)
+
+# Global feature importance.
+ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
+
+# Global importance view on the fisrt feature.
+ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
+
+#ucihd_ebm_global.visualize().write_image("test.svg")  # Need ploty/orca.
+```
+
+### Local Explanation
+
+```{python ebm_tabular_local_explain}
+# Explain the same instances previously on RF.
+exp_ind = np.array([ucihd_rf_tp_idx[0], ucihd_rf_fp_idx[0]])
+
+# We can feed multiple examples at the same time.
+ucihd_ebm_local = ucihd_ebm.explain_local(
+  ucihd_X_test.iloc[exp_ind,:], ucihd_y_test[exp_ind])
+ucihd_ebm_local.visualize(0).write_html("/tmp/ucihd_ebm_exp_tp.html", include_plotlyjs=False)
+ucihd_ebm_local.visualize(1).write_html("/tmp/ucihd_ebm_exp_fp.html", include_plotlyjs=False)
 ```
 
 # References

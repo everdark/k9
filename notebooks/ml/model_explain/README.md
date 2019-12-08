@@ -21,6 +21,16 @@ To install all the Python packages used in the notebook, run:
 pip install requirements.txt
 ```
 
+Additionally for export static visualization on `interpret`,
+we will need [`orca`](https://github.com/plotly/orca):
+
+```sh
+npm install -g electron@1.8.4 orca
+```
+
+[`npm`](https://www.npmjs.com/get-npm) is required.
+For other installation method please refer to the official document of `orca`.
+
 ### Reproducibility
 
 Pull the code base:
