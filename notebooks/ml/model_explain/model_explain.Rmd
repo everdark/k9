@@ -626,7 +626,7 @@ metrics = imdb_rnn.fit(
   ],
   verbose=2)
 
-imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded_2))
+imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_rnn_pred))
@@ -635,6 +635,7 @@ print(roc_auc_score(imdb_y_test, imdb_rnn_yhat))
 
 Since the dataset is rather small,
 we didn't see any advantage of RNN over a simple pooling embedding model.
+That's see how the explanation can differ, again, for the same two examples:
 
 ```{python lime_imdb_rnn}
 def rnn_predict_fn(text):
@@ -672,7 +673,7 @@ Here we will use [UCI Heart Disease dataset](https://archive.ics.uci.edu/ml/data
 Particularly,
 we use the Cleveland dataset which is commonly used in machine learning research.^[V.A. Medical Center, Long Beach and Cleveland Clinic Foundation:Robert Detrano, M.D., Ph.D.]
 
-```{python download_tabular_data, results="hide"}
+```{python maybe_download_ucihd, results="hide"}
 ucihd_remote_path = "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
 ucihd_fname = os.path.basename(ucihd_remote_path)
 ucihd_local_path = os.path.join(cache_dir, "datasets", ucihd_fname)
@@ -682,7 +683,7 @@ if not os.path.exists(ucihd_local_path):
                               extract=False, cache_dir=cache_dir)
 ```
 
-```{python prepare_tabular_data}
+```{python preprocess_ucihd}
 ucihd_attr = [
   "age",
   "sex",
@@ -716,7 +717,7 @@ The dataset contains both numerical and categorical features (all encoded in num
 
 ### Explain Random Forest
 
-```{python tabluar_rf}
+```{python ucihd_rf}
 # RF doesn't allow missing value.
 # For categorical (as string) we can leave one special category for missing,
 # but for numerical we need to do some special encoding or imputation.
@@ -745,7 +746,7 @@ To explain a model trained with numerical features,
 `lime` by default will discretize continous variables into quantiles for ease of interpretation.
 Discretization is done using statistics derived from the training dataset.
 
-```{python lime_tabular_rf}
+```{python lime_ucihd_rf}
 from lime.lime_tabular import LimeTabularExplainer
 
 cat_ind = [i for i, col in enumerate(ucihd_2.columns) if "_" in col]
@@ -789,7 +790,7 @@ GBT is also hard to intrepret in general.
 
 Here we demo `lightgbm`'s implementation of GBT with LIME explanation.
 
-```{python tabular_lgb}
+```{python ucihd_lgb}
 import lightgbm as lgb
 
 ucihd_tr = lgb.Dataset(ucihd_X_train, label=ucihd_y_train)
@@ -825,7 +826,7 @@ As a matter of fact,
 based on [existing benchmark](https://github.com/interpretml/interpret/tree/master/benchmarks) a simple logistic regression may have a even higher score for this problem.
 Nevertheless, let's move on to our explanation model with LIME:
 
-```{python lime_tabular_gbt}
+```{python lime_uci_lgb}
 def ucihd_lgb_predict_fn(x):
   # We need to output 2 columns for binary prob prediction.
   p = ucihd_bst.predict(x).reshape(-1, 1)
@@ -946,7 +947,7 @@ Hence we will skip the discussion on RF and move forward to a GBT implementation
 In the previous section we didn't train a GBT for the text classification problem.
 So let's quickly build one such model first (with the same TF-IDF vectorization as we did for the random forest model).
 
-```{python shap_lgb}
+```{python imdb_lgb}
 # lightgbm does not allow utf-8 encoded feature names.
 # Since important tokens are most likely ascii-compatible for our dataset,
 # we simply strip non-ascii as a workaround for this exercise.
@@ -996,7 +997,7 @@ print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 
 Just like RF we will have access to the overall feature importance with a GBT model:
 
-```{python shap_lgb_feat_imp}
+```{python imdb_lgb_feat_imp}
 ax = lgb.plot_importance(imdb_bst, max_num_features=20)
 plt.show()
 ```
@@ -1005,7 +1006,7 @@ Now for the explanation model,
 since `shap.TreeExplainer` is customized for GBT for speed,
 we can feed in all testing examples to calculate all shap values at once.
 
-```{python shap_on_lgb}
+```{python shap_imdb_lgb}
 import shap
 
 # Sparse matrix is supported by shap for lightgbm models.
@@ -1023,6 +1024,20 @@ def imdb_lgb_shap_plot(test_id, matplotlib=True):
   return lgb_shap_plt
 ```
 
+#### Global Importance by Shap Values {-}
+
+We can derive global importance based on shap values.
+Note that this is different from the loss/impurity-based feature ranking derived from RF/GBT.
+It is an aggregation from all local prediction explanations (contributions).
+
+```{python shap_global}
+shap.summary_plot(imdb_lgb_shap_values, imdb_X_test, feature_names=sorted_vocab,
+                  plot_type="bar", max_display=20, show=False)
+plt.show()
+```
+
+#### Local Explanation by Shap Values {-}
+
 ```{python}
 imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
 ```
@@ -1031,11 +1046,13 @@ imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
 imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
 ```
 
-**TODO: Discuss the result. Any thing different from RF explained by LIME?**
+**TODO: Discuss the result. Any thing different from LIME?**
+
+By default `shap` for `lightgbm` shows log-odds rather than probability in the plot.
+To verify this:
 
 ```{python verify_log_odds}
-# Note that by default shap for lightgbm reports log-odds rather than probability.
-# To verify this:
+# Take the first true positive to examine:
 p = imdb_bst.predict(imdb_X_test[imdb_rf_tp_idx[0],:].toarray())
 print(p)
 print(np.log(p / (1 - p)))
@@ -1046,7 +1063,11 @@ print(np.log(p / (1 - p)))
 As of `r format(Sys.time(), '%Y-%m-%d')` `DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
 And `GradientExplainer` is not well documented yet for TF 2.0.
 
+
+
 ```python
+# TODO: Makje sure everything works here.
+
 # shap does not support keras model in scikit-learn wrapper.
 # Let's re-build the model and retain its Sequental class.
 dl_model = model_fn()
@@ -1062,7 +1083,6 @@ metrics = dl_model.fit(
   verbose=0)
 
 #dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)  # Wont' work.
-
 
 # GradientExplainer.
 imdb_nn_shap_explainer = shap.GradientExplainer(dl_model, seq_train_padded[:100])
@@ -1144,7 +1164,7 @@ we will skip the discussion of EBM on a text classifier.
 
 `ExplainableBoostingClassifier` has a `scikit-learn` fashion API and hence is straightforward to use.
 
-```{python ebm_tabular_model}
+```{python ucihd_ebm}
 from interpret.glassbox import ExplainableBoostingClassifier
 
 ucihd_ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=ucihd_2.columns)
@@ -1169,7 +1189,7 @@ global and local.
 For global explanation,
 we have access to both global feature importance and a per-feature feature contribution stats.
 
-```{python ebm_tabular_global_explain}
+```{python ucihd_ebm_global_explain}
 ucihd_ebm_global = ucihd_ebm.explain_global()
 # All feature info:
 print(ucihd_ebm_global.selector)
@@ -1208,7 +1228,7 @@ More importantly,
 we must be able to explain a specific model prediction locally.
 This can also be done easily with a couple of lines:
 
-```{python ebm_tabular_local_explain}
+```{python ucihd_ebm_local_explain}
 # Explain the same instances previously on RF.
 exp_ind = np.array([ucihd_rf_tp_idx[0], ucihd_rf_fp_idx[0]])
 
