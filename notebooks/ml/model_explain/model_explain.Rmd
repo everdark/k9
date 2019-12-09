@@ -110,6 +110,10 @@ Sometimes trust plays a even bigger role than model accuracy.
 
 Other than trust,
 model explainability (or interpretability, interchangeably used hereafter) may also guide us in the correct direction to further improve the model.
+^[Some people will further differentiate explainability from interpretability,
+by characterizing interpretability as knowing how without knowing why,
+and explainability as not only knowing how but also knowing why.
+In this notebook for simplicity we don't take such approach.]
 
 In general,
 linear model is more interpretable than non-linear model.
