@@ -453,7 +453,7 @@ home = os.path.expanduser("~")
 cache_dir = os.path.join(home, ".keras")
 glove6b_remote_path = "http://nlp.stanford.edu/data/glove.6B.zip"
 glove6b_local_path = os.path.join(cache_dir, "datasets", "glove.6B.50d.txt")
-glove6b_fname = os.path.basename(glove6b_local_path)
+glove6b_fname = os.path.basename(glove6b_remote_path)
 if not os.path.exists(glove6b_local_path):
   _ = tf.keras.utils.get_file(fname=glove6b_fname, origin=glove6b_remote_path,
                               extract=True, cache_dir=cache_dir)
