@@ -4,7 +4,7 @@ subtitle: "From LIME, SHAP, to Explainable Boosting"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (08 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (09 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -188,6 +188,8 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 import tensorflow as tf
 print(tf.__version__)
@@ -197,8 +199,9 @@ if tf.test.is_gpu_available():
 import sklearn
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
-from sklearn.metrics import roc_auc_score
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.model_selection import train_test_split
 import joblib
 
 print(sklearn.__version__)
@@ -210,7 +213,7 @@ mkdir -p models
 ```
 
 First,
-we prepare the movie review dataset.^[Keras comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
+we prepare the movie review dataset.^[Keras also comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
 
 ```{python maybe_download, results="hide"}
 import tensorflow_datasets as tfds
@@ -223,10 +226,9 @@ The dataset is a perfectly balanced dataset with 50,000 examples,
 half for positive and half for negative sentiment.
 
 ```{python prepare_text_data}
-import numpy as np
-
 # Extract all texts as list since we want to use libraries other than tensorflow as well.
 # And since this is a small dataset, we don't care about memory usage.
+# We skip the use of a dataset iterator.
 imdb_reviews_train = []
 imdb_reviews_test = []
 imdb_y_train = []
@@ -238,14 +240,16 @@ for x, y in imdb["test"].batch(128):
   imdb_reviews_test.extend(x.numpy())
   imdb_y_test.extend(y.numpy())
 
-# tf works on bytes, but other packages mostly work on decoded str.
+# TF works on bytes, but some other packages may only work on decoded string.
 imdb_reviews_train = [b.decode("utf8") for b in imdb_reviews_train]
 imdb_reviews_test = [b.decode("utf8") for b in imdb_reviews_test]
 imdb_y_train = np.array(imdb_y_train)
 imdb_y_test = np.array(imdb_y_test)
 
-# Take one.
+# Take one review.
 print(imdb_reviews_train[87])
+
+print(imdb_y_train[87])  # Label. 0 as negative and 1 as positive.
 ```
 
 We use the data prepared by `tensorflow-datasets` here just to save some time.
@@ -256,8 +260,9 @@ the files can be downloaded by this piece of code:
 home = os.path.expanduser("~")
 cache_dir = os.path.join(home, ".keras")
 imdb_remote_path = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
-imdb_local_path = os.path.join(cache_dir, "datasets", "aclImdb_v1.tar.gz")
-imdb_fname = os.path.basename(imdb_local_path)
+imdb_fname = os.path.basename(imdb_remote_path)
+imdb_local_path = os.path.join(cache_dir, "datasets", imdb_fname)
+
 if not os.path.exists(imdb_local_path):
   _ = tf.keras.utils.get_file(fname=imdb_fname, origin=imdb_remote_path,
                               extract=True, cache_dir=cache_dir)
@@ -269,7 +274,8 @@ Let's build a random forest with TF-IDF as our feature space.
 We will use the popular `scikit-learn` library for implementation.^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest. However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
 
 ```{python text_tfidf}
-imdb_vectorizer = TfidfVectorizer(lowercase=True, min_df=10)
+# We drop words that are too frequent or too rare in the training dataset.
+imdb_vectorizer = TfidfVectorizer(lowercase=True, min_df=10, max_df=.9)
 imdb_X_train = imdb_vectorizer.fit_transform(imdb_reviews_train)
 imdb_X_test = imdb_vectorizer.transform(imdb_reviews_test)
 print(len(imdb_vectorizer.vocabulary_))  # Without OOV token.
@@ -282,9 +288,9 @@ imdb_rf_model_file = "models/text_rf.joblib"
 if os.path.exists(imdb_rf_model_file):
   imdb_rf = joblib.load(imdb_rf_model_file)
 else:
-  imdb_rf = RandomForestClassifier(n_estimators=300)
+  imdb_rf = RandomForestClassifier(n_estimators=300, random_state=64, n_jobs=-2)
   _ = imdb_rf.fit(imdb_X_train, imdb_y_train)
-  _ = joblib.dump(rf, imdb_rf_model_file)
+  _ = joblib.dump(imdb_rf, imdb_rf_model_file)
 
 imdb_rf_pred = imdb_rf.predict(imdb_X_test)
 imdb_rf_yhat = imdb_rf.predict_proba(imdb_X_test)[:,1]
@@ -296,11 +302,31 @@ print(roc_auc_score(imdb_y_test, imdb_rf_yhat))
 As a baseline without extensive tuning (we didn't tune anything indeed!),
 random forest seems to perform fairly well on this dataset.
 
+As part of the algorithm's design we are able to derive a global view of feature importance.
+This is based on how much each feature can reduce the impurity during all tree splittings.
+For example,
+we can plot the top 20 features:
+
+```{python rf_feat_imp}
+rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
+ax = rf_feat_imp.tail(20).plot(kind="barh")
+plt.show()
+```
+
+Interpretation of the impurity-based ranking must be very careful though.
+For example, related features will theoretically have similar impact but only one of it will gain higher score (and suppress the other) in the ranking.
+Which one stands out is totally random.
+
+In general it is NOT recommended to use impurity or even loss-based feature ranking to *interpret* a tree ensemble model.
+Such ranking information is still useful to understand different aspect of the model,
+and can be used to subset feature to counter over-fitting issue, if any.
+But it won't help really explain the model per se.
+And this is exactly why we need a explanation model in the first place.
+
 Now move on to model explanation with LIME:
 
 ```{python lime_on_rf}
 from lime.lime_text import LimeTextExplainer
-from sklearn.pipeline import make_pipeline
 
 # We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
 imdb_rf_pipe = make_pipeline(imdb_vectorizer, imdb_rf)
@@ -359,7 +385,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 # Note that len(tokenizer.index_word) will be all vocabulary instead of `num_words`.
 vocab_size = 20001  # +1 for 0 index used for padding.
 oov_token = "<unk>"
-tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size - 1)
+tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size)
 tokenizer.fit_on_texts(imdb_reviews_train)
 
 # Encode text with padding to ensure fixed-length input.
@@ -368,6 +394,9 @@ seq_train_padded = pad_sequences(seq_train, padding="post")
 maxlen = seq_train_padded.shape[1]
 seq_test = tokenizer.texts_to_sequences(imdb_reviews_test)
 seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
+
+assert tokenizer.index_word[1] == oov_token
+assert seq_train_padded.max() == vocab_size - 1
 
 # Wrap Keras Sequential model with scikit-learn API.
 # This is because LimeTextExplainer seems buggy with a native Keras model.
@@ -389,8 +418,8 @@ def model_fn():
 
 print(model_fn().summary(line_length=90))
 
-nn_model = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
-metrics = nn_model.fit(
+imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
+metrics = imdb_nn.fit(
   x=seq_train_padded, y=imdb_y_train,
   batch_size=256, epochs=10,
   validation_data=(seq_test_padded, imdb_y_test),
@@ -404,11 +433,11 @@ metrics = nn_model.fit(
 # TODO: tf.keras.models.load_model(nn_model_file) fails?
 # https://github.com/tensorflow/tensorflow/issues/34901
 
-nn_yhat = np.squeeze(nn_model.predict(seq_test_padded))
-nn_pred = (nn_yhat > .5).astype(int)
+imdb_nn_yhat = np.squeeze(imdb_nn.predict(seq_test_padded))
+imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
 
-print(classification_report(imdb_y_test, nn_pred))
-print(roc_auc_score(imdb_y_test, nn_pred))
+print(classification_report(imdb_y_test, imdb_nn_pred))
+print(roc_auc_score(imdb_y_test, imdb_nn_pred))
 ```
 
 ```{python lime_on_nn_embeddings}
@@ -416,7 +445,7 @@ def nn_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
-  return nn_model.predict_proba(seq)
+  return imdb_nn.predict_proba(seq)
 
 imdb_nn_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
@@ -432,6 +461,9 @@ imdb_nn_fp_exp.save_to_file("/tmp/explain_text_nn_fp.html")
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_tp.html"))
+```
+
+```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_fp.html"))
 ```
 
@@ -445,10 +477,9 @@ We will use [GloVe](https://nlp.stanford.edu/projects/glove/) (@pennington2014gl
 We use just the smaller GloVe model since our dataset is quite small.
 In building the GloVe embeddings we need to take special care about out-of-vocabulary token AND padding index since we will be using the Keras API.
 
-```{python lime_transfer_learning_vocab}
-import pandas as pd
-
+```{python lime_transfer_learning_download_glove, results="hide"}
 # Download GloVe pre-trained embeddings.
+# The file is about 800MB so may take some time.
 home = os.path.expanduser("~")
 cache_dir = os.path.join(home, ".keras")
 glove6b_remote_path = "http://nlp.stanford.edu/data/glove.6B.zip"
@@ -459,7 +490,9 @@ if not os.path.exists(glove6b_local_path):
                               extract=True, cache_dir=cache_dir)
 
 glove_all = pd.read_csv(glove6b_local_path, sep=" ", header=None, index_col=0, quoting=3)
+```
 
+```{python lime_transfer_learning_vocab}
 # Map vocabulary to pre-trained embeddings.
 matched_toks = []
 for i, w in tokenizer.index_word.items():
@@ -484,6 +517,7 @@ print(glove.shape)
 Now let's build the neural network.
 Most of the code will be the same as before,
 only the `Embedding` layer now we will use a constant matrix for initialization.
+We make the GloVe embeddings *trainable* so it will further adapt to our specific dataset.
 
 ```{python lime_transfer_learning_model}
 tr_model_file = "models/text_clf_tr.h5"
@@ -507,8 +541,8 @@ def tr_model_fn():
 
 print(tr_model_fn().summary(line_length=90))
 
-tr_model = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
-metrics = tr_model.fit(
+imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
+metrics = imdb_tr.fit(
   x=seq_train_padded, y=imdb_y_train,
   batch_size=256, epochs=20,
   validation_data=(seq_test_padded, imdb_y_test),
@@ -519,7 +553,7 @@ metrics = tr_model.fit(
   ],
   verbose=2)
 
-imdb_tr_yhat = np.squeeze(tr_model.predict(seq_test_padded))
+imdb_tr_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_tr_pred))
@@ -531,7 +565,7 @@ def tr_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
   seq = pad_sequences(seq, padding="post", maxlen=maxlen)
-  return tr_model.predict_proba(seq)
+  return imdb_tr.predict_proba(seq)
 
 imdb_tr_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
 
@@ -547,6 +581,9 @@ imdb_tr_fp_exp.save_to_file("/tmp/explain_text_tr_fp.html")
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
+```
+
+```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 ```
 
@@ -559,7 +596,7 @@ Here we will use [UCI Heart Disease dataset](https://archive.ics.uci.edu/ml/data
 Particularly,
 we use the Cleveland dataset which is commonly used in machine learning research.^[V.A. Medical Center, Long Beach and Cleveland Clinic Foundation:Robert Detrano, M.D., Ph.D.]
 
-```{python prepare_tabular_data}
+```{python download_tabular_data, results="hide"}
 ucihd_remote_path = "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
 ucihd_fname = os.path.basename(ucihd_remote_path)
 ucihd_local_path = os.path.join(cache_dir, "datasets", ucihd_fname)
@@ -567,7 +604,9 @@ ucihd_local_path = os.path.join(cache_dir, "datasets", ucihd_fname)
 if not os.path.exists(ucihd_local_path):
   _ = tf.keras.utils.get_file(fname=ucihd_fname, origin=ucihd_remote_path,
                               extract=False, cache_dir=cache_dir)
+```
 
+```{python prepare_tabular_data}
 ucihd_attr = [
   "age",
   "sex",
@@ -597,11 +636,11 @@ print(ucihd.groupby("label").size())  # Label distribution.
 print(ucihd.head())
 ```
 
+The dataset contains both numerical and categorical features (all encoded in numerics already).
+
 ### Explain Random Forest
 
 ```{python tabluar_rf}
-from sklearn.model_selection import train_test_split
-
 # RF doesn't allow missing value.
 # For categorical (as string) we can leave one special category for missing,
 # but for numerical we need to do some special encoding or imputation.
@@ -614,7 +653,7 @@ ucihd_y = ucihd_2.pop("label")
 ucihd_X_train, ucihd_X_test, ucihd_y_train, ucihd_y_test = train_test_split(
   ucihd_2, ucihd_y.values, test_size=.3, random_state=64)
 
-ucihd_rf = RandomForestClassifier(n_estimators=100)
+ucihd_rf = RandomForestClassifier(n_estimators=100, random_state=64)
 _ = ucihd_rf.fit(ucihd_X_train, ucihd_y_train)
 
 ucihd_rf_yhat = ucihd_rf.predict_proba(ucihd_X_test)[:,1]
@@ -688,7 +727,8 @@ ucihd_lgb_params = {
   "num_leaves": 4,
   "max_depth": 2,
   "min_data_per_leaf": 5,
-  "verbose": -1
+  "verbose": -1,
+  "seed": 64
 }
 
 ucihd_bst = lgb.train(
@@ -706,7 +746,7 @@ print(roc_auc_score(ucihd_y_test, ucihd_lgb_yhat))
 
 In this particular (rather small) dataset RF indeed outperforms GBT.
 As a matter of fact,
-a simple logistic regression may have a even higher score for this problem.
+based on [existing benchmark](https://github.com/interpretml/interpret/tree/master/benchmarks) a simple logistic regression may have a even higher score for this problem.
 Nevertheless, let's move on to our explanation model with LIME:
 
 ```{python lime_tabular_gbt}
@@ -732,6 +772,9 @@ ucihd_lgb_fp_exp.save_to_file("/tmp/explain_tab_lgb_fp.html")
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_tp.html"))
+```
+
+```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 ```
 
@@ -775,6 +818,7 @@ To summarize,
 There are two very special properties about `lightgbm` algorithm.
 `lightgbm` treats missings natively as a special tree split point.
 This allows us to keep the original missing as is and in many cases can result in better accuracy than imputation.^[`xgboost` is the first to introduce such missing treatment among all the GBT package. `lightgbm` follows.]
+
 In addition,
 `lightgbm` encodes categorical variables internally in a more efficient way.
 So we don't even need to do one-hot encoding on our own.
@@ -817,68 +861,28 @@ especially for feature interaction exploration.
 
 ### Explain Random Forest
 
-For exactly the same model we build in the previous section about `lime`,
-this time we use `shap` to build the explanation model.
-
-```{python shap_on_rf}
-import shap
-
-sorted_vocab = sorted(imdb_vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
-sorted_vocab = [w for w, i in sorted_vocab]
-
-# shap doesn't support sparse matrix input for scikit-learn model.
-imdb_X_test_d = imdb_X_test.toarray()
-
-# Run explanation approximation for all testing examples at once.
-# TODO: Performance issue here for shap on sklearn RF.
-#explain_top_k = 100
-#rf_shape_explainer = shap.TreeExplainer(rf)
-#rf_shap_values = rf_shape_explainer.shap_values(X_test_d[:explain_top_k])
-#
-#rf_shap_p = shap.force_plot(
-#  rf_shape_explainer.expected_value[1],
-#  rf_shap_values[1][0,:],
-#  X_test_d[0,:],
-#  feature_names=sorted_vocab
-#)
-#shap.save_html("/tmp/rf_shap_val.html", rf_shap_p)
-```
-
-```{r, echo=FALSE}
-#htmltools::includeHTML("/tmp/rf_shap_val.html")
-```
-
-```{python shap_on_rf_summary_plot}
-top_k = 20
-#shap.summary_plot(rf_shap_values, X_test_d[:explain_top_k],
-#                  feature_names=sorted_vocab, max_display=top_k, plot_size=.25)
-```
-
-```{python rf_feat_imp}
-rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
-ax = rf_feat_imp.tail(top_k).plot(kind="barh")
-plt.show()
-```
+`shap.TreeExplainer` is optimized for GBT but not RF.
+For model with high dimensionality like a bag-of-words model it will suffer from high computation cost for non-GBT model.
+Hence we will skip the discussion on RF and move forward to a GBT implementation.
 
 ### Explain Gradient Boosting Trees
 
-Like random forest,
-after building a model we will have access to the overall feature importance.
-But at per-instance prediction level there is nothing much to say about why the outcome is what it is.
-
-Let's quickly build a GBT using `lightgbm` (with the same TF-IDF vectorization as we did for the random forest model):
+In the previous section we didn't train a GBT for the text classification problem.
+So let's quickly build one such model first (with the same TF-IDF vectorization as we did for the random forest model).
 
 ```{python shap_lgb}
 # lightgbm does not allow utf-8 encoded feature names.
 # Since important tokens are most likely ascii-compatible for our dataset,
 # we simply strip non-ascii as a workaround for this exercise.
 def remove_non_ascii(s):
-  return "".join([i if ord(i) < 128 else " " for i in s])
+  return "".join([i if ord(i) < 128 else "_" for i in s])
 
+sorted_vocab = sorted(imdb_vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
+sorted_vocab = [w for w, i in sorted_vocab]
 sorted_vocab_ascii = [remove_non_ascii(v) for v in sorted_vocab]
 
-imdb_tr = lgb.Dataset(imdb_X_train, label=imdb_y_train, feature_name=sorted_vocab_ascii)
-imdb_te = lgb.Dataset(imdb_X_test, label=imdb_y_test, feature_name=sorted_vocab_ascii)
+imdb_X_tr = lgb.Dataset(imdb_X_train, label=imdb_y_train, feature_name=sorted_vocab_ascii)
+imdb_X_te = lgb.Dataset(imdb_X_test, label=imdb_y_test, feature_name=sorted_vocab_ascii)
 
 imdb_lgb_params = {
   "learning_rate": .05,
@@ -903,7 +907,7 @@ else:
   imdb_bst = lgb.train(
     params=imdb_lgb_params,
     num_boost_round=1000, early_stopping_rounds=20,
-    train_set=imdb_tr, valid_sets=[imdb_te],
+    train_set=imdb_X_tr, valid_sets=[imdb_X_te],
     verbose_eval=100)
   _ = imdb_bst.save_model(imdb_lgb_model_file)
 
@@ -914,41 +918,41 @@ print(classification_report(imdb_y_test, imdb_lgb_pred))
 print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 ```
 
-For the overall feature importance derived by GBT:
+Just like RF we will have access to the overall feature importance with a GBT model:
 
 ```{python shap_lgb_feat_imp}
 ax = lgb.plot_importance(imdb_bst, max_num_features=20)
 plt.show()
 ```
 
-Since `shap.TreeExplainer` is customized for GBT for speed,
-unlike the previous random forest example here we can feed in all testing examples to calculate all shap values at once.
+Now for the explanation model,
+since `shap.TreeExplainer` is customized for GBT for speed,
+we can feed in all testing examples to calculate all shap values at once.
 
 ```{python shap_on_lgb}
-# Sparse matrix is supported for lightgbm model.
+import shap
+
+# Sparse matrix is supported by shap for lightgbm models.
 imdb_lgb_explainer = shap.TreeExplainer(imdb_bst)
 imdb_lgb_shap_values = imdb_lgb_explainer.shap_values(imdb_X_test)
 
-def imdb_lgb_shap_plot(test_id):
+def imdb_lgb_shap_plot(test_id, matplotlib=True):
   lgb_shap_plt = shap.force_plot(
     imdb_lgb_explainer.expected_value[1],
     imdb_lgb_shap_values[1][test_id,:],
     imdb_X_test[test_id,:].toarray(),  # We still need a dense matrix here.
-    feature_names=sorted_vocab
+    feature_names=sorted_vocab,
+    matplotlib=matplotlib
   )
   return lgb_shap_plt
-
-
-imdb_lgb_tp_shap = imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
-imdb_lgb_fp_shap = imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
-
-shap.save_html("/tmp/imdb_lgb_shap_tp.html", imdb_lgb_tp_shap)
-shap.save_html("/tmp/imdb_lgb_shap_fp.html", imdb_lgb_fp_shap)
 ```
 
-```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/imdb_lgb_shap_tp.html")
-htmltools::includeHTML("/tmp/imdb_lgb_shap_fp.html")
+```{python}
+imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
+```
+
+```{python}
+imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
 ```
 
 **TODO: Discuss the result. Any thing different from RF explained by LIME?**
@@ -963,10 +967,8 @@ print(np.log(p / (1 - p)))
 
 ### Explain Neural Nets with Word Embeddings
 
-Encountered a bug for DeepExplainer with TF 2.0:
-
-+ https://github.com/slundberg/shap/issues/850
-+ https://github.com/slundberg/shap/issues/885
+As of `r format(Sys.time(), '%Y-%m-%d')` `DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
+And `GradientExplainer` is not well documented yet for TF 2.0.
 
 ```python
 # shap does not support keras model in scikit-learn wrapper.
@@ -983,7 +985,25 @@ metrics = dl_model.fit(
   ],
   verbose=0)
 
-dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)
+#dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)  # Wont' work.
+
+
+# GradientExplainer.
+imdb_nn_shap_explainer = shap.GradientExplainer(dl_model, seq_train_padded[:100])
+
+imdb_nn_shap_explainer = shap.GradientExplainer(
+  (imdb_tr.layers[0].input, imdb_tr.layers[-1].output),  # Not working for TF 2.0.
+  seq_train_padded[:100])
+tt = imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])
+
+# KernelExplainer.
+def mm(X):
+  return imdb_tr.predict_proba(X)[:,1]
+
+imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
+# This is VERY slow...
+tt = imdb_nn_shap_explainer.shap_values(seq_test_padded[:2])
+
 ```
 
 ## On Tabular Data Classifier
