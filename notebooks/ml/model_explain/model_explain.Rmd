@@ -414,11 +414,12 @@ assert seq_train_padded.max() == vocab_size - 1
 # This is because LimeTextExplainer seems buggy with a native Keras model.
 nn_model_file = "models/text_clf_nn.h5"
 
-def model_fn():
+def nn_model_fn():
   embedding_size = 64
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
-    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.Embedding(
+      vocab_size, embedding_size, input_length=maxlen,
+      mask_zero=True, name="word_embedding"),
     tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
     tf.keras.layers.Dense(embedding_size / 2, activation="relu", name="relu"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
@@ -428,22 +429,22 @@ def model_fn():
                 metrics=["accuracy"])
   return model
 
-print(model_fn().summary(line_length=90))
+print(nn_model_fn().summary(line_length=90))
 
-imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
-metrics = imdb_nn.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=256, epochs=10,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(nn_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
-
-# TODO: tf.keras.models.load_model(nn_model_file) fails?
-# https://github.com/tensorflow/tensorflow/issues/34901
+imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(nn_model_fn)
+if os.path.exists(nn_model_file):
+  imdb_nn.model = tf.keras.models.load_model(nn_model_file)
+else:
+  metrics = imdb_nn.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=256, epochs=10,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(nn_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
 imdb_nn_yhat = np.squeeze(imdb_nn.predict(seq_test_padded))
 imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
@@ -537,9 +538,8 @@ tr_model_file = "models/text_clf_tr.h5"
 def tr_model_fn():
   embedding_size = glove.shape[1]
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
     tf.keras.layers.Embedding(
-      vocab_size, embedding_size,
+      vocab_size, embedding_size, input_length=maxlen,
       embeddings_initializer=tf.keras.initializers.Constant(glove),
       trainable=True, mask_zero=True, name="glove_embedding"),
     tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
@@ -554,16 +554,20 @@ def tr_model_fn():
 print(tr_model_fn().summary(line_length=90))
 
 imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
-metrics = imdb_tr.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=256, epochs=20,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
+if os.path.exists(tr_model_file):
+  imdb_tr.model = tf.keras.models.load_model(tr_model_file)
+else:
+  imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
+  metrics = imdb_tr.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=256, epochs=20,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
 imdb_tr_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
@@ -613,8 +617,9 @@ rnn_model_file = "models/text_clf_rnn.h5"
 def rnn_model_fn():
   embedding_size = 64
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
-    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.Embedding(
+      vocab_size, embedding_size,
+      input_lengt=maxlen, mask_zero=True, name="word_embedding"),
     tf.keras.layers.GRU(64, dropout=.2, name="GRU"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
   ], name="rnn_classifier")
@@ -626,17 +631,19 @@ def rnn_model_fn():
 print(rnn_model_fn().summary(line_length=90))
 
 imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
-
-metrics = imdb_rnn.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=32, epochs=10,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(rnn_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
+if os.path.exists(rnn_model_file):
+  imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
+else:
+  metrics = imdb_rnn.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=32, epochs=10,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(rnn_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
 imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
