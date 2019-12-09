@@ -330,7 +330,7 @@ For example, related features will theoretically have similar impact but only on
 Which one stands out is totally random.
 
 In general it is NOT recommended to use impurity or even loss-based feature ranking to *interpret* a tree ensemble model.
-Such ranking information is still useful to understand different aspect of the model,
+Such ranking information is still useful to understand different aspects of the model,
 and can be used to subset feature to counter over-fitting issue, if any.
 But it won't help really explain the model per se.
 And this is exactly why we need a explanation model in the first place.
@@ -651,7 +651,7 @@ else:
     ],
     verbose=2)
 
-imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
+imdb_rnn_yhat = np.squeeze(imdb_rnn.predict(seq_test_padded))
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_rnn_pred))
@@ -1322,7 +1322,7 @@ ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_
 ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
 
 # Global contribution on the sencond feature.
-ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
+ucihd_ebm_global.visualize(1).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
 #### Feature Importance {-}
