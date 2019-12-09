@@ -215,7 +215,7 @@ mkdir -p models
 First,
 we prepare the movie review dataset.^[Keras also comes with the dataset preprocessed as integer sequences (`from tf.keras.datasets import imdb`).]
 
-```{python maybe_download, results="hide"}
+```{python maybe_download_imdb, results="hide"}
 import tensorflow_datasets as tfds
 
 # Load the data as tf.data.Dataset.
@@ -225,7 +225,7 @@ imdb = tfds.load(name="imdb_reviews", as_supervised=True)
 The dataset is a perfectly balanced dataset with 50,000 examples,
 half for positive and half for negative sentiment.
 
-```{python prepare_text_data}
+```{python prepare_imdb}
 # Extract all texts as list since we want to use libraries other than tensorflow as well.
 # And since this is a small dataset, we don't care about memory usage.
 # We skip the use of a dataset iterator.
@@ -273,7 +273,7 @@ if not os.path.exists(imdb_local_path):
 Let's build a random forest with TF-IDF as our feature space.
 We will use the popular `scikit-learn` library for implementation.^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest. However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
 
-```{python text_tfidf}
+```{python tfidf}
 # We drop words that are too frequent or too rare in the training dataset.
 imdb_vectorizer = TfidfVectorizer(lowercase=True, min_df=10, max_df=.9)
 imdb_X_train = imdb_vectorizer.fit_transform(imdb_reviews_train)
@@ -281,7 +281,7 @@ imdb_X_test = imdb_vectorizer.transform(imdb_reviews_test)
 print(len(imdb_vectorizer.vocabulary_))  # Without OOV token.
 ```
 
-```{python text_clf_rf}
+```{python imdb_rf}
 imdb_rf_model_file = "models/text_rf.joblib"
 
 # Save/reload the model to save notebook rendering time.
@@ -307,7 +307,7 @@ This is based on how much each feature can reduce the impurity during all tree s
 For example,
 we can plot the top 20 features:
 
-```{python rf_feat_imp}
+```{python imdb_rf_feat_imp}
 rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
 ax = rf_feat_imp.tail(20).plot(kind="barh")
 plt.show()
@@ -325,7 +325,7 @@ And this is exactly why we need a explanation model in the first place.
 
 Now move on to model explanation with LIME:
 
-```{python lime_on_rf}
+```{python lime_imdb_rf}
 from lime.lime_text import LimeTextExplainer
 
 # We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
@@ -375,7 +375,7 @@ instead of re-using the vocabulary built by `TfidfVectorizer` with `scikit-learn
 we will re-tokenize the text data with `keras.preprocessing` module.
 The inherent consistency under the Keras framework will also simplify our latter works on network layering.
 
-```{python lime_nn_embeddings}
+```{python imdb_nn}
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
@@ -440,7 +440,7 @@ print(classification_report(imdb_y_test, imdb_nn_pred))
 print(roc_auc_score(imdb_y_test, imdb_nn_pred))
 ```
 
-```{python lime_on_nn_embeddings}
+```{python lime_imdb_nn}
 def nn_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
@@ -477,7 +477,7 @@ We will use [GloVe](https://nlp.stanford.edu/projects/glove/) (@pennington2014gl
 We use just the smaller GloVe model since our dataset is quite small.
 In building the GloVe embeddings we need to take special care about out-of-vocabulary token AND padding index since we will be using the Keras API.
 
-```{python lime_transfer_learning_download_glove, results="hide"}
+```{python maybe_download_glove, results="hide"}
 # Download GloVe pre-trained embeddings.
 # The file is about 800MB so may take some time.
 home = os.path.expanduser("~")
@@ -492,7 +492,7 @@ if not os.path.exists(glove6b_local_path):
 glove_all = pd.read_csv(glove6b_local_path, sep=" ", header=None, index_col=0, quoting=3)
 ```
 
-```{python lime_transfer_learning_vocab}
+```{python imdb_transfer_learning_vocab}
 # Map vocabulary to pre-trained embeddings.
 matched_toks = []
 for i, w in tokenizer.index_word.items():
@@ -519,7 +519,7 @@ Most of the code will be the same as before,
 only the `Embedding` layer now we will use a constant matrix for initialization.
 We make the GloVe embeddings *trainable* so it will further adapt to our specific dataset.
 
-```{python lime_transfer_learning_model}
+```{python imdb_transfer_learning}
 tr_model_file = "models/text_clf_tr.h5"
 
 def tr_model_fn():
@@ -560,7 +560,7 @@ print(classification_report(imdb_y_test, imdb_tr_pred))
 print(roc_auc_score(imdb_y_test, imdb_tr_yhat))
 ```
 
-```{python lime_on_transfer_learning}
+```{python lime_imdb_transfer_learning}
 def tr_predict_fn(text):
   # This is for sklearn wrapper only.
   seq = tokenizer.texts_to_sequences(text)
@@ -587,7 +587,83 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 ```
 
-**TODO: Summarize all models.**
+**TODO: Discussion.**
+
+### Explain Recurrent Neural Nets
+
+As a final exercise on text classification,
+let's experiment the explanation model with a recurrent neural network (RNN).
+Note that, even for a single layer, this will be prohibitively slow without a GPU.
+
+```{python imdb_rnn}
+rnn_model_file = "models/text_clf_rnn.h5"
+
+def rnn_model_fn():
+  embedding_size = 64
+  model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
+    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.GRU(64, dropout=.2, name="GRU"),
+    tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
+  ], name="rnn_classifier")
+  model.compile(optimizer="adam",
+                loss="binary_crossentropy",
+                metrics=["accuracy"])
+  return model
+
+print(rnn_model_fn().summary(line_length=90))
+
+imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
+
+metrics = imdb_rnn.fit(
+  x=seq_train_padded, y=imdb_y_train,
+  batch_size=32, epochs=10,
+  validation_data=(seq_test_padded, imdb_y_test),
+  validation_steps=20,
+  callbacks=[
+    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+    tf.keras.callbacks.ModelCheckpoint(rnn_model_file, monitor="val_loss", save_best_only=True)
+  ],
+  verbose=2)
+
+imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded_2))
+imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
+
+print(classification_report(imdb_y_test, imdb_rnn_pred))
+print(roc_auc_score(imdb_y_test, imdb_rnn_yhat))
+```
+
+Since the dataset is rather small,
+we didn't see any advantage of RNN over a simple pooling embedding model.
+
+```{python lime_imdb_rnn}
+def rnn_predict_fn(text):
+  # This is for sklearn wrapper only.
+  seq = tokenizer.texts_to_sequences(text)
+  seq = pad_sequences(seq, padding="post", maxlen=maxlen)
+  return imdb_rnn.predict_proba(seq)
+
+imdb_rnn_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+
+# Explain the same examples as in RF.
+imdb_rnn_tp_exp = imdb_rnn_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_tp_idx[0]], rnn_predict_fn, num_features=6)
+imdb_rnn_fp_exp = imdb_rnn_explainer.explain_instance(
+  imdb_reviews_test[imdb_rf_fp_idx[0]], rnn_predict_fn, num_features=6)
+
+imdb_rnn_tp_exp.save_to_file("/tmp/explain_text_rnn_tp.html")
+imdb_rnn_fp_exp.save_to_file("/tmp/explain_text_rnn_fp.html")
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_tp.html"))
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_fp.html"))
+```
+
+**TODO: Summarize all text models.**
 
 ## On Tabular Data Classifier
 
@@ -1003,7 +1079,8 @@ def mm(X):
 imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
 # This is VERY slow...
 tt = imdb_nn_shap_explainer.shap_values(seq_test_padded[:2])
-
+# Contribution is attributed to original sequence input.
+# We need to map each position to original word id than to word.
 ```
 
 ## On Tabular Data Classifier
