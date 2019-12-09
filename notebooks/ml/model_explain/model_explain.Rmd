@@ -838,7 +838,7 @@ As a matter of fact,
 based on [existing benchmark](https://github.com/interpretml/interpret/tree/master/benchmarks) a simple logistic regression may have a even higher score for this problem.
 Nevertheless, let's move on to our explanation model with LIME:
 
-```{python lime_uci_lgb}
+```{python lime_ucihd_lgb}
 def ucihd_lgb_predict_fn(x):
   # We need to output 2 columns for binary prob prediction.
   p = ucihd_bst.predict(x).reshape(-1, 1)
