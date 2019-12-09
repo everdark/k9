@@ -330,7 +330,7 @@ For example, related features will theoretically have similar impact but only on
 Which one stands out is totally random.
 
 In general it is NOT recommended to use impurity or even loss-based feature ranking to *interpret* a tree ensemble model.
-Such ranking information is still useful to understand different aspect of the model,
+Such ranking information is still useful to understand different aspects of the model,
 and can be used to subset feature to counter over-fitting issue, if any.
 But it won't help really explain the model per se.
 And this is exactly why we need a explanation model in the first place.
@@ -414,11 +414,12 @@ assert seq_train_padded.max() == vocab_size - 1
 # This is because LimeTextExplainer seems buggy with a native Keras model.
 nn_model_file = "models/text_clf_nn.h5"
 
-def model_fn():
+def nn_model_fn():
   embedding_size = 64
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
-    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.Embedding(
+      vocab_size, embedding_size, input_length=maxlen,
+      mask_zero=True, name="word_embedding"),
     tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
     tf.keras.layers.Dense(embedding_size / 2, activation="relu", name="relu"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
@@ -428,22 +429,24 @@ def model_fn():
                 metrics=["accuracy"])
   return model
 
-print(model_fn().summary(line_length=90))
+print(nn_model_fn().summary(line_length=90))
 
-imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(model_fn)
-metrics = imdb_nn.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=256, epochs=10,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(nn_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
-
-# TODO: tf.keras.models.load_model(nn_model_file) fails?
-# https://github.com/tensorflow/tensorflow/issues/34901
+imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(nn_model_fn)
+if os.path.exists(nn_model_file):
+  # Restore the model with wrapper.
+  imdb_nn.model = tf.keras.models.load_model(nn_model_file)
+  imdb_nn.classes_ = np.array([0, 1])
+else:
+  metrics = imdb_nn.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=256, epochs=10,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(nn_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
 imdb_nn_yhat = np.squeeze(imdb_nn.predict(seq_test_padded))
 imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
@@ -537,9 +540,8 @@ tr_model_file = "models/text_clf_tr.h5"
 def tr_model_fn():
   embedding_size = glove.shape[1]
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
     tf.keras.layers.Embedding(
-      vocab_size, embedding_size,
+      vocab_size, embedding_size, input_length=maxlen,
       embeddings_initializer=tf.keras.initializers.Constant(glove),
       trainable=True, mask_zero=True, name="glove_embedding"),
     tf.keras.layers.GlobalAveragePooling1D(name="doc_embedding"),
@@ -554,16 +556,22 @@ def tr_model_fn():
 print(tr_model_fn().summary(line_length=90))
 
 imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
-metrics = imdb_tr.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=256, epochs=20,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
+if os.path.exists(tr_model_file):
+  # Restore the model with wrapper.
+  imdb_tr.model = tf.keras.models.load_model(tr_model_file)
+  imdb_tr.classes_ = np.array([0, 1])
+else:
+  imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
+  metrics = imdb_tr.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=256, epochs=20,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
 imdb_tr_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
@@ -613,8 +621,9 @@ rnn_model_file = "models/text_clf_rnn.h5"
 def rnn_model_fn():
   embedding_size = 64
   model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(maxlen,), name="sequence"),
-    tf.keras.layers.Embedding(vocab_size, embedding_size, mask_zero=True, name="word_embedding"),
+    tf.keras.layers.Embedding(
+      vocab_size, embedding_size,
+      input_length=maxlen, mask_zero=True, name="word_embedding"),
     tf.keras.layers.GRU(64, dropout=.2, name="GRU"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
   ], name="rnn_classifier")
@@ -626,19 +635,23 @@ def rnn_model_fn():
 print(rnn_model_fn().summary(line_length=90))
 
 imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
+if os.path.exists(rnn_model_file):
+  #  # Restore the model with wrapper.
+  imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
+  imdb_rnn.classes_ = np.array([0, 1])
+else:
+  metrics = imdb_rnn.fit(
+    x=seq_train_padded, y=imdb_y_train,
+    batch_size=32, epochs=10,
+    validation_data=(seq_test_padded, imdb_y_test),
+    validation_steps=20,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(rnn_model_file, monitor="val_loss", save_best_only=True)
+    ],
+    verbose=2)
 
-metrics = imdb_rnn.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=32, epochs=10,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(rnn_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=2)
-
-imdb_rnn_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
+imdb_rnn_yhat = np.squeeze(imdb_rnn.predict(seq_test_padded))
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_rnn_pred))
@@ -1274,7 +1287,8 @@ we will skip the discussion of EBM on a text classifier.
 ```{python ucihd_ebm}
 from interpret.glassbox import ExplainableBoostingClassifier
 
-ucihd_ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=ucihd_2.columns)
+ucihd_ebm = ExplainableBoostingClassifier(
+  n_estimators=16, feature_names=ucihd_2.columns, n_jobs=1)
 _ = ucihd_ebm.fit(ucihd_X_train, ucihd_y_train)
 
 ucihd_ebm_yhat = ucihd_ebm.predict_proba(ucihd_X_test)[:,1]
@@ -1308,7 +1322,7 @@ ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_
 ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
 
 # Global contribution on the sencond feature.
-ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
+ucihd_ebm_global.visualize(1).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
 #### Feature Importance {-}
