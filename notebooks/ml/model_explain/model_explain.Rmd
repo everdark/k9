@@ -1287,7 +1287,8 @@ we will skip the discussion of EBM on a text classifier.
 ```{python ucihd_ebm}
 from interpret.glassbox import ExplainableBoostingClassifier
 
-ucihd_ebm = ExplainableBoostingClassifier(n_estimators=16, feature_names=ucihd_2.columns)
+ucihd_ebm = ExplainableBoostingClassifier(
+  n_estimators=16, feature_names=ucihd_2.columns, n_jobs=1)
 _ = ucihd_ebm.fit(ucihd_X_train, ucihd_y_train)
 
 ucihd_ebm_yhat = ucihd_ebm.predict_proba(ucihd_X_test)[:,1]
