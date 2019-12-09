@@ -433,7 +433,9 @@ print(nn_model_fn().summary(line_length=90))
 
 imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(nn_model_fn)
 if os.path.exists(nn_model_file):
+  # Restore the model with wrapper.
   imdb_nn.model = tf.keras.models.load_model(nn_model_file)
+  imdb_nn.classes_ = np.array([0, 1])
 else:
   metrics = imdb_nn.fit(
     x=seq_train_padded, y=imdb_y_train,
@@ -555,7 +557,9 @@ print(tr_model_fn().summary(line_length=90))
 
 imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
 if os.path.exists(tr_model_file):
+  # Restore the model with wrapper.
   imdb_tr.model = tf.keras.models.load_model(tr_model_file)
+  imdb_tr.classes_ = np.array([0, 1])
 else:
   imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
   metrics = imdb_tr.fit(
@@ -632,7 +636,9 @@ print(rnn_model_fn().summary(line_length=90))
 
 imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
 if os.path.exists(rnn_model_file):
+  #  # Restore the model with wrapper.
   imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
+  imdb_rnn.classes_ = np.array([0, 1])
 else:
   metrics = imdb_rnn.fit(
     x=seq_train_padded, y=imdb_y_train,
