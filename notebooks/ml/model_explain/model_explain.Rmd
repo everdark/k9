@@ -1065,6 +1065,13 @@ outperforming both RF and GBT.
 
 ### Global Explanation
 
+`interpret` comes with a rich set of visualization tools (with [`plotly`](https://plot.ly/) as its backend).
+Model explanation is divided into two groups:
+global and local.
+
+For global explanation,
+we have access to both global feature importance and a per-feature feature contribution stats.
+
 ```{python ebm_tabular_global_explain}
 ucihd_ebm_global = ucihd_ebm.explain_global()
 # All feature info:
@@ -1073,13 +1080,36 @@ print(ucihd_ebm_global.selector)
 # Global feature importance.
 ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
 
-# Global importance view on the fisrt feature.
+# Global contribution on the fisrt feature.
 ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
 
-#ucihd_ebm_global.visualize().write_image("test.svg")  # Need ploty/orca.
+# Global contribution on the sencond feature.
+ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
+```
+
+#### Feature Importance {-}
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
+```
+
+#### Feature Contribution: Age {-}
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
+```
+
+#### Feature Contribution: Gender {-}
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
 ```
 
 ### Local Explanation
+
+More importantly,
+we must be able to explain a specific model prediction locally.
+This can also be done easily with a couple of lines:
 
 ```{python ebm_tabular_local_explain}
 # Explain the same instances previously on RF.
@@ -1090,6 +1120,14 @@ ucihd_ebm_local = ucihd_ebm.explain_local(
   ucihd_X_test.iloc[exp_ind,:], ucihd_y_test[exp_ind])
 ucihd_ebm_local.visualize(0).write_html("/tmp/ucihd_ebm_exp_tp.html", include_plotlyjs=False)
 ucihd_ebm_local.visualize(1).write_html("/tmp/ucihd_ebm_exp_fp.html", include_plotlyjs=False)
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_exp_tp.html")
+```
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_exp_fp.html")
 ```
 
 # References
