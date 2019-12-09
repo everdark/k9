@@ -308,8 +308,8 @@ For example,
 we can plot the top 20 features:
 
 ```{python imdb_rf_feat_imp}
-rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
-ax = rf_feat_imp.tail(20).plot(kind="barh")
+imdb_rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
+ax = imdb_rf_feat_imp.tail(20).plot(kind="barh")
 plt.show()
 ```
 
@@ -995,7 +995,8 @@ print(classification_report(imdb_y_test, imdb_lgb_pred))
 print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 ```
 
-Just like RF we will have access to the overall feature importance with a GBT model:
+Just like RF we will have access to the overall feature importance with a GBT model:^[By default `lightgbm` calculate the importance by counting how many times a feature contribute to an optimal split during model training.
+It also supports the impurity-based approach with argument `importance_type` set to `"gain"`.]
 
 ```{python imdb_lgb_feat_imp}
 ax = lgb.plot_importance(imdb_bst, max_num_features=20)
@@ -1014,29 +1015,29 @@ imdb_lgb_explainer = shap.TreeExplainer(imdb_bst)
 imdb_lgb_shap_values = imdb_lgb_explainer.shap_values(imdb_X_test)
 
 def imdb_lgb_shap_plot(test_id, matplotlib=True):
-  lgb_shap_plt = shap.force_plot(
+  shap_plt = shap.force_plot(
     imdb_lgb_explainer.expected_value[1],
     imdb_lgb_shap_values[1][test_id,:],
     imdb_X_test[test_id,:].toarray(),  # We still need a dense matrix here.
     feature_names=sorted_vocab,
     matplotlib=matplotlib
   )
-  return lgb_shap_plt
+  return shap_plt
 ```
 
-#### Global Importance by Shap Values {-}
+#### Global Importance {-}
 
 We can derive global importance based on shap values.
-Note that this is different from the loss/impurity-based feature ranking derived from RF/GBT.
-It is an aggregation from all local prediction explanations (contributions).
+Note that this is different from the loss/impurity or split time-based feature ranking derived from RF/GBT *during training*.
+It is an aggregation from all local prediction explanations (contributions) *during testing data inference*.
 
-```{python shap_global}
+```{python shap_imdb_lgb_feat_imp}
 shap.summary_plot(imdb_lgb_shap_values, imdb_X_test, feature_names=sorted_vocab,
                   plot_type="bar", max_display=20, show=False)
 plt.show()
 ```
 
-#### Local Explanation by Shap Values {-}
+#### Local Explanation {-}
 
 ```{python}
 imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
@@ -1062,8 +1063,23 @@ print(np.log(p / (1 - p)))
 
 As of `r format(Sys.time(), '%Y-%m-%d')` `DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
 And `GradientExplainer` is not well documented yet for TF 2.0.
+So we will use the `KernelExplainer` which is a implementation-agnostic explainer in `shap`.
+The compromise is that it will run very slow for each prediction.
 
+```{python shap_kernel_imdb_nn}
+imdb_exp_ind = np.array([imdb_rf_tp_idx[0], imdb_rf_fp_idx[0]])
+# KernelExplainer.
+def mm(X):
+  return imdb_tr.predict_proba(X)[:,1]
 
+imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
+# This is VERY slow...
+imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
+# TODO:
+# Contribution is attributed to original sequence input.
+# In order to make explanation readable,
+# we need to map each position to original word id then to word.
+```
 
 ```python
 # TODO: Makje sure everything works here.
@@ -1082,7 +1098,8 @@ metrics = dl_model.fit(
   ],
   verbose=0)
 
-#dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)  # Wont' work.
+# DeepExplainer.
+dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)  # Wont' work.
 
 # GradientExplainer.
 imdb_nn_shap_explainer = shap.GradientExplainer(dl_model, seq_train_padded[:100])
@@ -1090,28 +1107,108 @@ imdb_nn_shap_explainer = shap.GradientExplainer(dl_model, seq_train_padded[:100]
 imdb_nn_shap_explainer = shap.GradientExplainer(
   (imdb_tr.layers[0].input, imdb_tr.layers[-1].output),  # Not working for TF 2.0.
   seq_train_padded[:100])
-tt = imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])
-
-# KernelExplainer.
-def mm(X):
-  return imdb_tr.predict_proba(X)[:,1]
-
-imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
-# This is VERY slow...
-tt = imdb_nn_shap_explainer.shap_values(seq_test_padded[:2])
-# Contribution is attributed to original sequence input.
-# We need to map each position to original word id than to word.
+imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])  # Error here.
 ```
 
 ## On Tabular Data Classifier
 
 ### Explain Random Forest
 
-**TBC**
+```{python shap_ucihd_rf}
+ucihd_rf_explainer = shap.TreeExplainer(ucihd_rf)
+ucihd_rf_shap_values = ucihd_rf_explainer.shap_values(ucihd_X_test)
+
+def ucihd_rf_shap_plot(test_id, matplotlib=True):
+  shap_plt = shap.force_plot(
+    ucihd_rf_explainer.expected_value[1],
+    ucihd_rf_shap_values[1][test_id,:],
+    ucihd_X_test.iloc[[test_id]],
+    matplotlib=matplotlib
+  )
+  return shap_plt
+```
+
+#### Global Feature Importance {-}
+
+##### Split-time-based feature ranking {-}
+
+```{python ucihd_rf_feat_imp}
+ucihd_rf_feat_imp = pd.Series(ucihd_rf.feature_importances_, index=ucihd_X_train.columns).sort_values()
+ax = ucihd_rf_feat_imp.tail(10).plot(kind="barh")
+plt.show()
+```
+
+##### Shap value feature ranking {-}
+
+```{python shap_ucihd_rf_feat_imp}
+shap.summary_plot(ucihd_rf_shap_values, ucihd_X_train,
+                  plot_type="bar", max_display=10, show=False)
+plt.show()
+```
+
+#### Local Explanation {-}
+
+```{python}
+ucihd_rf_shap_plot(ucihd_rf_tp_idx[0])
+```
+
+```{python}
+ucihd_rf_shap_plot(ucihd_rf_fp_idx[0])
+```
 
 ### Explain Gradient Boosting Trees
 
-**TBC**
+For GBT we feed the model that is optimized,
+where categoricals are encoded internally without explicit one-hot encoding.
+
+```{python shap_ucihd_lgb}
+ucihd_lgb_explainer = shap.TreeExplainer(ucihd_bst_2)
+ucihd_lgb_shap_values = ucihd_lgb_explainer.shap_values(ucihd_test.drop("label", axis=1))
+
+def ucihd_lgb_shap_plot(test_id, matplotlib=True):
+  shap_plt = shap.force_plot(
+    ucihd_lgb_explainer.expected_value[1],
+    ucihd_lgb_shap_values[1][test_id,:],
+    ucihd_test.iloc[[test_id]].drop("label", axis=1),
+    matplotlib=matplotlib
+  )
+  return shap_plt
+```
+
+#### Global Feature Importance {-}
+
+##### Split-time-based feature ranking {-}
+
+```{python ucihd_lgb_feat_imp}
+ax = lgb.plot_importance(ucihd_bst_2, max_num_features=10)
+plt.show()
+```
+
+##### Shap value feature ranking {-}
+
+```{python shap_ucihd_lgb_feat_imp}
+shap.summary_plot(ucihd_lgb_shap_values, ucihd_test.drop("label", axis=1),
+                  plot_type="bar", max_display=10, show=False)
+plt.show()
+```
+
+#### Local Explanation {-}
+
+```{python}
+ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0])
+```
+
+```{python}
+ucihd_lgb_shap_plot(ucihd_rf_fp_idx[0])
+```
+
+### The Impact of One-Hot Encoding On Explanation
+
+As one may now realize,
+by explicitly one-hot-encode the categorical features we essentially split them into different features in their interpretable representation.
+This can be either good or bad, depending on the actual use case.
+From this particular aspect libary such as `lightgbm` provides the flexibility to allow us choose whether to do the one-hot encoding or not.
+So the way we want to construct the explanation model may well affect our implementation of the original model!
 
 ## On Image Classifier
 
@@ -1230,11 +1327,11 @@ This can also be done easily with a couple of lines:
 
 ```{python ucihd_ebm_local_explain}
 # Explain the same instances previously on RF.
-exp_ind = np.array([ucihd_rf_tp_idx[0], ucihd_rf_fp_idx[0]])
+ucihd_exp_ind = np.array([ucihd_rf_tp_idx[0], ucihd_rf_fp_idx[0]])
 
 # We can feed multiple examples at the same time.
 ucihd_ebm_local = ucihd_ebm.explain_local(
-  ucihd_X_test.iloc[exp_ind,:], ucihd_y_test[exp_ind])
+  ucihd_X_test.iloc[ucihd_exp_ind,:], ucihd_y_test[ucihd_exp_ind])
 ucihd_ebm_local.visualize(0).write_html("/tmp/ucihd_ebm_exp_tp.html", include_plotlyjs=False)
 ucihd_ebm_local.visualize(1).write_html("/tmp/ucihd_ebm_exp_fp.html", include_plotlyjs=False)
 ```
