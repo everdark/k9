@@ -313,6 +313,9 @@ For example,
 we can plot the top 20 features:
 
 ```{python imdb_rf_feat_imp}
+sorted_vocab = sorted(imdb_vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
+sorted_vocab = [w for w, i in sorted_vocab]
+
 imdb_rf_feat_imp = pd.Series(imdb_rf.feature_importances_, index=sorted_vocab).sort_values()
 ax = imdb_rf_feat_imp.tail(20).plot(kind="barh")
 plt.show()
@@ -959,8 +962,6 @@ So let's quickly build one such model first (with the same TF-IDF vectorization 
 def remove_non_ascii(s):
   return "".join([i if ord(i) < 128 else "_" for i in s])
 
-sorted_vocab = sorted(imdb_vectorizer.vocabulary_.items(), key=lambda kv: kv[1])
-sorted_vocab = [w for w, i in sorted_vocab]
 sorted_vocab_ascii = [remove_non_ascii(v) for v in sorted_vocab]
 
 imdb_X_tr = lgb.Dataset(imdb_X_train, label=imdb_y_train, feature_name=sorted_vocab_ascii)
