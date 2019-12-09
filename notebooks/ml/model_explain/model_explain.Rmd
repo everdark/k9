@@ -1096,13 +1096,13 @@ htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
 #### Feature Contribution: Age {-}
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
+htmltools::includeHTML("/tmp/ucihd_ebm_age_imp.html")
 ```
 
 #### Feature Contribution: Gender {-}
 
 ```{r, echo=FALSE}
-htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
+htmltools::includeHTML("/tmp/ucihd_ebm_sex_imp.html")
 ```
 
 ### Local Explanation
