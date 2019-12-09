@@ -6,7 +6,7 @@ author:
   affiliation:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (25 Jun 2019 First Uploaded)"
 output:
-  html_notebook: 
+  html_notebook:
     number_sections: yes
     theme: paper
     toc: yes
@@ -28,7 +28,7 @@ abstract: |
   The preview of plotly output in RStudio won't work
   since we don't include the plotly.js in each individual plot (to reduce file size).
 -->
-<script src="../../../site_libs/utils/plotly-latest.min.js"></script>
+<script src="../../../site_libs/utils/plotly-1.48.3.min.js"></script>
 
 <!-- Link to mathjax javascript library.
   This is for latex notation in plotly output.
@@ -257,9 +257,9 @@ Now the gradient (or equivalently the 1st-order derivative) w.r.t. to weights wi
 
 $$
 \begin{aligned}
-\frac{\partial\mbox{Loss}}{\partial\beta_0} 
+\frac{\partial\mbox{Loss}}{\partial\beta_0}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big], \\
-\frac{\partial\mbox{Loss}}{\partial\beta_1} 
+\frac{\partial\mbox{Loss}}{\partial\beta_1}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big]x_i.
 \end{aligned}
 $$
@@ -339,7 +339,7 @@ This can be more clearly seen if we plot the trace of our training losses:
 
 ```{python linear_reg_diff_lr_plot}
 ofile = "plots/toy_reg_loss_compare.html"
-pdata = [go.Scatter(x=np.arange(len(losses[lr])), y=losses[lr], name=lr) 
+pdata = [go.Scatter(x=np.arange(len(losses[lr])), y=losses[lr], name=lr)
          for lr in losses.keys()]
 p = plot_offline(
   ofile=ofile,
@@ -491,7 +491,7 @@ We can re-arrange the logistic model equation:
 
 $$
 \begin{aligned}
-\ln \Bigg[ \frac{P(Y = 1)}{1 - P(Y = 1)} \Bigg] 
+\ln \Bigg[ \frac{P(Y = 1)}{1 - P(Y = 1)} \Bigg]
 &= \ln \Bigg[ \frac{\frac{1}{1 + e^{-X\beta}}}{\frac{e^{-X\beta}}{1 + e^{-X\beta}}} \Bigg] \\
 &= \ln(1 + e^{-X\beta}) - \ln e^{-X\beta}(1 + e^{-X\beta}) \\
 &= \ln(1 + e^{-X\beta}) - \ln e^{-X\beta} - \ln(1 + e^{-X\beta}) \\
@@ -600,7 +600,7 @@ We plot the entropy value at different value of coin bias (the probability of ha
 ```{python logit_coin_flip_entropy_plot}
 def entropy_binary(p):
   return -p*np.log2(p) - (1 - p)*np.log2(1 - p)
-  
+
 prob = np.linspace(.01, .99, num=100)
 
 ofile = "plots/entropy.html"
@@ -733,7 +733,7 @@ which is:
 
 $$
 \begin{aligned}
-\mbox{log-lik} 
+\mbox{log-lik}
 &= \log_2 \prod_i^N q_i^{y_i}(1 - q_i)^{1 - y_i} \\
 &= \sum_i^N \log_2 q_i^{y_i}(1 - q_i)^{1 - y_i} \\
 &= \sum_i^N \bigg[ y_i\log_2 q_i + (1 - y_i)\log_2(1 - q_i) \bigg].
@@ -775,14 +775,14 @@ The gradient in our univariate model w.r.t. the bias term will be:^[Here we use 
 
 $$
 \begin{aligned}
-\frac{\partial\mbox{LogLoss}}{\partial\beta_0} 
-&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{\partial\ln q_i}{\partial\beta_0} + 
+\frac{\partial\mbox{LogLoss}}{\partial\beta_0}
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{\partial\ln q_i}{\partial\beta_0} +
   (1 - y_i)\frac{\partial\ln(1 - q_i)}{\partial\beta_0}\bigg] \\
-&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial q_i}{\partial\beta_0} + 
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial q_i}{\partial\beta_0} +
   (1 - y_i)\frac{1}{1 - q_i}\frac{\partial(1 - q_i)}{\partial\beta_0}\bigg] \\
-&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial (\beta_0 + \beta_1x_i)}{\partial\beta_0}\frac{\partial q_i(t)}{\partial t} - 
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}\frac{\partial (\beta_0 + \beta_1x_i)}{\partial\beta_0}\frac{\partial q_i(t)}{\partial t} -
   (1 - y_i)\frac{1}{1 - q_i}\frac{\partial (\beta_0 + \beta_1x_i)}{\partial\beta_0}\frac{\partial q_i(t)}{\partial t}\bigg] \\
-&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}q_i(1 - q_i) - 
+&= - \frac{1}{N}\sum_i \bigg[ y_i\frac{1}{q_i}q_i(1 - q_i) -
   (1 - y_i)\frac{1}{1 - q_i}q_i(1 - q_i)\bigg] \\
 &= - \frac{1}{N}\sum_i \bigg[ y_i(1 - q_i) - (1 - y_i)q_i \bigg] \\
 &= - \frac{1}{N}\sum_i (y_i - q_i).
@@ -865,7 +865,7 @@ Seems better.
 
 Or we can use the Python package `statsmodels` (@seabold2010statsmodels),
 which also uses a 2nd-order optimizer by default,
-to check our result: 
+to check our result:
 
 ```{python logit_statsmodels}
 import statsmodels.api as sm
@@ -1121,7 +1121,7 @@ Mathematically:
 
 $$
 \begin{aligned}
-\hat{y} 
+\hat{y}
 &= \Phi(b_1 + w_1z) \\
 &= \Phi(b_1 + w_1\Phi(b_0 + w_0x)),
 \end{aligned}
@@ -1174,9 +1174,9 @@ $$
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)\frac{\partial \hat{y}_i}{\partial w_0} \\
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i)
 \underbrace{  \frac{\partial t}{\partial w_0}\frac{\partial \Phi(t)}{\partial t} }_{t = b_1 + w_1\Phi(b_0 + w_0x)}\\
-&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot 
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot
 \underbrace{ \Phi(k)(1 - \Phi(k)) }_{k = b_0 +w_0x} \cdot w_1 \cdot x_i, \\
-\frac{\partial \mbox{MSE-Loss}}{\partial b_0} 
+\frac{\partial \mbox{MSE-Loss}}{\partial b_0}
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot \Phi(k)(1 - \Phi(k)).
 \end{aligned}
 $$
@@ -1188,8 +1188,8 @@ $$
 \frac{\partial \mbox{MSE-Loss}}{\partial w_1}
 &= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot \Phi(t)(1 - \Phi(t)) \cdot z_i, \\
 \frac{\partial \mbox{MSE-Loss}}{\partial w_0}
-&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot 
-\underbrace{\Phi(t)(1 - \Phi(t))}_{\hat{y}_i(1 - \hat{y}_i)} \cdot 
+&= - \frac{1}{N}\sum_i (y_i - \hat{y}_i) \cdot
+\underbrace{\Phi(t)(1 - \Phi(t))}_{\hat{y}_i(1 - \hat{y}_i)} \cdot
 \underbrace{\Phi(k)(1 - \Phi(k)) \cdot w_1 \cdot x_i}_{\frac{\partial w_1z}{\partial w_0} = \frac{\partial w_1\Phi(b0 + w_0x)}{\partial w_0}}.
 \end{aligned}
 $$
@@ -1200,7 +1200,7 @@ Similarly we can derive the gradients for cross-entropy loss.
 
 $$
 \begin{aligned}
-\mbox{LogLoss} 
+\mbox{LogLoss}
 &= - \frac{1}{N}\sum_i^N \bigg[ y_i\ln\hat{y}_i + (1 - y_i)\ln(1 - \hat{y}_i)\bigg], \\
 \frac{\partial \mbox{LogLoss}}{\partial w_1}
 &= - \frac{1}{N} \sum_i (y_i - \hat{y}_i)z_i, \\
@@ -1237,7 +1237,7 @@ class NeuralNetwork:
 
   def backprop(self, lr):
     raise NotImplementedError
-  
+
   def train(self, lr, n_step):
     for step in range(n_step):
       self.feedforward()
@@ -1251,7 +1251,7 @@ class NerualNetworkWithMSELoss(NeuralNetwork):
     # We ignore all constant terms in the gradient.
     self.dy = self.y - self.output
     dw2 = - np.dot(self.layer1.T, (self.dy*sigmoid_grad(self.output)))
-    dw1 = - np.dot(self.input.T, 
+    dw1 = - np.dot(self.input.T,
                    (np.dot(self.dy*sigmoid_grad(self.output),
                            self.w2.T)*sigmoid_grad(self.layer1)))
     self.w1 -= lr * dw1
@@ -1263,7 +1263,7 @@ class NerualNetworkWithLogLoss(NeuralNetwork):
     # We ignore all constant terms in the gradient.
     self.dy = self.y - self.output
     dw2 = - np.dot(self.layer1.T, self.dy)
-    dw1 = - np.dot(self.input.T, 
+    dw1 = - np.dot(self.input.T,
                    np.dot(self.dy, self.w2.T)*sigmoid_grad(self.layer1))
     self.w1 -= lr * dw1
     self.w2 -= lr * dw2
@@ -1329,7 +1329,7 @@ $$
 \hat{y} &= X\mathrm{B}, \\
 \operatorname*{argmin}_\beta \mbox{Loss} &=
 \frac{1}{N}\bigg[
-\underbrace{(y - X\mathrm{B})^T(y - X\mathrm{B})}_\text{sum of squared errors} + 
+\underbrace{(y - X\mathrm{B})^T(y - X\mathrm{B})}_\text{sum of squared errors} +
 \underbrace{\lambda\Vert\mathrm{B}\Vert_{p}}_\text{p-norm regularization}
 \bigg],
 \end{aligned}
@@ -1343,7 +1343,7 @@ Or put it in a scalar form:
 $$
 \begin{equation} \label{eq:loss_min_reg}
 \operatorname*{argmin}_\beta \mbox{Loss} =
-\frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 + 
+\frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 +
 \frac{\lambda}{N}\bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg)^{1/p}.
 \end{equation}
 $$
@@ -1359,7 +1359,7 @@ So the problem indeed becomes
 
 $$
 \operatorname*{argmin}_\beta \mbox{Loss} =
-\frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 + 
+\frac{1}{N}\sum_{i=1}^N\bigg( y_i - \mathrm{B}x_i\bigg)^2 +
 \frac{\lambda}{N}\bigg(\sum_{j=1}^k\vert\beta_j\vert^p\bigg).
 $$
 
@@ -1372,7 +1372,7 @@ The L2-Norm shrinks the size of model weights.
 Those who contribute less to loss minimization will shrink more.
 
 Back to our univariate linear model $\hat{y}_i = \beta_0 + \beta_1x_i$ for symolic simplicity.
-Our MSE loss is 
+Our MSE loss is
 
 $$
 \mbox{MSE-Loss} = \frac{1}{N}\sum_i\big[y_i-(\beta_0 + \beta_1x_i)\big]^2 + \frac{\lambda}{N}(\beta_0^2 + \beta_1^2).
@@ -1383,9 +1383,9 @@ our gradient solution is extremely easy:
 
 $$
 \begin{aligned}
-\frac{\partial\mbox{MSE-Loss}}{\partial\beta_0} 
+\frac{\partial\mbox{MSE-Loss}}{\partial\beta_0}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big] + \frac{2}{N}\lambda\beta_0, \\
-\frac{\partial\mbox{MSE-Loss}}{\partial\beta_1} 
+\frac{\partial\mbox{MSE-Loss}}{\partial\beta_1}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big]x_i + \frac{2}{N}\lambda\beta_1.
 \end{aligned}
 $$
@@ -1446,9 +1446,9 @@ with gradients:^[Note that the derivative $\frac{du}{dx} = \frac{u}{\vert u \ver
 
 $$
 \begin{aligned}
-\frac{\partial\mbox{MSE-Loss}}{\partial\beta_0} 
+\frac{\partial\mbox{MSE-Loss}}{\partial\beta_0}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big] + \lambda\frac{\beta_0}{\vert\beta_0\vert}, \\
-\frac{\partial\mbox{MSE-Loss}}{\partial\beta_1} 
+\frac{\partial\mbox{MSE-Loss}}{\partial\beta_1}
 &= - \frac{2}{N}\sum_i \big[ y_i - (\beta_0 + \beta_1x_i) \big]x_i + \lambda\frac{\beta_1}{\vert\beta_1\vert}.
 \end{aligned}
 $$
@@ -1663,7 +1663,7 @@ the task is to solve for the posterior distribution of weight:
 
 $$
 P(W|y) = \frac{P(y|W) \cdot P(W)}{P(y)}
-\propto 
+\propto
 P(y|W) \cdot P(W).
 $$
 
@@ -1686,7 +1686,7 @@ the gradient to the log of a Normal prior will give us:
 
 $$
 \begin{aligned}
-\frac{\partial \ln f(w)}{\partial w} 
+\frac{\partial \ln f(w)}{\partial w}
 &= \frac{\partial \bigg[-\frac{1}{2}\ln(2\pi\sigma^2) - \frac{(w - \mu)^2}{2\sigma^2}\bigg]}{\partial w} \\
 &= - \frac{1}{\sigma^2}(w - \mu),
 \end{aligned}
@@ -1696,7 +1696,7 @@ and for a Laplacean prior:
 
 $$
 \begin{aligned}
-\frac{\partial \ln g(w)}{\partial w} 
+\frac{\partial \ln g(w)}{\partial w}
 &= \frac{\partial \bigg[-\frac{1}{2b} - \frac{\vert w - \mu \vert}{b}\bigg]}{\partial w} \\
 &= - \frac{1}{b}\frac{w}{\vert w \vert}.
 \end{aligned}
