@@ -212,6 +212,10 @@ print(sklearn.__version__)
 model_dir = "models"
 if not os.path.exists(model_dir):
     os.makedirs(model_dir)
+
+# Directory to cache dataset.
+home = os.path.expanduser("~")
+cache_dir = os.path.join(home, ".keras")
 ```
 
 First,
@@ -221,7 +225,8 @@ we prepare the movie review dataset.^[Keras also comes with the dataset preproce
 import tensorflow_datasets as tfds
 
 # Load the data as tf.data.Dataset.
-imdb = tfds.load(name="imdb_reviews", as_supervised=True)
+imdb = tfds.load(name="imdb_reviews", as_supervised=True,
+                 data_dir=os.path.join(home, "tensorflow_datasets"))
 ```
 
 The dataset is a perfectly balanced dataset with 50,000 examples,
@@ -259,8 +264,6 @@ For those who want to process the data in its very original format (where one re
 the files can be downloaded by this piece of code:
 
 ```python
-home = os.path.expanduser("~")
-cache_dir = os.path.join(home, ".keras")
 imdb_remote_path = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 imdb_fname = os.path.basename(imdb_remote_path)
 imdb_local_path = os.path.join(cache_dir, "datasets", imdb_fname)
