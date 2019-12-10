@@ -730,9 +730,8 @@ print(classification_report(imdb_y_test, imdb_rnn_pred))
 print(roc_auc_score(imdb_y_test, imdb_rnn_yhat))
 ```
 
-Since the dataset is rather small,
-we didn't see any advantage of RNN over a simple pooling embedding model.
-Indeed it's accuracy is slightly worse than the other two NN models on the testing dataset.
+RNN with pre-trained GloVe embeddings seems to work very well,
+even for such a small dataset.
 That's see how the explanation can differ, again, for the same two examples:
 
 ```{python lime_imdb_rnn}
