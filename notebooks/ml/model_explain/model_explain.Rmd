@@ -1540,7 +1540,7 @@ fid = ucihd_ebm_global.selector.Name.tolist().index("trestbps")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_trestbps_imp.html", include_plotlyjs=False)
 
 # Global contribution on sex.
-fid = ucihd_ebm_global.selector.Name.tolist().index("sex")
+fid = ucihd_ebm_global.selector.Name.tolist().index("sex_0.0")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
@@ -1562,7 +1562,7 @@ htmltools::includeHTML("/tmp/ucihd_ebm_age_imp.html")
 htmltools::includeHTML("/tmp/ucihd_ebm_trestbps_imp.html")
 ```
 
-#### Feature Contribution: Gender {-}
+#### Feature Contribution: Gender (Female) {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_sex_imp.html")
