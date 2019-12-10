@@ -690,11 +690,12 @@ RNN is known to be able to capture sequential dependencies better than ngram bag
 rnn_model_file = os.path.join(model_dir, "text_clf_rnn.h5")
 
 def rnn_model_fn():
-  embedding_size = 64
+  embedding_size = glove.shape[1]
   model = tf.keras.Sequential([
     tf.keras.layers.Embedding(
-      vocab_size, embedding_size,
-      input_length=maxlen, mask_zero=True, name="word_embedding"),
+      vocab_size, embedding_size, input_length=maxlen,
+      embeddings_initializer=tf.keras.initializers.Constant(glove),
+      trainable=True, mask_zero=True, name="glove_embedding"),
     tf.keras.layers.GRU(64, dropout=.2, name="GRU"),
     tf.keras.layers.Dense(1, activation="sigmoid", name="sigmoid")
   ], name="rnn_classifier")
@@ -763,7 +764,7 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_tp.html"))
 
 For the negative review,
 RNN also correctly predict the label.
-This time with even more confidence than NN with pre-trained embeddings.
+This may relate to they both using the pre-trained embeddings.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_fp.html"))
@@ -1341,7 +1342,7 @@ From the global ranking we can confirm that variable `ca` is definitely an influ
 ```{python ucihd_rf_feat_imp}
 ucihd_rf_feat_imp = pd.Series(ucihd_rf.feature_importances_, index=ucihd_X_train.columns).sort_values()
 ax = ucihd_rf_feat_imp.tail(10).plot(kind="barh")
-plt.show()
+plt.show()  # TODO: Adjust plot size.
 ```
 
 ##### Shap value feature ranking {-}
@@ -1530,7 +1531,9 @@ print(ucihd_ebm_global.selector)
 
 # Global feature importance.
 ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
+```
 
+```{python ucihd_ebm_global_explain_plot}
 # Global contribution on age.
 fid = ucihd_ebm_global.selector.Name.tolist().index("age")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
