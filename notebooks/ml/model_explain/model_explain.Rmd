@@ -378,6 +378,8 @@ if ( !file.exists("lime.js") ) {
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_tp.html"))
 ```
 
+<br>
+
 Our RF model doesn't seem to be very confident on this particular positive example indeed.
 There is no dominant single word can drive the prediction in the correct direction.
 The contributing words are also mostly neutral on their own.
@@ -392,6 +394,8 @@ where our RF model wrongly labeled as a positive review.
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_fp.html"))
 ```
+
+<br>
 
 In this example a single positive word `great` (wrongly) dominate the prediction toward a positive sentiment.
 And we realize the model didn't response well to some negative signals,
@@ -474,18 +478,16 @@ else:
     ],
     verbose=2)
 
-imdb_nn_yhat = np.squeeze(imdb_nn.predict(seq_test_padded))
+imdb_nn_yhat = imdb_nn.predict_proba(seq_test_padded)[:,1]
 imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_nn_pred))
-print(roc_auc_score(imdb_y_test, imdb_nn_pred))
+print(roc_auc_score(imdb_y_test, imdb_nn_yhat))
 ```
 
 Based on the testing AUC score,
-our shallow neural network model didn't outperform a random forest.
-We may be able to hyper-tune the model to be comparable,
-but there is no point to waste resources beating a simple model with a simple dataset.
-Instead let's see how the explanation model tell us about the behavior of the neural network model.
+our shallow neural network model did outperform a random forest.
+Let's see how the explanation model tell us about the behavior of the neural network model.
 
 ```{python lime_imdb_nn}
 def nn_predict_fn(text):
@@ -510,6 +512,8 @@ imdb_nn_fp_exp.save_to_file("/tmp/explain_text_nn_fp.html")
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_tp.html"))
 ```
 
+<br>
+
 The above is the LIME explanation of the same positive example previously explained with a RF model.
 We realize that,
 though both models eventually give a positive prediction,
@@ -529,6 +533,8 @@ by predicting it as a positive one.
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_fp.html"))
 ```
 
+<br>
+
 What's different here is the reaction to the negative word `bore`,
 which is not seen in RF.
 
@@ -545,8 +551,6 @@ We use just the smaller GloVe model since our dataset is quite small.
 ```{python maybe_download_glove, results="hide"}
 # Download GloVe pre-trained embeddings.
 # The file is about 800MB so may take some time.
-home = os.path.expanduser("~")
-cache_dir = os.path.join(home, ".keras")
 glove6b_remote_path = "http://nlp.stanford.edu/data/glove.6B.zip"
 glove6b_local_path = os.path.join(cache_dir, "datasets", "glove.6B.50d.txt")
 glove6b_fname = os.path.basename(glove6b_remote_path)
@@ -625,7 +629,7 @@ else:
     ],
     verbose=2)
 
-imdb_tr_yhat = np.squeeze(imdb_tr.predict(seq_test_padded))
+imdb_tr_yhat = imdb_tr.predict_proba(seq_test_padded)[:,1]
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_tr_pred))
@@ -662,6 +666,8 @@ Even the donimant words are the same.
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
 ```
 
+<br>
+
 For the negative review,
 interestingly,
 the transfer learning NN indeed makes a correct prediction of negative label.
@@ -670,6 +676,8 @@ The word `bore` becomes the main driving force to lower down the score.
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 ```
+
+<br>
 
 ### Explain Recurrent Neural Nets
 
@@ -699,7 +707,7 @@ print(rnn_model_fn().summary(line_length=90))
 
 imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
 if os.path.exists(rnn_model_file):
-  #  # Restore the model with wrapper.
+  # Restore the model with wrapper.
   imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
   imdb_rnn.classes_ = np.array([0, 1])
 else:
@@ -714,7 +722,7 @@ else:
     ],
     verbose=2)
 
-imdb_rnn_yhat = np.squeeze(imdb_rnn.predict(seq_test_padded))
+imdb_rnn_yhat = imdb_rnn.predict_proba(seq_test_padded)[:,1]  # Interence of RNN take time.
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
 
 print(classification_report(imdb_y_test, imdb_rnn_pred))
@@ -751,13 +759,17 @@ The same over-confidence for all NN models on this particular positive review.
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_tp.html"))
 ```
 
-For the negative revierw,
+<br>
+
+For the negative review,
 RNN also correctly predict the label.
 This time with even more confidence than NN with pre-trained embeddings.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_fp.html"))
 ```
+
+<br>
 
 ### From Explanation to Trust
 
@@ -799,7 +811,7 @@ But as a demo case it should serve well the purpose.
 ```{python preprocess_ucihd}
 ucihd_attr = [
   "age",
-  "sex",
+  "sex",      # 0 = female 1 = male
   "cp",       # chest pain type 1: typical angina 2: atypical angina 3: non-anginal pain 4: asymptomatic
   "trestbps", # resting blood pressure (in mm Hg on admission to the hospital)
   "chol",     # serum cholestoral in mg/dl
@@ -892,6 +904,8 @@ from the RF predictions to demonstrate explanation modeling.
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_tp.html"))
 ```
 
+<br>
+
 The explanation suggests several dominant features toward the positive.
 For categoricals each category serves as individual contribution for explanation.
 This is a natural consequence of one-hot encoding in our feature space.
@@ -901,6 +915,8 @@ This is a natural consequence of one-hot encoding in our feature space.
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_fp.html"))
 ```
+
+<br>
 
 For the false positive case,
 the model is less confident.
@@ -979,6 +995,8 @@ The behavior of GBT looks similar to that of RF in terms of these two examples.
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_tp.html"))
 ```
 
+<br>
+
 In both case,
 the variable `ca` has a dominant impact on the final decision.
 The two modesl also share the same confusion against the negative example.
@@ -986,6 +1004,8 @@ The two modesl also share the same confusion against the negative example.
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 ```
+
+<br>
 
 #### Optimized Categorical Encoding in `lightgbm` {-}
 
@@ -1123,8 +1143,7 @@ print(classification_report(imdb_y_test, imdb_lgb_pred))
 print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 ```
 
-Based on the testing AUC score we find out that GBT performs exceptionally well,
-better than any of the previous text classifiers we've trained.
+Based on the testing AUC score we find out that GBT performs comparably to neural network models.
 
 Just like RF we will have access to the overall feature importance with a GBT model:
 ^[By default `lightgbm` calculates the importance by counting how many times a feature contributes to an optimal split during training.
@@ -1155,10 +1174,7 @@ def imdb_lgb_shap_plot(test_id, matplotlib=True):
     imdb_lgb_shap_values[1][test_id,:],
     imdb_X_test[test_id,:].toarray(),  # We still need a dense matrix here.
     feature_names=sorted_vocab,
-    #link="identity",
-    link="logit",
-    matplotlib=matplotlib,
-    figsize=(15, 10)
+    matplotlib=matplotlib
   )
   return shap_plt
 ```
@@ -1515,11 +1531,17 @@ print(ucihd_ebm_global.selector)
 # Global feature importance.
 ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
 
-# Global contribution on the fisrt feature.
-ucihd_ebm_global.visualize(0).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
+# Global contribution on age.
+fid = ucihd_ebm_global.selector.Name.tolist().index("age")
+ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
 
-# Global contribution on the sencond feature.
-ucihd_ebm_global.visualize(1).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
+# Global contribution on trestbps.
+fid = ucihd_ebm_global.selector.Name.tolist().index("trestbps")
+ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_trestbps_imp.html", include_plotlyjs=False)
+
+# Global contribution on sex.
+fid = ucihd_ebm_global.selector.Name.tolist().index("sex")
+ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
 #### Feature Importance {-}
@@ -1532,6 +1554,12 @@ htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_age_imp.html")
+```
+
+#### Feature Contribution: Resting Blood Pressure {-}
+
+```{r, echo=FALSE}
+htmltools::includeHTML("/tmp/ucihd_ebm_trestbps_imp.html")
 ```
 
 #### Feature Contribution: Gender {-}
