@@ -3,6 +3,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.metrics import classification_report, roc_auc_score
 
 print(tf.__version__)
 if tf.test.is_gpu_available():
@@ -22,7 +23,8 @@ for x, y in imdb["train"].batch(128):
 for x, y in imdb["test"].batch(128):
   imdb_reviews_test.extend(x.numpy())
   imdb_y_test.extend(y.numpy())
-
+imdb_reviews_train = [b.decode("utf8") for b in imdb_reviews_train]
+imdb_reviews_test = [b.decode("utf8") for b in imdb_reviews_test]
 imdb_y_train = np.array(imdb_y_train)
 imdb_y_test = np.array(imdb_y_test)
 
@@ -41,17 +43,16 @@ tokenizer = Tokenizer(lower=True, oov_token=oov_token, num_words=vocab_size)
 tokenizer.fit_on_texts(imdb_reviews_train)
 
 # Encode text with padding to ensure fixed-length input.
-maxlen = 256
 seq_train = tokenizer.texts_to_sequences(imdb_reviews_train)
-seq_train_padded = pad_sequences(seq_train, padding="post", truncating="post", maxlen=maxlen,)
-
+seq_train_padded = pad_sequences(seq_train, padding="post")
+maxlen = seq_train_padded.shape[1]
 seq_test = tokenizer.texts_to_sequences(imdb_reviews_test)
-seq_test_padded = pad_sequences(seq_test, padding="post", truncating="post", maxlen=maxlen)
+seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 
 assert tokenizer.index_word[1] == oov_token
 assert seq_train_padded.max() == vocab_size - 1
 
-model_file = "models/imdb_rnn.h5"
+model_file = "imdb_rnn.h5"
 
 embedding_size = 64
 model = tf.keras.Sequential([
@@ -77,3 +78,11 @@ metrics = model.fit(
     tf.keras.callbacks.ModelCheckpoint(model_file, monitor="val_loss", save_best_only=True)
   ],
   verbose=1)
+
+print(model.evaluate(seq_test_padded, imdb_y_test, verbose=0))
+
+yhat = model.predict(seq_test_padded)
+pred = (yhat > .5).astype(int)
+
+print(classification_report(imdb_y_test, pred))
+print(roc_auc_score(imdb_y_test, yhat))
