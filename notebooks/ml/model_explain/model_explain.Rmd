@@ -280,7 +280,9 @@ if not os.path.exists(imdb_local_path):
 ### Explain Random Forest
 
 Let's build a random forest with TF-IDF as our feature space.
-We will use the popular `scikit-learn` library for implementation.^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest. However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
+We will use the popular `scikit-learn` library for implementation.
+^[It will be much faster if we choose `xgboost`'s or `lightgbm`'s implementation of random forest.
+However, to demonstrate compatibility of `lime` with `scikit-learn` we purposely choose the slower implementation here.]
 
 ```{python tfidf}
 # We drop words that are too frequent or too rare in the training dataset.
@@ -291,7 +293,7 @@ print(len(imdb_vectorizer.vocabulary_))  # Without OOV token.
 ```
 
 ```{python imdb_rf}
-imdb_rf_model_file = "models/text_rf.joblib"
+imdb_rf_model_file = os.path.join(model_dir, "text_rf.joblib")
 
 # Save/reload the model to save notebook rendering time.
 if os.path.exists(imdb_rf_model_file):
@@ -325,17 +327,26 @@ ax = imdb_rf_feat_imp.tail(20).plot(kind="barh")
 plt.show()
 ```
 
-Interpretation of the impurity-based ranking must be very careful though.
-For example, related features will theoretically have similar impact but only one of it will gain higher score (and suppress the other) in the ranking.
-Which one stands out is totally random.
+As one can see,
+common adjectives describing good or bad things generally have larger impact in the model,
+which is totally expected.
+But we also see influential words such as `just` and `minutes` which are quite neutral and contain no useful information on their own.
+They may be *jointly* important in the model since a tree model allows interaction between variables.
+But we won't be able to go deeper beyond the unconditional view we derived as a global feature ranking.
 
-In general it is NOT recommended to use impurity or even loss-based feature ranking to *interpret* a tree ensemble model.
+Interpretation of the impurity-based ranking must be very careful.
+For example,
+related features will theoretically have similar impact but only one of it will gain higher score (and suppress the other) in the ranking.
+Which one stands out is totally random due to the way tree splitting is performed during training.
+
+In general it is NOT recommended to use impurity or loss-based feature ranking to *interpret* a tree ensemble model.
 Such ranking information is still useful to understand different aspects of the model,
 and can be used to subset feature to counter over-fitting issue, if any.
-But it won't help really explain the model per se.
+But it won't help really explain the model at the prediction-level: *Why is my model making such prediction?*
 And this is exactly why we need a explanation model in the first place.
 
-Now move on to model explanation with LIME:
+Now move on to model explanation with LIME.
+We pick up one true positive and one false positive case made by our random forest model to see how the explanation model will explain each case.
 
 ```{python lime_imdb_rf}
 from lime.lime_text import LimeTextExplainer
@@ -367,17 +378,32 @@ if ( !file.exists("lime.js") ) {
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_tp.html"))
 ```
 
+Our RF model doesn't seem to be very confident on this particular positive example indeed.
+There is no dominant single word can drive the prediction in the correct direction.
+The contributing words are also mostly neutral on their own.
+We can confirm that the result of this prediction will be very sensitive and not robust.
+Admittedly this review does show some mixtures of positive and negative views.
+
 #### A False Positive Prediction Explained {-}
+
+Now let's look at a false positive example,
+where our RF model wrongly labeled as a positive review.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rf_fp.html"))
 ```
 
-**TODO: Discuss the result.**
+In this example a single positive word `great` (wrongly) dominate the prediction toward a positive sentiment.
+And we realize the model didn't response well to some negative signals,
+especially for the word `bore`.
 
-### Explain Neural Nets with Word Embeddings
+If we examine more cases we may have more clues on how the model mis-behaves,
+and we can come up with a strategy accordingly to improve it.
+For now we'll stop here and try experimenting with other learning algorithms hereafer.
 
-Now let's try a neural network model with word embeddings trained from scratch.
+### Explain Neural Networks
+
+Now let's try a shallow neural network model with word embeddings trained from scratch.
 We use `tensorflow.keras` API to quickly build and train a neural net.
 We average word embeddings as the document embeddings for each review,
 then feed-forward a ReLU layer before the sigmoid activation for cross-entropy optimization.
@@ -412,7 +438,7 @@ assert seq_train_padded.max() == vocab_size - 1
 
 # Wrap Keras Sequential model with scikit-learn API.
 # This is because LimeTextExplainer seems buggy with a native Keras model.
-nn_model_file = "models/text_clf_nn.h5"
+nn_model_file = os.path.join(model_dir, "text_clf_nn.h5")
 
 def nn_model_fn():
   embedding_size = 64
@@ -455,6 +481,12 @@ print(classification_report(imdb_y_test, imdb_nn_pred))
 print(roc_auc_score(imdb_y_test, imdb_nn_pred))
 ```
 
+Based on the testing AUC score,
+our shallow neural network model didn't outperform a random forest.
+We may be able to hyper-tune the model to be comparable,
+but there is no point to waste resources beating a simple model with a simple dataset.
+Instead let's see how the explanation model tell us about the behavior of the neural network model.
+
 ```{python lime_imdb_nn}
 def nn_predict_fn(text):
   # This is for sklearn wrapper only.
@@ -478,11 +510,30 @@ imdb_nn_fp_exp.save_to_file("/tmp/explain_text_nn_fp.html")
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_tp.html"))
 ```
 
+The above is the LIME explanation of the same positive example previously explained with a RF model.
+We realize that,
+though both models eventually give a positive prediction,
+the neural network model has a very different opinion on how the positive prediction is formulated.
+Instead of being confused and indecisive,
+the NN model is actually over-confident about this prediction!
+Some neutral words have disproportionate contribition to the positive,
+pointing out the potential direction to improve the model.
+For example,
+can a bigram tokenizer be better?
+
+How about the second example (which is a negative review)?
+Our NN model also makes a mistake on this negative review,
+by predicting it as a positive one.
+
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_nn_fp.html"))
 ```
 
-**TODO: Discuss the difference between RF and NN.**
+What's different here is the reaction to the negative word `bore`,
+which is not seen in RF.
+
+Without a explanation model,
+it won't be easy for us to compare two models at this level of details.
 
 ### Explain Transfer Learning
 
@@ -490,7 +541,6 @@ One step further,
 let's use pre-trained word embeddings for the neural nets and build another explanation model.
 We will use [GloVe](https://nlp.stanford.edu/projects/glove/) (@pennington2014glove).
 We use just the smaller GloVe model since our dataset is quite small.
-In building the GloVe embeddings we need to take special care about out-of-vocabulary token AND padding index since we will be using the Keras API.
 
 ```{python maybe_download_glove, results="hide"}
 # Download GloVe pre-trained embeddings.
@@ -506,6 +556,8 @@ if not os.path.exists(glove6b_local_path):
 
 glove_all = pd.read_csv(glove6b_local_path, sep=" ", header=None, index_col=0, quoting=3)
 ```
+
+In building the GloVe embeddings we need to take special care about out-of-vocabulary token AND padding index since we will be using the Keras API.
 
 ```{python imdb_transfer_learning_vocab}
 # Map vocabulary to pre-trained embeddings.
@@ -535,7 +587,7 @@ only the `Embedding` layer now we will use a constant matrix for initialization.
 We make the GloVe embeddings *trainable* so it will further adapt to our specific dataset.
 
 ```{python imdb_transfer_learning}
-tr_model_file = "models/text_clf_tr.h5"
+tr_model_file = os.path.join(model_dir, "text_clf_tr.h5")
 
 def tr_model_fn():
   embedding_size = glove.shape[1]
@@ -580,6 +632,9 @@ print(classification_report(imdb_y_test, imdb_tr_pred))
 print(roc_auc_score(imdb_y_test, imdb_tr_yhat))
 ```
 
+Our NN model with transfer learning has similar AUC score to the vanilla NN.
+Let's use explanation modeling to see if there is any actual difference.
+
 ```{python lime_imdb_transfer_learning}
 def tr_predict_fn(text):
   # This is for sklearn wrapper only.
@@ -599,24 +654,32 @@ imdb_tr_tp_exp.save_to_file("/tmp/explain_text_tr_tp.html")
 imdb_tr_fp_exp.save_to_file("/tmp/explain_text_tr_fp.html")
 ```
 
+For the same positive review,
+again the model shows over-confidence.
+Even the donimant words are the same.
+
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
 ```
+
+For the negative review,
+interestingly,
+the transfer learning NN indeed makes a correct prediction of negative label.
+The word `bore` becomes the main driving force to lower down the score.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 ```
 
-**TODO: Discussion.**
-
 ### Explain Recurrent Neural Nets
 
 As a final exercise on text classification,
-let's experiment the explanation model with a recurrent neural network (RNN).
-Note that, even for a single layer, this will be prohibitively slow without a GPU.
+let's experiment the explanation modeling with a recurrent neural network (RNN)
+RNN is known to be able to capture sequential dependencies better than ngram bag-of-words approach.
+^[Note that, even for a single recurrent layer, training a RNN will be prohibitively slow without a GPU.]
 
 ```{python imdb_rnn}
-rnn_model_file = "models/text_clf_rnn.h5"
+rnn_model_file = os.path.join(model_dir, "text_clf_rnn.h5")
 
 def rnn_model_fn():
   embedding_size = 64
@@ -660,6 +723,7 @@ print(roc_auc_score(imdb_y_test, imdb_rnn_yhat))
 
 Since the dataset is rather small,
 we didn't see any advantage of RNN over a simple pooling embedding model.
+Indeed it's accuracy is slightly worse than the other two NN models on the testing dataset.
 That's see how the explanation can differ, again, for the same two examples:
 
 ```{python lime_imdb_rnn}
@@ -681,22 +745,41 @@ imdb_rnn_tp_exp.save_to_file("/tmp/explain_text_rnn_tp.html")
 imdb_rnn_fp_exp.save_to_file("/tmp/explain_text_rnn_fp.html")
 ```
 
+The same over-confidence for all NN models on this particular positive review.
+
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_tp.html"))
 ```
+
+For the negative revierw,
+RNN also correctly predict the label.
+This time with even more confidence than NN with pre-trained embeddings.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_fp.html"))
 ```
 
-**TODO: Summarize all text models.**
+### From Explanation to Trust
+
+Throughout the exercise above we only demonstrate with two examples,
+so nothing really conclusive here as which model is more reasonable in making their decision.
+But with more investigation there may be more insights on which model can be trusted more than the others.
+
+We summarize the benefit of explanation modeling here.
+In general it allows us...
+
+1. To reason the model behavior at a single instance level
+2. To investigate unreasonable behavior such that we can further improve the original model with feature engineering
+3. To differentiate different models with similar testing scores
+4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
 
 ## On Tabular Data Classifier
 
 Lots of data can be represented in tabular format.
 Here we will use [UCI Heart Disease dataset](https://archive.ics.uci.edu/ml/datasets/Heart+Disease) for demo.
 Particularly,
-we use the Cleveland dataset which is commonly used in machine learning research.^[V.A. Medical Center, Long Beach and Cleveland Clinic Foundation:Robert Detrano, M.D., Ph.D.]
+we use the Cleveland dataset which is commonly used in machine learning research.
+^[V.A. Medical Center, Long Beach and Cleveland Clinic Foundation:Robert Detrano, M.D., Ph.D.]
 
 ```{python maybe_download_ucihd, results="hide"}
 ucihd_remote_path = "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
@@ -708,25 +791,30 @@ if not os.path.exists(ucihd_local_path):
                               extract=False, cache_dir=cache_dir)
 ```
 
+The dataset contains both numerical and categorical features
+(all encoded in numerics already, please refer to the in-line comments for documentation).
+It is tiny in both number of features and number of examples.
+But as a demo case it should serve well the purpose.
+
 ```{python preprocess_ucihd}
 ucihd_attr = [
   "age",
   "sex",
-  "cp",  # chest pain type 1: typical angina 2: atypical angina 3: non-anginal pain 4: asymptomatic
-  "trestbps",  # resting blood pressure (in mm Hg on admission to the hospital)
-  "chol",  # serum cholestoral in mg/dl
-  "fbs",  # (fasting blood sugar > 120 mg/dl) (1 = true; 0 = false)
+  "cp",       # chest pain type 1: typical angina 2: atypical angina 3: non-anginal pain 4: asymptomatic
+  "trestbps", # resting blood pressure (in mm Hg on admission to the hospital)
+  "chol",     # serum cholestoral in mg/dl
+  "fbs",      # (fasting blood sugar > 120 mg/dl) (1 = true; 0 = false)
   "restecg",  # resting electrocardiographic results 0: normal 1: having ST-T wave abnormality 2: showing probable or definite left ventricular hypertrophy by Estes' criteria
   "thalach",  # maximum heart rate achieved
-  "exang",  # exercise induced angina (1 = yes; 0 = no)
+  "exang",    # exercise induced angina (1 = yes; 0 = no)
   "oldpeak",  # ST depression induced by exercise relative to rest
-  "slope",  #  the slope of the peak exercise ST segment
-  "ca",  # number of major vessels (0-3) colored by flourosopy
-  "thal",  # 3 = normal; 6 = fixed defect; 7 = reversable defect
-  "label"  # diagnosis of heart disease (angiographic disease status) 0: < 50% diameter narrowing 1-4: > 50% diameter narrowing
+  "slope",    # the slope of the peak exercise ST segment
+  "ca",       # number of major vessels (0-3) colored by flouroscopy
+  "thal",     # 3 = normal; 6 = fixed defect; 7 = reversable defect
+  "label"     # diagnosis of heart disease (angiographic disease status) 0: < 50% diameter narrowing 1-4: > 50% diameter narrowing
 ]
 ucihd = pd.read_csv(ucihd_local_path, header=None, names=ucihd_attr, na_values="?")
-categorical_attr = ["cp", "fbs", "restecg", "exang", "thal"]
+categorical_attr = ["sex", "cp", "fbs", "restecg", "exang", "thal"]
 for col in categorical_attr:
   ucihd[col] = ucihd[col].astype("category")
 
@@ -738,12 +826,12 @@ print(ucihd.groupby("label").size())  # Label distribution.
 print(ucihd.head())
 ```
 
-The dataset contains both numerical and categorical features (all encoded in numerics already).
-
 ### Explain Random Forest
 
+Again we try to explain tree ensembels.
+
 ```{python ucihd_rf}
-# RF doesn't allow missing value.
+# sklearn's implementation of RF doesn't allow missing value.
 # For categorical (as string) we can leave one special category for missing,
 # but for numerical we need to do some special encoding or imputation.
 ucihd_2 = ucihd.copy()
@@ -793,11 +881,20 @@ ucihd_rf_tp_exp.save_to_file("/tmp/explain_tab_rf_tp.html")
 ucihd_rf_fp_exp.save_to_file("/tmp/explain_tab_rf_fp.html")
 ```
 
+Following the same idea in our discussion on text classifiers,
+we choose two examples,
+one true positive and the other false positive,
+from the RF predictions to demonstrate explanation modeling.
+
 #### A True Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_tp.html"))
 ```
+
+The explanation suggests several dominant features toward the positive.
+For categoricals each category serves as individual contribution for explanation.
+This is a natural consequence of one-hot encoding in our feature space.
 
 #### A False Positive Prediction Explained {-}
 
@@ -805,7 +902,10 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_tp.html"))
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_fp.html"))
 ```
 
-**Discuss the two explanations.**
+For the false positive case,
+the model is less confident.
+There are indeed more features driving negatively.
+But one strong positive contribution from the feature `ca` (number of major vessels colored by flouroscopy) cancel out the entire negative driving forces.
 
 ### Explain Gradient Boosting Trees
 
@@ -826,8 +926,8 @@ ucihd_lgb_params = {
   "boosting_type": "gbdt",
   "objective": "binary",
   "metric": ["binary_logloss", "auc"],
-  "num_leaves": 4,
-  "max_depth": 2,
+  "num_leaves": 8,
+  "max_depth": 3,
   "min_data_per_leaf": 5,
   "verbose": -1,
   "seed": 64
@@ -849,7 +949,8 @@ print(roc_auc_score(ucihd_y_test, ucihd_lgb_yhat))
 In this particular (rather small) dataset RF indeed outperforms GBT.
 As a matter of fact,
 based on [existing benchmark](https://github.com/interpretml/interpret/tree/master/benchmarks) a simple logistic regression may have a even higher score for this problem.
-Nevertheless, let's move on to our explanation model with LIME:
+Nevertheless,
+let's move on to our explanation model with LIME:
 
 ```{python lime_ucihd_lgb}
 def ucihd_lgb_predict_fn(x):
@@ -872,15 +973,19 @@ ucihd_lgb_tp_exp.save_to_file("/tmp/explain_tab_lgb_tp.html")
 ucihd_lgb_fp_exp.save_to_file("/tmp/explain_tab_lgb_fp.html")
 ```
 
+The behavior of GBT looks similar to that of RF in terms of these two examples.
+
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_tp.html"))
 ```
 
+In both case,
+the variable `ca` has a dominant impact on the final decision.
+The two modesl also share the same confusion against the negative example.
+
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 ```
-
-**TODO: Discussion on the explanation.**
 
 #### Optimized Categorical Encoding in `lightgbm` {-}
 
@@ -925,7 +1030,7 @@ In addition,
 `lightgbm` encodes categorical variables internally in a more efficient way.
 So we don't even need to do one-hot encoding on our own.
 Of course in this tiny dataset we won't see any noticable difference.
-But for large applications the impact can be huge.
+But for large applications the performance impact can be huge.
 Whatever,
 by skipping one-hot encoding pipeline our code can be much neater as well.
 
@@ -970,7 +1075,7 @@ Hence we will skip the discussion on RF and move forward to a GBT implementation
 ### Explain Gradient Boosting Trees
 
 In the previous section we didn't train a GBT for the text classification problem.
-So let's quickly build one such model first (with the same TF-IDF vectorization as we did for the random forest model).
+So let's quickly build one such model first (with the same TF-IDF vectorization as we did for the RF model).
 
 ```{python imdb_lgb}
 # lightgbm does not allow utf-8 encoded feature names.
@@ -995,13 +1100,13 @@ imdb_lgb_params = {
   "verbose": -1
 }
 
-imdb_lgb_model_file = "models/text_clf_lgb.txt"
+imdb_lgb_model_file = os.path.join(model_dir, "text_clf_lgb.txt")
 
 # Save/reload model to save notebook rendering time.
 if os.path.exists(imdb_lgb_model_file):
-  # TODO:
-  # Parameters are not loaded back? A bug? (Which cause the subsequent call to shap_values fail.)
+  # Parameters are not loaded back? (Which cause the subsequent call to shap_values fail.)
   # https://github.com/microsoft/LightGBM/issues/2613
+  # As a workaround we pass the same parameters to re-construct the model.
   imdb_bst = lgb.Booster(model_file=imdb_lgb_model_file, params=imdb_lgb_params)
 else:
   imdb_bst = lgb.train(
@@ -1018,7 +1123,11 @@ print(classification_report(imdb_y_test, imdb_lgb_pred))
 print(roc_auc_score(imdb_y_test, imdb_lgb_yhat))
 ```
 
-Just like RF we will have access to the overall feature importance with a GBT model:^[By default `lightgbm` calculate the importance by counting how many times a feature contribute to an optimal split during model training.
+Based on the testing AUC score we find out that GBT performs exceptionally well,
+better than any of the previous text classifiers we've trained.
+
+Just like RF we will have access to the overall feature importance with a GBT model:
+^[By default `lightgbm` calculates the importance by counting how many times a feature contributes to an optimal split during training.
 It also supports the impurity-based approach with argument `importance_type` set to `"gain"`.]
 
 ```{python imdb_lgb_feat_imp}
@@ -1026,8 +1135,11 @@ ax = lgb.plot_importance(imdb_bst, max_num_features=20)
 plt.show()
 ```
 
-Now for the explanation model,
-since `shap.TreeExplainer` is customized for GBT for speed,
+The global feature ranking reveals some highly ranked features to be meaningless on its own.
+Especially the word `it`.
+But as discussed earlier we shouldn't over-interpret the ranks without a proper explanation modeling.
+
+Since `shap.TreeExplainer` is customized for GBT for speed,
 we can feed in all testing examples to calculate all shap values at once.
 
 ```{python shap_imdb_lgb}
@@ -1043,50 +1155,101 @@ def imdb_lgb_shap_plot(test_id, matplotlib=True):
     imdb_lgb_shap_values[1][test_id,:],
     imdb_X_test[test_id,:].toarray(),  # We still need a dense matrix here.
     feature_names=sorted_vocab,
-    matplotlib=matplotlib
+    #link="identity",
+    link="logit",
+    matplotlib=matplotlib,
+    figsize=(15, 10)
   )
   return shap_plt
 ```
 
 #### Global Importance {-}
 
-We can derive global importance based on shap values.
+One advantage of `shap` on GBT models is the capability of traverse through all the testing examples due to its efficiency.
+So we can based on all the resulting shap values to derive a global feature importance judged by their average shap values (contributions).
 Note that this is different from the loss/impurity or split time-based feature ranking derived from RF/GBT *during training*.
 It is an aggregation from all local prediction explanations (contributions) *during testing data inference*.
 
 ```{python shap_imdb_lgb_feat_imp}
 shap.summary_plot(imdb_lgb_shap_values, imdb_X_test, feature_names=sorted_vocab,
-                  plot_type="bar", max_display=20, show=False)
+                  plot_type="bar", max_display=20, show=False, plot_size=.25)
 plt.show()
 ```
 
+As we can see,
+the ranking based on shap values for testing set will be in general different from the ranking based on training split.
+And it is more *interpretable*:
+Features with higher rank literally have averagely higher impact on the testing dataset.
+Also the ranking can be conditioned on labels.
+
 #### Local Explanation {-}
 
-```{python}
+The most important application of `shap` still lies on instance-level explanation.
+We stick to the previous two reviews.
+For the review that RF correctly label positive,
+we have the `shap` explanation with the following visualization:
+
+```{python shap_imdb_lgb_tp_exp}
 imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
 ```
 
-```{python}
-imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
-```
+Note that by default `shap` for `lightgbm` shows log-odds rather than probability in the plot.
+So a positive value indicates a positive prediction,
+otherwise negative.
 
-**TODO: Discuss the result. Any thing different from LIME?**
-
-By default `shap` for `lightgbm` shows log-odds rather than probability in the plot.
 To verify this:
 
 ```{python verify_log_odds}
+def to_log_odds(p):
+  return np.log(p / (1 - p))
+
+def to_p(log_odds):
+  return np.exp(log_odds)/(1 + np.exp(log_odds))
+
 # Take the first true positive to examine:
 p = imdb_bst.predict(imdb_X_test[imdb_rf_tp_idx[0],:].toarray())
 print(p)
-print(np.log(p / (1 - p)))
+print(to_log_odds(p))  # This is the reported number on the default shap plot.
 ```
+
+For any given prediction,
+the shap values of all features should sum up to the difference between the predicted log-odds and the expected log-odds.
+To verify this on the specific positive example:
+
+```{python verify_shap_values}
+expected_log_odds = imdb_lgb_explainer.expected_value[1]
+predicted_log_odds = to_log_odds(p)
+
+print(predicted_log_odds - expected_log_odds)  # The difference.
+
+shap_v = pd.DataFrame({
+  "token": sorted_vocab,
+  "shap_value": imdb_lgb_shap_values[1][imdb_rf_tp_idx[0],:],
+  "tfidf": np.squeeze(imdb_X_test[imdb_rf_tp_idx[0]].toarray())
+})
+shap_v = shap_v.sort_values("shap_value", ascending=False)
+print(shap_v)  # Shap values of all features for the example.
+
+print(shap_v.shap_value.sum())  # The sum of shap values.
+```
+
+From the entire shap values we can know for example that the absence of `great` contributes negatively,
+and the presence of `love` contributes positively,
+to the final prediction.
+
+```{python shap_imdb_lgb_fp_exp}
+imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
+```
+
+For the false positive case,
+similar to RF,
+the word `great` play a big role in shaping the GBT prediction toward positive.
 
 ### Explain Neural Nets with Word Embeddings
 
-As of `r format(Sys.time(), '%Y-%m-%d')` `DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
-And `GradientExplainer` is not well documented yet for TF 2.0.
-So we will use the `KernelExplainer` which is a implementation-agnostic explainer in `shap`.
+As of `r format(Sys.time(), '%Y-%m-%d')` `shap.DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
+And `shap.GradientExplainer` is not well documented yet for TF 2.0.
+So we will use the `shap.KernelExplainer` which is a implementation-agnostic explainer in `shap`.
 The compromise is that it will run very slow for each prediction.
 
 ```{python shap_kernel_imdb_nn}
@@ -1097,7 +1260,7 @@ def mm(X):
 
 imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
 # This is VERY slow...
-imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
+#imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
 # TODO:
 # Contribution is attributed to original sequence input.
 # In order to make explanation readable,
@@ -1135,6 +1298,8 @@ imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])  # Error here.
 
 ## On Tabular Data Classifier
 
+We do the same exercise on the tabular dataset previously explained by `lime`.
+
 ### Explain Random Forest
 
 ```{python shap_ucihd_rf}
@@ -1153,6 +1318,8 @@ def ucihd_rf_shap_plot(test_id, matplotlib=True):
 
 #### Global Feature Importance {-}
 
+From the global ranking we can confirm that variable `ca` is definitely an influential feature.
+
 ##### Split-time-based feature ranking {-}
 
 ```{python ucihd_rf_feat_imp}
@@ -1164,18 +1331,41 @@ plt.show()
 ##### Shap value feature ranking {-}
 
 ```{python shap_ucihd_rf_feat_imp}
-shap.summary_plot(ucihd_rf_shap_values, ucihd_X_train,
-                  plot_type="bar", max_display=10, show=False)
+shap.summary_plot(ucihd_rf_shap_values, ucihd_X_test,
+                  plot_type="bar", max_display=10, show=False, plot_size=.25)
 plt.show()
 ```
 
+##### Feature Interaction {-}
+
+We can plot *partial dependency* based on shap values of two features over the entire testing dataset.
+For example,
+by knowing that `ca` is important,
+we'd like to further know how `age` can impact the contribution of `ca` across different examples.
+
+```{python shap_rf_dep_plot_age_ca}
+shap.dependence_plot("age", ucihd_rf_shap_values[1], ucihd_X_test, interaction_index="ca")
+```
+
+The result suggests two things:
+
+1. The model will predict higher risk for older people
+2. `ca` has less impact for yonger people
+
+Both can be examined by domain-experts to see if the model is learning the correct pattern that we expected or at least that we can reason.
+
 #### Local Explanation {-}
 
-```{python}
+Note that for `scikit-learn` RF model by default `shap` reports probability instead of log-odds.
+Such behavior difference results from the optimization customized for GBT model family.
+
+```{python shap_ucihd_rf_tp_exp}
+# The true positive case in RF.
 ucihd_rf_shap_plot(ucihd_rf_tp_idx[0])
 ```
 
-```{python}
+```{python shap_ucihd_rf_fp_exp}
+# The false positive case in RF.
 ucihd_rf_shap_plot(ucihd_rf_fp_idx[0])
 ```
 
@@ -1211,17 +1401,24 @@ plt.show()
 
 ```{python shap_ucihd_lgb_feat_imp}
 shap.summary_plot(ucihd_lgb_shap_values, ucihd_test.drop("label", axis=1),
-                  plot_type="bar", max_display=10, show=False)
+                  plot_type="bar", max_display=10, show=False, plot_size=.25)
 plt.show()
+```
+
+##### Feature Interaction {-}
+
+```{python shap_lgb_dep_plot_age_ca}
+shap.dependence_plot("age", ucihd_lgb_shap_values[1],
+                     ucihd_test.drop("label", axis=1), interaction_index="ca")
 ```
 
 #### Local Explanation {-}
 
-```{python}
+```{python shap_ucihd_lgb_tp_exp}
 ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0])
 ```
 
-```{python}
+```{python shap_ucihd_lgb_fp_exp}
 ucihd_lgb_shap_plot(ucihd_rf_fp_idx[0])
 ```
 
@@ -1231,7 +1428,7 @@ As one may now realize,
 by explicitly one-hot-encode the categorical features we essentially split them into different features in their interpretable representation.
 This can be either good or bad, depending on the actual use case.
 From this particular aspect libary such as `lightgbm` provides the flexibility to allow us choose whether to do the one-hot encoding or not.
-So the way we want to construct the explanation model may well affect our implementation of the original model!
+So the way we want to construct the explanation model may well affect our implementation of the original model.
 
 ## On Image Classifier
 
@@ -1363,6 +1560,12 @@ ucihd_ebm_local.visualize(1).write_html("/tmp/ucihd_ebm_exp_fp.html", include_pl
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_exp_tp.html")
 ```
+
+For the false positive case made by both RF and GBT,
+EBM is able to correctly predict the negative label.
+We still see a positive `ca` value contribute a lot toward a positive prediction,
+while EBM is able to also pick up several negative factors that jointly negate the positive impact,
+ending up with a correct prediction toward negative.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_exp_fp.html")
