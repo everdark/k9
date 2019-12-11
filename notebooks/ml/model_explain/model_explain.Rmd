@@ -1502,7 +1502,7 @@ we will skip the discussion of EBM on a text classifier.
 
 `ExplainableBoostingClassifier` has a `scikit-learn` fashion API and hence is straightforward to use.
 
-```{python ucihd_ebm}
+```{python ucihd_ebm, results="hide"}
 from interpret.glassbox import ExplainableBoostingClassifier
 
 ucihd_ebm = ExplainableBoostingClassifier(
@@ -1532,12 +1532,12 @@ we have access to both global feature importance and a per-feature feature contr
 ucihd_ebm_global = ucihd_ebm.explain_global()
 # All feature info:
 print(ucihd_ebm_global.selector)
-
-# Global feature importance.
-ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
 ```
 
 ```{python ucihd_ebm_global_explain_plot}
+# Global feature importance.
+ucihd_ebm_global.visualize().write_html("/tmp/ucihd_ebm_feat_imp.html", include_plotlyjs=False)
+
 # Global contribution on age.
 fid = ucihd_ebm_global.selector.Name.tolist().index("age")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_age_imp.html", include_plotlyjs=False)
