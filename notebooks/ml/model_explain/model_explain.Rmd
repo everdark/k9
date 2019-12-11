@@ -284,6 +284,9 @@ We use [Large Movie Review Dataset](https://ai.stanford.edu/~amaas/data/sentimen
 We will use machine learning libraries such as `scikit-learn` and `tensorflow` to quickly build a varieity of (rather complicated and hard to interpret) models and use `lime` to experiment explanation modeling.
 
 ```{python import_some}
+import sys
+print(sys.version)
+
 import os
 import logging
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
