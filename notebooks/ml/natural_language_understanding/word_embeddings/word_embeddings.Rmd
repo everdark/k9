@@ -370,6 +370,7 @@ import logging
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=UserWarning)
 
 import tensorflow as tf
 print(tf.__version__)
@@ -504,7 +505,7 @@ from tensorflow.keras.preprocessing.sequence import skipgrams
 print(test_ids[:5]) # Demo short sentence.
 
 # We don't shuffle the result here in order to easily observe the parsing result.
-# Fro acutal application shuffle is a must since otherwise it will bias the SGD optimizer.
+# For acutal application shuffle is a must since otherwise it will bias the SGD optimizer.
 pairs, labels = skipgrams(
   test_ids[:5], vocabulary_size=len(sp),
   window_size=1, negative_samples=1,
@@ -612,13 +613,13 @@ Given any sizable corpus the training examples will easily expand to hundreds of
 with too many redundant information that doesn't really help the model to learn.
 
 @mikolov2013efficient propose a randomized context window approach to effectively reduce training examples whenever context window size is larger than 1.
-So instead of doing
+So instead of doing:
 
 ```python
 skipgrams(ids, window_size=5, ...)
 ```
 
-we do
+we do:
 
 ```python
 skipgrams(ids, window_size=np.random.randint(5 - 1) + 1, ...)
@@ -660,7 +661,9 @@ def downsample_skipgrams(ids, vocab_size, subsample=1e-3, window=2, neg=2):
 The entire `word2vec` model is nothing more than a shallow neural network with embedding lookups,
 dot-products and cross entropy loss optimization.
 It is highly similar to a matrix factorization problem with a log-loss.
-The main difference lies in just how we prepare the training examples.^[For more on the matrix factorization problem, especially for application in recommender systems, one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/matrix_factorization/matrix_factorization.nb.html).]
+The main difference lies in just how we prepare the training examples.
+^[For more on the matrix factorization problem, especially for application in recommender systems,
+one can refer to the [notebook: Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html).]
 
 ```{python word2vec_tf_model}
 # Dimension of embeddings. Typically 128 to 512.
@@ -691,7 +694,7 @@ Note that instead of having only the dot-product in the sigmoid activation,
 we include a coefficient and a bias as well.
 This is why we have in total `vocab_size * embedding_size + 2` trainable parameters,
 as pointed out in the model summary.
-It turns out that this help the model learn meaningful embeddings faster.
+It turns out that this helps the model learn meaningful embeddings faster.
 
 There is one thing worth noting.
 Since our output label will be a single dimension of binary outcome,
@@ -737,7 +740,7 @@ The above will have more than an hour to finish just one epoch.
 With GPU it could be a little bit faster,
 but the general overhead is on data streaming so it won't really boost the performance too much.
 
-Or to save memory footprint we can train by sentence (varying batch size),
+Or to save memory footprint we can train by sentence (hence with varying batch size),
 only parse the skip-grams on the fly with the `train_on_batch` method:
 
 ```python
@@ -841,8 +844,12 @@ print(tf.keras.losses.binary_crossentropy(
 -np.mean(y.numpy() * np.log(a.numpy()[:,0]) + (1 - y.numpy()) * np.log(1 - a.numpy()[:,0]))  # Log-loss.
 ```
 
-To train the model, ideally we can simply call the `fit_generator` method on our `tf.data.Dataset`,
-just like this:^[As of the notebook is written, `fit()` is buggy in TF 2.0.0 stable release (but not in the 2.0 beta), so we use `fit_generator()` instead.]
+To train the model,
+ideally we can simply call the `fit_generator` method on our `tf.data.Dataset`,
+just like this:
+^[As of the notebook is written,
+`fit()` is buggy in TF 2.0.0 stable release (but not in the 2.0.0 beta),
+so we use `fit_generator()` instead.]
 
 ```python
 model.fit_generator(dataset, epochs=1, steps_per_epoch=30000, verbose=1)
@@ -861,25 +868,26 @@ dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
-n_steps = 30000
-losses = []
-for i, (x, y) in enumerate(dataset):
-  if i < n_steps:
-    loss = model.train_on_batch(x, y, reset_metrics=True)
-    if i % 1000 == 0:
-      print("Step {}, loss={}".format(i, loss), end="\r")
-      losses.append(loss)
-  else:
-    break
+tf_w2v_model_file = "models/enwiki_w2v.h5"
 
-# We can check the final learning rate decayed.
-print(model.optimizer._decayed_lr("float32").numpy())
-
-# Save the entire model.
-model.save("models/enwiki_w2v.h5")
+# Save/reload the model to save notebook rendering time.
+if os.path.exists(tf_w2v_model_file):
+  model = tf.keras.models.load_model("models/enwiki_w2v.h5")
+else:
+  n_steps = 30000
+  losses = []
+  for i, (x, y) in enumerate(dataset):
+    if i < n_steps:
+      loss = model.train_on_batch(x, y, reset_metrics=True)
+      if i % 1000 == 0:
+        print("Step {}, loss={}".format(i, loss), end="\r")
+        losses.append(loss)
+    else:
+      break
+  # We can check the final learning rate decayed.
+  print(model.optimizer._decayed_lr("float32").numpy())
+  model.save("models/enwiki_w2v.h5")
 ```
-
-(We won't run the code in notebook rendering to save time.)
 
 #### Word Similarity
 
@@ -887,7 +895,6 @@ The learned embeddings can be retrieved from a layer of our neural nets.
 It is simply a matrix of dimension with vocabulary size by embedding size.
 
 ```{python word2vec_tf_trained_vectors}
-model = tf.keras.models.load_model("models/enwiki_w2v.h5")
 word_vectors = model.get_layer("word_embeddings").weights[0].numpy()
 print(word_vectors.shape)
 print(word_vectors)
@@ -1270,28 +1277,29 @@ dataset = dataset.shuffle(buffer_size=10000).repeat(count=None)
 dataset = dataset.batch(batch_size, drop_remainder=True)
 dataset = dataset.prefetch(batch_size)
 
-n_epoch = 5
-n_steps = len(triplets) // batch_size
-for epoch in range(n_epoch):
-  losses = []
-  for i, (x, y) in enumerate(dataset):
-    if i < n_steps:
-      loss = glove.train_on_batch(x, y, reset_metrics=True)
-      if i % 1000 == 0:
-        print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss), end="\r")
-        losses.append(loss)
-    else:
-      break
-  print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
-
-# Save model.
-glove.save("models/enwiki_glove.h5")
+glove_model_file = "models/enwiki_glove.h5"
+if os.path.exists(glove_model_file):
+  glove = tf.keras.models.load_model(glove_model_file)
+else:
+  n_epoch = 5
+  n_steps = len(triplets) // batch_size
+  for epoch in range(n_epoch):
+    losses = []
+    for i, (x, y) in enumerate(dataset):
+      if i < n_steps:
+        loss = glove.train_on_batch(x, y, reset_metrics=True)
+        if i % 1000 == 0:
+          print("Epoch {} Step {}, current batch loss = {}".format(epoch, i, loss), end="\r")
+          losses.append(loss)
+      else:
+        break
+    print("\nEpoch {}, mean batch loss = {}\n".format(epoch, np.mean(losses)))
+  glove.save("models/enwiki_glove.h5")
 ```
 
 #### Word Similarity {-}
 
 ```{python glove_tf_trained_vectors}
-glove = tf.keras.models.load_model("models/enwiki_glove.h5")
 target_word_vectors = glove.get_layer("target_embeddings").weights[0].numpy()
 context_word_vectors = glove.get_layer("context_embeddings").weights[0].numpy()
 glove_vectors = target_word_vectors + context_word_vectors
@@ -1756,7 +1764,7 @@ target_word_embeddings = word_embedding_layer(input_target_words)
 context_word_embeddings = word_embedding_layer(input_context_words)
 
 # Ngram embeddings.
-ngram_embedding_layer = tf.keras.layers.Embedding(ngram_vocab_size, k, mask_zero=True, 
+ngram_embedding_layer = tf.keras.layers.Embedding(ngram_vocab_size, k, mask_zero=True,
                                                   name="ngram_embeddings")
 target_ngram_embeddings = ngram_embedding_layer(input_target_ngrams)
 context_ngram_embeddings = ngram_embedding_layer(input_context_ngrams)
