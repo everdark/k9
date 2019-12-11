@@ -1336,19 +1336,20 @@ def ucihd_rf_shap_plot(test_id, matplotlib=True):
 
 From the global ranking we can confirm that variable `ca` is definitely an influential feature.
 
-##### Split-time-based feature ranking {-}
-
-```{python ucihd_rf_feat_imp}
-ucihd_rf_feat_imp = pd.Series(ucihd_rf.feature_importances_, index=ucihd_X_train.columns).sort_values()
-ax = ucihd_rf_feat_imp.tail(10).plot(kind="barh")
-plt.show()  # TODO: Adjust plot size.
-```
-
 ##### Shap value feature ranking {-}
 
 ```{python shap_ucihd_rf_feat_imp}
 shap.summary_plot(ucihd_rf_shap_values, ucihd_X_test,
                   plot_type="bar", max_display=10, show=False, plot_size=.25)
+plt.gcf().subplots_adjust(bottom=.25, left=.25)
+plt.show()
+```
+
+##### Split-time-based feature ranking {-}
+
+```{python ucihd_rf_feat_imp}
+ucihd_rf_feat_imp = pd.Series(ucihd_rf.feature_importances_, index=ucihd_X_train.columns).sort_values()
+ax = ucihd_rf_feat_imp.tail(10).plot(kind="barh")
 plt.show()
 ```
 
@@ -1360,7 +1361,9 @@ by knowing that `ca` is important,
 we'd like to further know how `age` can impact the contribution of `ca` across different examples.
 
 ```{python shap_rf_dep_plot_age_ca}
-shap.dependence_plot("age", ucihd_rf_shap_values[1], ucihd_X_test, interaction_index="ca")
+shap.dependence_plot("age", ucihd_rf_shap_values[1], ucihd_X_test, interaction_index="ca", show=False)
+plt.gcf().subplots_adjust(left=.25)
+plt.show()
 ```
 
 The result suggests two things:
@@ -1418,6 +1421,7 @@ plt.show()
 ```{python shap_ucihd_lgb_feat_imp}
 shap.summary_plot(ucihd_lgb_shap_values, ucihd_test.drop("label", axis=1),
                   plot_type="bar", max_display=10, show=False, plot_size=.25)
+plt.gcf().subplots_adjust(bottom=.25)
 plt.show()
 ```
 
@@ -1425,7 +1429,8 @@ plt.show()
 
 ```{python shap_lgb_dep_plot_age_ca}
 shap.dependence_plot("age", ucihd_lgb_shap_values[1],
-                     ucihd_test.drop("label", axis=1), interaction_index="ca")
+                     ucihd_test.drop("label", axis=1), interaction_index="ca", show=False)
+plt.gcf().subplots_adjust(left=.25)
 ```
 
 #### Local Explanation {-}
