@@ -82,8 +82,8 @@ write_lime_js <- function(infile) {
   outfile <- "lime.js"
   doc <- as_list(read_html(infile))
   js_str <- doc$html$head$script[[1]]
-  # Use h4 for text example header to avoid being included in rmd toc.
-  js_str <- gsub("h3", "h4", js_str)
+  # Use h5 for text example header to avoid being included in rmd toc.
+  js_str <- gsub("h3", "h5", js_str)
   writeLines(js_str, outfile, useBytes=TRUE)
 }
 
@@ -1197,7 +1197,7 @@ especially for feature interaction exploration.
 For model with high dimensionality like a bag-of-words model it will suffer from high computation cost for non-GBT model.
 Hence we will skip the discussion on RF and move forward to a GBT implementation.
 
-### Explain Gradient Boosting Trees
+#### Explain Gradient Boosting Trees {-}
 
 In the previous section we didn't train a GBT for the text classification problem.
 So let's quickly build one such model first (with the same TF-IDF vectorization as we did for the RF model).
