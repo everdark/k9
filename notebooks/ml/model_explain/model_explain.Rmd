@@ -11,7 +11,7 @@ output:
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 3
+    toc_depth: 4
     toc_float: yes
     includes:
       in_header: /tmp/meta_header.html
@@ -23,7 +23,7 @@ nocite: |
   @scikit-learn
   @tensorflow2015-whitepaper
 abstract: |
-  Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of use cases.
+  Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of model families.
 ---
 <!--For equation reference in Rmd.-->
 <script type="text/x-mathjax-config">
@@ -32,7 +32,9 @@ MathJax.Hub.Config({
 });
 </script>
 
-<!-- Embed lime javascript library for explanation visualization. -->
+<!-- Embed lime javascript library for explanation visualization.
+  The source file, if not found, is programmatically generated within the notebook chunks.
+-->
 <script src="lime.js"></script>
 
 <!-- Embed plotly javascript library.
@@ -136,7 +138,7 @@ each of them comes with a dedicated Python package:
 
 # Explanation Models
 
-An explanation model $g(x)$ is an *interpretable approximation* of the original model $f(x)$.
+An explanation model $g(x\prime)$ is an *interpretable approximation* of the original model $f(x)$.
 Its sole purpose is to give extra explainability the original model fails to provide,
 due to its own complexity.
 
@@ -160,6 +162,9 @@ Apparently,
 the choice of an additive model is for (linear) intrepretability.
 The simplified features are an *interpretable representation* of the original model features.
 
+As we will see additivity is the key to explainability.
+All the approaches we will discuss in this notebook follow this philosophy.
+
 # LIME
 
 One very popular such above additive model is LIME (@ribeiro2016should).
@@ -168,20 +173,115 @@ As its full name suggests,
 LIME can be applied to *any* machine learning model.
 LIME achieves prediction-level interpretability by approxmiating the original model with an explanation model locally around that prediction.
 
-**TODO: Add theory briefing here.**
+From their original paper:
 
-## On Text Classifiers
+> By “explaining a prediction”,
+we mean presenting textual or visual artifacts that provide qualitative understanding of the relationship between the instance’s components (e.g. words in text, patches in an image) and the model’s prediction.
 
-For text classification problem,
-the most straightforward interpretable representation of the model features will be a binary indicator vector of bag of words.
+Feature space in the original model will be in general different from that of the explanation model.
+An explanation model will use interpretable representation of the original feature as their training input.
+Different data type will have their different interpretable representation.
+
+## Binarized Interpretable Feature Space
+
+LIME proposes an explanation model $g(x\prime)$ with a domain $\{0, 1\}$.
+That is, it acts on absence or presence of the interpretable features $x\prime$.
+The choice is, obviously, for better interpretability.
+
+**Language Data**
+
+For text classification problems with human language as source input,
+the most straightforward interpretable representation will be *a binary indicator vector of bag of words.*
 So the explanation model will try to reason which word or token is driving the prediction in what direction.
 And this is true no matter the form of the original model feature.
 May it be a word count matrix,
 a term frequency-inverse document frequency (TF-IDF) matrix,
 or numerical embeddings.
 
-In the following we will use [Large Movie Review Dataset](https://ai.stanford.edu/~amaas/data/sentiment/) to do a binary sentiment classification exercise.
-We will use machine learning libraries such as `scikit-learn` and `tensorflow` to quickly build models and use `lime` to experiment explanation modeling.
+**Image Data**
+
+For image tasks,
+the interpretable representation is *a joint set of contiguous superpixels that divide the original image into pieces.*
+A superpixel is a group of pixels with similar characteristics.
+So in plain words, just like we segment sentence into tokens,
+we simply segment image into multiple small pieces and again,
+use a binary vector to indicate the absence or presence of each piece for latter perturbation purpose.
+
+**Numerical Data**
+
+TBC.
+
+## Local Sampling (Perturbation)
+
+In order to estimate the explanation model given a prediction for a target example,
+features transformed into a interpretable space are then perturbed to generate similar examples around that target example.
+This is referred to as sampling for local exploration.
+
+Given an example $x\prime$ to be explained,
+its non-zero interpretable features (remember the space has a domain of $\{0, 1\}$) are uniformly sampled to generate its local similar example $z\prime$.
+So $z\prime$ will always have a subset (or at most equal set) of non-zero features that $x\prime$ has.
+
+Take text data for illustration.
+If a particular example has the following tokens in the interpretable space:
+
+```
+A B C H I J
+```
+
+Then a possible local sample can be something like:
+
+```
+A C H J
+```
+
+(Imagine those alphabets are actual words present in the raw text of the example.)
+
+A hyperparameter $K$ is used to cap how many non-zero interpretable features we'd like to generate,
+to not only keep the model solving tractable but also manageable for human interpretation.
+
+## Learning Task of the Explanation Model
+
+Now each of the perturbed example will be first *transformed back* to their original feature space,
+then feed into the original model to get the predicted label.
+That is,
+from $z\prime$ we need to get $f(z)$ where $f$ is the original model and $z$ the original feature representation.
+These labels serve exactly as the labels to train the local explanation model,
+where all random perturbations $z$ are weigthed by $\pi_x(z)$,
+a proximity function $\pi_x(z)$ can be defined to measure how close $z$ is to $x$,
+in the original space.
+
+In the original paper the proximity function is set to be an exponential kernel:
+
+$$
+\pi_x(z) = \exp \bigg( \frac{-D(x, z)^2}{\sigma^2} \bigg),
+$$
+
+where $D(x, z)$ is cosine distance for text and L2 distance for image,
+$\sigma$ is a hyperparameter.
+
+The learner is a simple linear model:
+
+$$
+g(x\prime) = W \cdot x\prime.
+$$
+
+We learn the explanation model weights $W$ by minimizing the sum of proximity-weighted squared losses for all perturbed local samples:
+
+$$
+Loss = \sum_{z, z\prime} \pi_x(z) \cdot \big(f(z) - g(z\prime)\big)^2.
+$$
+
+As one may realize now that the original model can be a total blackbox.
+We only use its predictions as labels to learn the explanation model.
+
+**TODO: is f(z) a binary or a proba score? In the original paper it seems that it can be either.**
+
+## Hands-on Explanation Demo
+
+### On Text Classifiers
+
+We use [Large Movie Review Dataset](https://ai.stanford.edu/~amaas/data/sentiment/) to do a binary sentiment classification exercise.
+We will use machine learning libraries such as `scikit-learn` and `tensorflow` to quickly build a varieity of (rather complicated and hard to interpret) models and use `lime` to experiment explanation modeling.
 
 ```{python import_some}
 import os
@@ -277,7 +377,7 @@ if not os.path.exists(imdb_local_path):
                               extract=True, cache_dir=cache_dir)
 ```
 
-### Explain Random Forest
+#### Explain Random Forest {-}
 
 Let's build a random forest with TF-IDF as our feature space.
 We will use the popular `scikit-learn` library for implementation.
@@ -369,7 +469,7 @@ imdb_rf_tp_exp.save_to_file("/tmp/explain_text_rf_tp.html")
 imdb_rf_fp_exp.save_to_file("/tmp/explain_text_rf_fp.html")
 ```
 
-#### A True Positive Prediction Explained {-}
+##### A True Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
 if ( !file.exists("lime.js") ) {
@@ -386,7 +486,7 @@ The contributing words are also mostly neutral on their own.
 We can confirm that the result of this prediction will be very sensitive and not robust.
 Admittedly this review does show some mixtures of positive and negative views.
 
-#### A False Positive Prediction Explained {-}
+##### A False Positive Prediction Explained {-}
 
 Now let's look at a false positive example,
 where our RF model wrongly labeled as a positive review.
@@ -405,7 +505,7 @@ If we examine more cases we may have more clues on how the model mis-behaves,
 and we can come up with a strategy accordingly to improve it.
 For now we'll stop here and try experimenting with other learning algorithms hereafer.
 
-### Explain Neural Networks
+#### Explain Neural Networks {-}
 
 Now let's try a shallow neural network model with word embeddings trained from scratch.
 We use `tensorflow.keras` API to quickly build and train a neural net.
@@ -541,7 +641,7 @@ which is not seen in RF.
 Without a explanation model,
 it won't be easy for us to compare two models at this level of details.
 
-### Explain Transfer Learning
+#### Explain Transfer Learning {-}
 
 One step further,
 let's use pre-trained word embeddings for the neural nets and build another explanation model.
@@ -679,7 +779,7 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 
 <br>
 
-### Explain Recurrent Neural Nets
+#### Explain Recurrent Neural Nets {-}
 
 As a final exercise on text classification,
 let's experiment the explanation modeling with a recurrent neural network (RNN)
@@ -771,21 +871,7 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_rnn_fp.html"))
 
 <br>
 
-### From Explanation to Trust
-
-Throughout the exercise above we only demonstrate with two examples,
-so nothing really conclusive here as which model is more reasonable in making their decision.
-But with more investigation there may be more insights on which model can be trusted more than the others.
-
-We summarize the benefit of explanation modeling here.
-In general it allows us...
-
-1. To reason the model behavior at a single instance level
-2. To investigate unreasonable behavior such that we can further improve the original model with feature engineering
-3. To differentiate different models with similar testing scores
-4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
-
-## On Tabular Data Classifier
+### On Tabular Data Classifiers
 
 Lots of data can be represented in tabular format.
 Here we will use [UCI Heart Disease dataset](https://archive.ics.uci.edu/ml/datasets/Heart+Disease) for demo.
@@ -838,7 +924,7 @@ print(ucihd.groupby("label").size())  # Label distribution.
 print(ucihd.head())
 ```
 
-### Explain Random Forest
+#### Explain Random Forest {-}
 
 Again we try to explain tree ensembels.
 
@@ -898,7 +984,7 @@ we choose two examples,
 one true positive and the other false positive,
 from the RF predictions to demonstrate explanation modeling.
 
-#### A True Positive Prediction Explained {-}
+##### A True Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_tp.html"))
@@ -910,7 +996,7 @@ The explanation suggests several dominant features toward the positive.
 For categoricals each category serves as individual contribution for explanation.
 This is a natural consequence of one-hot encoding in our feature space.
 
-#### A False Positive Prediction Explained {-}
+##### A False Positive Prediction Explained {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_rf_fp.html"))
@@ -923,7 +1009,7 @@ the model is less confident.
 There are indeed more features driving negatively.
 But one strong positive contribution from the feature `ca` (number of major vessels colored by flouroscopy) cancel out the entire negative driving forces.
 
-### Explain Gradient Boosting Trees
+#### Explain Gradient Boosting Trees {-}
 
 Gradient boosting trees (GBT) is a powerful model family proven to work exceptionally well in many different applications.
 Yet due to its ensembling nature,
@@ -1007,7 +1093,7 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 
 <br>
 
-#### Optimized Categorical Encoding in `lightgbm` {-}
+##### Optimized Categorical Encoding in `lightgbm` {-}
 
 **This section is a digression on `lightgbm` usage.**
 
@@ -1054,9 +1140,23 @@ But for large applications the performance impact can be huge.
 Whatever,
 by skipping one-hot encoding pipeline our code can be much neater as well.
 
-## On Image Classifier
+### On Image Classifiers
 
 **TODO: Use a pre-trained model?**
+
+## From Explanation to Trust
+
+Throughout the exercise above we only demonstrate with two examples,
+so nothing really conclusive here as which model is more reasonable in making their decision.
+But with more investigation there may be more insights on which model can be trusted more than the others.
+
+We summarize the benefit of explanation modeling here.
+In general it allows us...
+
+1. To reason the model behavior at a single instance level
+2. To investigate unreasonable behavior such that we can further improve the original model with feature engineering
+3. To differentiate different models with similar testing scores
+4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
 
 # Shapley Regression Values
 
@@ -1084,9 +1184,11 @@ especially for feature interaction exploration.
 
 **TODO: Theory Briefing here.**
 
-## On Text Classifiers
+## Hands-on Explanation Demo
 
-### Explain Random Forest
+### On Text Classifiers
+
+#### Explain Random Forest {-}
 
 `shap.TreeExplainer` is optimized for GBT but not RF.
 For model with high dimensionality like a bag-of-words model it will suffer from high computation cost for non-GBT model.
@@ -1179,7 +1281,7 @@ def imdb_lgb_shap_plot(test_id, matplotlib=True):
   return shap_plt
 ```
 
-#### Global Importance {-}
+##### Global Importance {-}
 
 One advantage of `shap` on GBT models is the capability of traverse through all the testing examples due to its efficiency.
 So we can based on all the resulting shap values to derive a global feature importance judged by their average shap values (contributions).
@@ -1198,7 +1300,7 @@ And it is more *interpretable*:
 Features with higher rank literally have averagely higher impact on the testing dataset.
 Also the ranking can be conditioned on labels.
 
-#### Local Explanation {-}
+##### Local Explanation {-}
 
 The most important application of `shap` still lies on instance-level explanation.
 We stick to the previous two reviews.
@@ -1261,7 +1363,7 @@ For the false positive case,
 similar to RF,
 the word `great` play a big role in shaping the GBT prediction toward positive.
 
-### Explain Neural Nets with Word Embeddings
+#### Explain Neural Nets with Word Embeddings {-}
 
 As of `r format(Sys.time(), '%Y-%m-%d')` `shap.DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
 And `shap.GradientExplainer` is not well documented yet for TF 2.0.
@@ -1312,11 +1414,11 @@ imdb_nn_shap_explainer = shap.GradientExplainer(
 imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])  # Error here.
 ```
 
-## On Tabular Data Classifier
+### On Tabular Data Classifiers
 
 We do the same exercise on the tabular dataset previously explained by `lime`.
 
-### Explain Random Forest
+#### Explain Random Forest {-}
 
 ```{python shap_ucihd_rf}
 ucihd_rf_explainer = shap.TreeExplainer(ucihd_rf)
@@ -1332,11 +1434,11 @@ def ucihd_rf_shap_plot(test_id, matplotlib=True):
   return shap_plt
 ```
 
-#### Global Feature Importance {-}
+##### Global Feature Importance {-}
 
 From the global ranking we can confirm that variable `ca` is definitely an influential feature.
 
-##### Shap value feature ranking {-}
+###### Shap value feature ranking {-}
 
 ```{python shap_ucihd_rf_feat_imp}
 shap.summary_plot(ucihd_rf_shap_values, ucihd_X_test,
@@ -1345,7 +1447,7 @@ plt.gcf().subplots_adjust(bottom=.25, left=.25)
 plt.show()
 ```
 
-##### Split-time-based feature ranking {-}
+###### Split-time-based feature ranking {-}
 
 ```{python ucihd_rf_feat_imp}
 ucihd_rf_feat_imp = pd.Series(ucihd_rf.feature_importances_, index=ucihd_X_train.columns).sort_values()
@@ -1353,7 +1455,7 @@ ax = ucihd_rf_feat_imp.tail(10).plot(kind="barh")
 plt.show()
 ```
 
-##### Feature Interaction {-}
+###### Feature Interaction {-}
 
 We can plot *partial dependency* based on shap values of two features over the entire testing dataset.
 For example,
@@ -1373,7 +1475,7 @@ The result suggests two things:
 
 Both can be examined by domain-experts to see if the model is learning the correct pattern that we expected or at least that we can reason.
 
-#### Local Explanation {-}
+##### Local Explanation {-}
 
 Note that for `scikit-learn` RF model by default `shap` reports probability instead of log-odds.
 Such behavior difference results from the optimization customized for GBT model family.
@@ -1388,7 +1490,7 @@ ucihd_rf_shap_plot(ucihd_rf_tp_idx[0])
 ucihd_rf_shap_plot(ucihd_rf_fp_idx[0])
 ```
 
-### Explain Gradient Boosting Trees
+#### Explain Gradient Boosting Trees {-}
 
 For GBT we feed the model that is optimized,
 where categoricals are encoded internally without explicit one-hot encoding.
@@ -1407,16 +1509,16 @@ def ucihd_lgb_shap_plot(test_id, matplotlib=True):
   return shap_plt
 ```
 
-#### Global Feature Importance {-}
+##### Global Feature Importance {-}
 
-##### Split-time-based feature ranking {-}
+###### Split-time-based feature ranking {-}
 
 ```{python ucihd_lgb_feat_imp}
 ax = lgb.plot_importance(ucihd_bst_2, max_num_features=10)
 plt.show()
 ```
 
-##### Shap value feature ranking {-}
+###### Shap value feature ranking {-}
 
 ```{python shap_ucihd_lgb_feat_imp}
 shap.summary_plot(ucihd_lgb_shap_values, ucihd_test.drop("label", axis=1),
@@ -1425,7 +1527,7 @@ plt.gcf().subplots_adjust(bottom=.25)
 plt.show()
 ```
 
-##### Feature Interaction {-}
+###### Feature Interaction {-}
 
 ```{python shap_lgb_dep_plot_age_ca}
 shap.dependence_plot("age", ucihd_lgb_shap_values[1],
@@ -1433,7 +1535,7 @@ shap.dependence_plot("age", ucihd_lgb_shap_values[1],
 plt.gcf().subplots_adjust(left=.25)
 ```
 
-#### Local Explanation {-}
+##### Local Explanation {-}
 
 ```{python shap_ucihd_lgb_tp_exp}
 ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0])
@@ -1443,7 +1545,7 @@ ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0])
 ucihd_lgb_shap_plot(ucihd_rf_fp_idx[0])
 ```
 
-### The Impact of One-Hot Encoding On Explanation
+#### Impact of One-Hot Encoding On Explanation {-}
 
 As one may now realize,
 by explicitly one-hot-encode the categorical features we essentially split them into different features in their interpretable representation.
@@ -1451,7 +1553,7 @@ This can be either good or bad, depending on the actual use case.
 From this particular aspect libary such as `lightgbm` provides the flexibility to allow us choose whether to do the one-hot encoding or not.
 So the way we want to construct the explanation model may well affect our implementation of the original model.
 
-## On Image Classifier
+### On Image Classifiers
 
 **TODO: Use a pre-trained model?**
 
@@ -1487,7 +1589,9 @@ Such explanation can extend up to pairwise interaction if pairwise feature funct
 
 **TODO: How to detect pairwise interaction? Brief the FAST algorithm.**
 
-## On Text/Image Data
+## Hands-on Explanation Demo
+
+### On Text/Image Data
 
 EBM is not efficient for text dataset.
 Due to the algorithm's design it will run too long for bag-of-words model since there are too many feature functions to estimate.
@@ -1498,7 +1602,7 @@ As a result,
 we will skip the discussion of EBM on a text classifier.
 (The same restriction applies to image dataset.)
 
-## On Tabular Data
+### On Tabular Data
 
 `ExplainableBoostingClassifier` has a `scikit-learn` fashion API and hence is straightforward to use.
 
@@ -1519,7 +1623,7 @@ print(roc_auc_score(ucihd_y_test, ucihd_ebm_yhat))
 The model performs very well on the heart disease dataset,
 outperforming both RF and GBT.
 
-### Global Explanation
+#### Global Explanation {-}
 
 `interpret` comes with a rich set of visualization tools (with [`plotly`](https://plot.ly/) as its backend).
 Model explanation is divided into two groups:
@@ -1551,31 +1655,31 @@ fid = ucihd_ebm_global.selector.Name.tolist().index("sex_0.0")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
-#### Feature Importance {-}
+##### Feature Importance {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
 ```
 
-#### Feature Contribution: Age {-}
+##### Feature Contribution: Age {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_age_imp.html")
 ```
 
-#### Feature Contribution: Resting Blood Pressure {-}
+##### Feature Contribution: Resting Blood Pressure {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_trestbps_imp.html")
 ```
 
-#### Feature Contribution: Gender (Female) {-}
+##### Feature Contribution: Gender (Female) {-}
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_sex_imp.html")
 ```
 
-### Local Explanation
+#### Local Explanation {-}
 
 More importantly,
 we must be able to explain a specific model prediction locally.
