@@ -1,14 +1,17 @@
 # Self-Taught Data Science Playground
 
 The repository is a collection of my self-taught notebooks for data science theories and practices.
-A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
-The major programming languages used for most of the notebooks are [Python](https://www.python.org/) and/or [R](https://www.r-project.org/).
-You may find me sometimes inter-operate the two langauges in a single notebook.
-This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate).
 
 Here to visit my web site hosting all the notebooks in nicely rendered HTML: [Hello, Data Science!](https://everdark.github.io/k9/)
 
 ## Notebooks Summary
+
+`notebooks`
+
+A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
+The major programming languages used for most of the notebooks are [Python](https://www.python.org/) and/or [R](https://www.r-project.org/).
+You may find me sometimes inter-operate the two langauges in a single notebook.
+This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate).
 
 + Statistics
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
@@ -28,6 +31,13 @@ Here to visit my web site hosting all the notebooks in nicely rendered HTML: [He
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [A General-Purpose Neural Ranking Model (W.I.P.)]
+
+## Laboratory Scripts
+
+`labs`
+
+These are quick-and-dirty scripts to explore a variety of open source machine learning tools.
+They may not be completed and can be messy to read.
 
 ## [Optional] Setup Python Environment
 
