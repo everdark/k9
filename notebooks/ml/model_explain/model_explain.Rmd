@@ -564,7 +564,6 @@ from sklearn.metrics.pairwise import cosine_distances
 
 N = 1000  # Number of local samples.
 K = 10  # Number of features to used.
-kernel_width = 25
 i = imdb_rf_tp_idx[0]  # The target example.
 x = imdb_X_test[i]
 local_samples_x = csr_matrix(np.ones([N, 1])) * x  # Container for perturbation.
@@ -572,7 +571,7 @@ present_tok_id = x.nonzero()[1]  # Present features.
 
 # Generate random design matrix for the explanation model.
 # This is under the interpretable (binary) space.
-local_samples_z = (np.random.uniform(size=(N, len(present_toks))) > .5).astype(int)
+local_samples_z = (np.random.uniform(size=(N, len(present_tok_id))) > .5).astype(int)
 
 # Predict local samples by the original model.
 remove_ind = pd.DataFrame(zip(*np.where(local_samples_z == 0)), columns=["rid", "pos"])
@@ -587,6 +586,7 @@ local_samples_y = imdb_rf.predict_proba(local_samples_x)[:,1]
 
 # Calculate proximity weights under the interpretable space.
 def pi_x(z):
+  kernel_width = 25
   dist = cosine_distances(z[0].reshape(1, -1), z).ravel()
   return np.sqrt(np.exp(-((dist * 100) ** 2) / kernel_width ** 2))
 
@@ -614,7 +614,7 @@ _ = explainer.fit(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weig
 print(explainer.score(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weight=weights))
 
 exp = pd.DataFrame({
-  "tok": np.array(sorted_vocab)[present_tok_id[used_features]],
+  "tok": np.array(sorted_vocab)[present_tok_id[nonzero_coefs]],
   "imp": explainer.coef_
 })
 print(exp.sort_values("imp", ascending=False))
