@@ -236,7 +236,8 @@ A C H J
 
 (Imagine those alphabets are actual words present in the raw text of the example.)
 
-A hyperparameter $K$ is used to cap how many non-zero interpretable features we'd like to estimate in the subsequent model learning phase,
+By default in the paper 5,000 samples are generated for each single explanation.
+A hyperparameter $K$ (default at 10) is used to cap how many non-zero interpretable features we'd like to estimate in the subsequent model learning phase,
 to not only keep the model solving tractable but also manageable for human interpretation.
 
 ## Learning Task of the Explanation Model
@@ -257,7 +258,7 @@ $$
 $$
 
 where $D(x, z)$ is cosine distance for text and L2 distance for image,
-$\sigma$ is a hyperparameter.
+$\sigma$ is a hyperparameter default at 25 in `lime`.
 
 The learner is a simple linear model:
 
@@ -271,11 +272,15 @@ $$
 Loss = \sum_{z, z\prime} \pi_x(z) \cdot \big(f(z) - g(z\prime)\big)^2.
 $$
 
-The actual learning algorithm proposed by LIME is a [LASSO](https://en.wikipedia.org/wiki/Lasso_(statistics)) regressor.
+The actual learning algorithm proposed by LIME in the original paper is a [LASSO](https://en.wikipedia.org/wiki/Lasso_(statistics)).
+But in the actual implementation of the `lime` package,
+[Ridge regression](https://en.wikipedia.org/wiki/Tikhonov_regularization) is used instead as the default learner.
+Another discrepancy between the original paper and the open source implementation is on choosing the top $K$ features for the learner.
+The paper suggests a LASSO path while the actual package uses [Least Angle Regression](https://en.wikipedia.org/wiki/Least-angle_regression) path.
+
 As one may realize now that the original model can be a total blackbox.
 We only use its predictions as labels to learn the explanation model.
-
-**TODO: is f(z) a binary or a proba score? In the original paper it seems that it can be either.**
+Be aware that here $f(z)$ returns the predicted *probability* as label so the explanation model is a regressor not a classifier.
 
 ## Limitations
 
@@ -486,7 +491,7 @@ from lime.lime_text import LimeTextExplainer
 
 # We need a pipeline since LimeTextExplainer.explain_instance expects raw text input.
 imdb_rf_pipe = make_pipeline(imdb_vectorizer, imdb_rf)
-imdb_rf_explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+imdb_rf_explainer = LimeTextExplainer(class_names=["Negative", "Positive"], random_state=64)
 
 imdb_rf_tp_idx = np.where(np.logical_and(imdb_rf_pred == 1, imdb_y_test == 1))[0]
 imdb_rf_fp_idx = np.where(np.logical_and(imdb_rf_pred == 1, imdb_y_test == 0))[0]
