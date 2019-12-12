@@ -236,7 +236,7 @@ A C H J
 
 (Imagine those alphabets are actual words present in the raw text of the example.)
 
-A hyperparameter $K$ is used to cap how many non-zero interpretable features we'd like to generate,
+A hyperparameter $K$ is used to cap how many non-zero interpretable features we'd like to estimate in the subsequent model learning phase,
 to not only keep the model solving tractable but also manageable for human interpretation.
 
 ## Learning Task of the Explanation Model
@@ -271,10 +271,40 @@ $$
 Loss = \sum_{z, z\prime} \pi_x(z) \cdot \big(f(z) - g(z\prime)\big)^2.
 $$
 
+The actual learning algorithm proposed by LIME is a [LASSO](https://en.wikipedia.org/wiki/Lasso_(statistics)) regressor.
 As one may realize now that the original model can be a total blackbox.
 We only use its predictions as labels to learn the explanation model.
 
 **TODO: is f(z) a binary or a proba score? In the original paper it seems that it can be either.**
+
+## Limitations
+
+**Linearity**
+
+Notice that the local explanation model is a linear model,
+the explanation hence is subject to linearity.
+If we have any evidence suggesting heavy non-linearity around a prediction,
+the output of such explanation model won't be faithful.
+
+**No Explanation for a NULL Effect**
+
+And for the local sampling,
+notice that we only subsample from the presence of features on the target example.
+So the explanation is on the presence or absence of the anything actually present in the target example.
+A feature that is originally not present in the example can never be part of the explanation.
+This could potentially miss an important null effect of a feature.
+
+Take the same example above:
+
+```
+A B C H I J
+```
+
+It could be the case that,
+instead of the presence of the 6 features,
+the missingness of feature `Z` is the most important driving force for the machine learning model to make the prediction.
+However due to the local sampling scheme,
+the importance of (the null of) `Z` can never be estimated by the explanation model.
 
 ## Hands-on Explanation Demo
 
@@ -1147,19 +1177,6 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 **TODO: Use a pre-trained model?**
 
-## From Explanation to Trust
-
-Throughout the exercise above we only demonstrate with two examples,
-so nothing really conclusive here as which model is more reasonable in making their decision.
-But with more investigation there may be more insights on which model can be trusted more than the others.
-
-We summarize the benefit of explanation modeling here.
-In general it allows us...
-
-1. To reason the model behavior at a single instance level
-2. To investigate unreasonable behavior such that we can further improve the original model with feature engineering
-3. To differentiate different models with similar testing scores
-4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
 
 # Shapley Regression Values
 
@@ -1712,5 +1729,19 @@ ending up with a correct prediction toward negative.
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_exp_fp.html")
 ```
+
+# From Explanation to Trust
+
+Throughout all the exercises above we only demonstrate limited actual examples,
+so nothing really conclusive here as which model is more reasonable for each problem in making their decision.
+But with more investigation there may be more insights on which model can be trusted more than the others.
+
+We summarize the benefit of explanation modeling here.
+In general it allows us...
+
+1. To reason the model behavior at a single instance level
+2. To investigate unreasonable behavior such that we can further improve the original model with feature engineering
+3. To differentiate different models with similar testing scores
+4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
 
 # References
