@@ -680,11 +680,7 @@ def nn_model_fn():
 print(nn_model_fn().summary(line_length=90))
 
 imdb_nn = tf.keras.wrappers.scikit_learn.KerasClassifier(nn_model_fn)
-if os.path.exists(nn_model_file):
-  # Restore the model with wrapper.
-  imdb_nn.model = tf.keras.models.load_model(nn_model_file)
-  imdb_nn.classes_ = np.array([0, 1])
-else:
+if not os.path.exists(nn_model_file):
   metrics = imdb_nn.fit(
     x=seq_train_padded, y=imdb_y_train,
     batch_size=256, epochs=10,
@@ -696,6 +692,9 @@ else:
     ],
     verbose=2)
 
+# Restore the model with wrapper.
+imdb_nn.model = tf.keras.models.load_model(nn_model_file)
+imdb_nn.classes_ = np.array([0, 1])
 imdb_nn_yhat = imdb_nn.predict_proba(seq_test_padded)[:,1]
 imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
 
@@ -830,11 +829,7 @@ def tr_model_fn():
 print(tr_model_fn().summary(line_length=90))
 
 imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
-if os.path.exists(tr_model_file):
-  # Restore the model with wrapper.
-  imdb_tr.model = tf.keras.models.load_model(tr_model_file)
-  imdb_tr.classes_ = np.array([0, 1])
-else:
+if not os.path.exists(tr_model_file):
   imdb_tr = tf.keras.wrappers.scikit_learn.KerasClassifier(tr_model_fn)
   metrics = imdb_tr.fit(
     x=seq_train_padded, y=imdb_y_train,
@@ -847,6 +842,9 @@ else:
     ],
     verbose=2)
 
+# Restore the model with wrapper.
+imdb_tr.model = tf.keras.models.load_model(tr_model_file)
+imdb_tr.classes_ = np.array([0, 1])
 imdb_tr_yhat = imdb_tr.predict_proba(seq_test_padded)[:,1]
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
 
@@ -925,11 +923,7 @@ def rnn_model_fn():
 print(rnn_model_fn().summary(line_length=90))
 
 imdb_rnn = tf.keras.wrappers.scikit_learn.KerasClassifier(rnn_model_fn)
-if os.path.exists(rnn_model_file):
-  # Restore the model with wrapper.
-  imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
-  imdb_rnn.classes_ = np.array([0, 1])
-else:
+if not os.path.exists(rnn_model_file):
   metrics = imdb_rnn.fit(
     x=seq_train_padded, y=imdb_y_train,
     batch_size=32, epochs=10,
@@ -941,6 +935,9 @@ else:
     ],
     verbose=2)
 
+# Restore the model with wrapper.
+imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
+imdb_rnn.classes_ = np.array([0, 1])
 imdb_rnn_yhat = imdb_rnn.predict_proba(seq_test_padded)[:,1]  # Interence of RNN take time.
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
 
