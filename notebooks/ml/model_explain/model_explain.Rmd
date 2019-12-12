@@ -275,8 +275,18 @@ $$
 The actual learning algorithm proposed by LIME in the original paper is a [LASSO](https://en.wikipedia.org/wiki/Lasso_(statistics)).
 But in the actual implementation of the `lime` package,
 [Ridge regression](https://en.wikipedia.org/wiki/Tikhonov_regularization) is used instead as the default learner.
-Another discrepancy between the original paper and the open source implementation is on choosing the top $K$ features for the learner.
-The paper suggests a LASSO path while the actual package uses [Least Angle Regression](https://en.wikipedia.org/wiki/Least-angle_regression) path.
+Despite this,
+the top $K$ features for the learner are still chosen by a LASSO path.
+
+Another discrepancy between the original paper and the actual implementation is the notion of proximity function $\pi_x(z)$.
+In the actual implementation proximity is calculated in the interpretable space rather than in the original space.
+So essentially we should have denoted the function as $\pi_{x\prime}(z\prime)$.
+Indeed,
+in the package source code the proximity function is defined as:
+
+$$
+\pi_{x\prime}(z\prime) = \sqrt{ \exp \bigg( \frac{-(D(x\prime, z\prime) \times 100)^2}{\sigma^2} \bigg)}.
+$$
 
 As one may realize now that the original model can be a total blackbox.
 We only use its predictions as labels to learn the explanation model.
@@ -542,6 +552,76 @@ especially for the word `bore`.
 If we examine more cases we may have more clues on how the model mis-behaves,
 and we can come up with a strategy accordingly to improve it.
 For now we'll stop here and try experimenting with other learning algorithms hereafer.
+
+##### Build LIME from Scratch {-}
+
+Let's use the text data example above to build a LIME model from scratch to better understand every detail of the technique.
+
+```{python linme_from_scratch}
+from scipy.sparse import csr_matrix
+from sklearn.linear_model import Ridge, lars_path
+from sklearn.metrics.pairwise import cosine_distances
+
+N = 1000  # Number of local samples.
+K = 10  # Number of features to used.
+kernel_width = 25
+i = imdb_rf_tp_idx[0]  # The target example.
+x = imdb_X_test[i]
+local_samples_x = csr_matrix(np.ones([N, 1])) * x  # Container for perturbation.
+present_tok_id = x.nonzero()[1]  # Present features.
+
+# Generate random design matrix for the explanation model.
+# This is under the interpretable (binary) space.
+local_samples_z = (np.random.uniform(size=(N, len(present_toks))) > .5).astype(int)
+
+# Predict local samples by the original model.
+remove_ind = pd.DataFrame(zip(*np.where(local_samples_z == 0)), columns=["rid", "pos"])
+for r in range(1, N):
+  # We keep the first sample as the original target example.
+  df = remove_ind[remove_ind.rid == r]
+  if not df.empty:
+    tok_ids_to_remove = present_tok_id[df.pos]
+    local_samples_x[r,tok_ids_to_remove] = 0
+local_samples_x.eliminate_zeros()
+local_samples_y = imdb_rf.predict_proba(local_samples_x)[:,1]
+
+# Calculate proximity weights under the interpretable space.
+def pi_x(z):
+  dist = cosine_distances(z[0].reshape(1, -1), z).ravel()
+  return np.sqrt(np.exp(-((dist * 100) ** 2) / kernel_width ** 2))
+
+weights = pi_x(local_samples_z)
+
+# Subset top K features with LAR path.
+weighted_z = ((local_samples_z - np.average(local_samples_z, axis=0, weights=weights))
+  * np.sqrt(weights[:, np.newaxis]))
+weighted_y = ((local_samples_y - np.average(local_samples_y, weights=weights))
+  * np.sqrt(weights))
+_, _, coefs = lars_path(weighted_z, weighted_y, method="lasso")
+
+nonzero_coefs = range(weighted_z.shape[1])
+for i in range(len(coefs.T) - 1, 0, -1):
+    nonzero_coefs = coefs.T[i].nonzero()[0]
+    if len(nonzero_coefs) <= 10:
+        break
+
+# Learn the explanation model.
+explainer = Ridge(alpha=1, fit_intercept=True, random_state=64)
+_ = explainer.fit(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weight=weights)
+
+# Fitness.
+# This can be a score to judge how good the local approximation is.
+print(explainer.score(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weight=weights))
+
+exp = pd.DataFrame({
+  "tok": np.array(sorted_vocab)[present_tok_id[used_features]],
+  "imp": explainer.coef_
+})
+print(exp.sort_values("imp", ascending=False))
+```
+
+We try a smaller local sample size in our exercise,
+but we can already successfully calculate very closely the feature contribution scores as in `lime`'s API.
 
 #### Explain Neural Networks {-}
 
