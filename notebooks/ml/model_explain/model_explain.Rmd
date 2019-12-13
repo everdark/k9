@@ -1327,23 +1327,14 @@ but with its non-coalition feature values replaced with random draws from the da
 This is better illustrated with an example.
 Let's take the first row of the UCI Heart Disease data we explored just before:
 
-```{r shapley_example}
-# R
-print(py$ucihd[1,])
+```{python shapley_example}
+print(ucihd.iloc[0])
 ```
 
 To make the example neat,
 assuming we are only looking at a model trained on the following four attributes:
 `age`, `sex`, `cp`, `ca`.
-
 Our goal now is to explain that model prediction given these 4 feature values.
-Now if we want to calculate the contribution from `age=63`,
-Other than
-
-A more comprehensive way is to consider all possible feature combinations
-(or coalition, as used in game theory)
-when doing the exercise of include/exclude comparison.
-
 We illustrate the idea using the following plot (assuming `age` is the feature to calculate Shapley value):
 
 ```{r shapley_coalition_viz, echo=FALSE}
@@ -1380,7 +1371,7 @@ ggplot(d) +
     expand=c(0, 0))
 ```
 
-Each row in the plot represent a possible coalition case.
+Each row in the plot represents a possible coalition case.
 For example:
 Row 1 indicates there is no coalition at all.
 Row 7 indicates a coalition of the rest 3 features.
@@ -1389,6 +1380,10 @@ features not included in the coalition are randomized by replacing them with a r
 For each coalition case if we generate enough such (artificial) instances and average the result,
 we marginalize their effects on the model,
 as if they are not included in the model in the first place.
+^[Such sampling scheme actually assumes independence among features,
+which is in general not true.
+More sophisticated sampling approach can be applied,
+but that will be out of our scope in this notebook.]
 
 For the target feature to calculate Shapley value,
 we also use the same randomization technique to indicate whether it is in or out of the coalition.
@@ -1400,7 +1395,7 @@ After traverse through all possible coalitions,
 we take the weighted average of all prediction differences to arrive at the estimated Shapley value,
 with the weighting function $\gamma(S, N)$.
 
-Even though this approach eliminate the need to re-train the model for every coalition,
+Even though this approach eliminates the need to re-train a pair of models for every coalition,
 number of possible coalitions still grow exponentially with total number of features.
 As a result,
 in reality,
@@ -1423,12 +1418,13 @@ $S_{j+}^r$ is a feature set with a random number of features whose value being r
 but fixing feature $j$.
 $S_{j-}^r$ is almost the same except for also randomizing feature $j$.
 
-This approximation makes Shapley value approach feasible even for large applications.
+This approximation makes Shapley value approach feasible now even for large applications.
 
 ## From Shapley to SHAP
 
 In theory a Shapley value considers all possible feature interactions and is global for the underlying machine learning model.
 This is very different from LIME where the explanation is only local to the original model.
+Consequently Shapley explanations have better properties than LIME.
 We can interpret individual prediction,
 or we can calculate Shapley values for all examples and aggregate the effect to profile global feature importance.
 Again the original model can be any blackbox algorithm.
@@ -1442,17 +1438,16 @@ But the discussion here will definitely help us understand SHAP since they are c
 
 @NIPS2017_7062 propose SHAP (**SHapley Additive exPlanations**),
 yet another additive feature attribution method for model explainability.
-It is a more general approach where LIME is indeed only a special case of it.
-Just like LIME,
+It is a more general approach where both LIME and Shapley value are indeed only a special case of it.
+Of course SHAP is also model-agnostic,
 in theory it can be applied to *any* machine learning model,
-but comes with a customized fast implementation particularly for gradient boosting trees (GBT).
-It supports APIs of well-known GBT libraries such as
+but `shap` comes with a customized fast implementation particularly for gradient boosting trees (GBT).
+It supports APIs of well-known open source GBT libraries such as
 [`xgboost`](https://github.com/dmlc/xgboost),
 [`lightgbm`](https://github.com/microsoft/LightGBM),
 and [`catboost`](https://github.com/catboost/catboost).
 
-The interpretability provided by SHAP is again *local*.
-It assigns each feature an importance value *for a particular prediction.*
+It assigns each feature an importance value for a particular prediction.
 Hence it provides for any given model prediction what may be the driving force for the model to make such prediction.
 
 `shap` also comes with more visualization methods for feature investigation,
