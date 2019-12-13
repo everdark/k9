@@ -2,11 +2,11 @@
 
 The repository is a collection of my self-taught notebooks for data science theories and practices.
 
-Here to visit my web site hosting all the notebooks in nicely rendered HTML: [Hello, Data Science!](https://everdark.github.io/k9/)
+Here to visit my web site [Hello, Data Science!](https://everdark.github.io/k9/) hosting all the notebooks in nicely rendered HTML.
 
 ## Notebooks Summary
 
-`notebooks`
+`notebooks/`
 
 A notebook is written in either [Jupyter](https://jupyter.org/) or [R markdown](https://rmarkdown.rstudio.com/).
 The major programming languages used for most of the notebooks are [Python](https://www.python.org/) and/or [R](https://www.r-project.org/).
@@ -34,7 +34,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
 
 ## Laboratory Scripts
 
-`labs`
+`labs/`
 
 These are quick-and-dirty scripts to explore a variety of open source machine learning tools.
 They may not be completed and can be messy to read.
@@ -42,6 +42,12 @@ They may not be completed and can be messy to read.
 ## [Optional] Setup Python Environment
 
 To ensure reproducibility it is recommended to use [`pyenv`](https://github.com/pyenv/pyenv) along with [`pyenv-virtualenv`](https://github.com/pyenv/pyenv-virtualenv) to control both Python and package version.
+
+`pyenv` support only Linux and macOS.
+For Windows user it is recommended to use [`conda`](https://github.com/conda/conda) instead.
+
+### Install Different Python Version
+
 To use `virtualenv` with `reticulate` in Rmd,
 the involved Python must be installed with shared library:
 
@@ -49,8 +55,18 @@ the involved Python must be installed with shared library:
 PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.7.0
 ```
 
-`pyenv` support only Linux and macOS.
-For Windows user it is recommended to use [`conda`](https://github.com/conda/conda) instead.
+### Create `virtualenv`
+
+Each notebook has different package dependencies.
+Here is an example to create an environment specific for the notebook on model explainability:
+
+```
+cd notebooks/ml/model_explain
+pyenv virtualenv 3.7.0 k9-model-explain
+pyenv local k9-model-explain
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
 ## TODO
 
