@@ -1673,7 +1673,7 @@ i.e.,
 models that approximate (locally) the original model (supposed to be a blackbox) for better explainability.
 The more interesting part of `interpret` is to bring about another type of model that is readily interpretable from its very origin,
 and yet still competitively accurate:
-**the Explainable Boosting Machine**, or EBM.
+the **Explainable Boosting Machine**, or EBM.
 
 EBM is an additive model of the form:
 
@@ -1683,21 +1683,46 @@ $$
 
 where $g(\cdot)$ is a link function (sigmoid for binary classification, for an example),
 $f_j$ is the *feature function* for the $j$-th feature,
-learned by a gradient boosting machine with only that feature at a time and in a round-robin fashion for all features.
+learned by a gradient boosting algorithm with only that feature at a time and in a round-robin fashion for all features.
 $f_{ij}$ is a *pairwise interaction* feature function to further boost the accuracy of the model while remain interpretability.
 
 The model is interpretable since the contribution of any individual feature can be directly quantified by their corresponding feature function $f_j$.
 Such explanation can extend up to pairwise interaction if pairwise feature functions are also estimated.
 
+## Feature Shape Functions
+
+The individial feature functions are also referred to as *shape functions* in GAM literature.
+The name probably comes after the fact that upon finishing learning the function,
+we can plot its output value $f_j(x_j)$ against its input value $x_j$,
+effectively visaulize the shape of possible contributions of that feature along its values over a dataset.
+
+Note that although GAM is linear due to its additivity,
+each individual shape function can be (and mostly is) non-linear.
+@lou2012intelligible has done a comprehensive experiment on GAM (without variable interaction) over several datasets.
+They found that *bagged trees* as shape functions and *gradient boosting* as GAM learner has the best accuracy over several other choices.
+
+To briefly summarize the gradient boosting training loop,
+here is the pseudo code:
+
+```
+set total iteration = M
+set total feature = N
+initialize all f_j with 0
+for m in 1 to M:
+  for j in 1 to N:
+    calculate residuals with full GAM model
+    learn f_j against residuals and update the full GAM model
+```
+
 ## FAST Pairwise Interaction Detection
 
 It will be infeasible to include all pairwise interaction since the number of possible pairs grows quadratically with total number of features.
 GA<sup>2</sup>M proposes an efficient way to rank potentially significant interaction pairs to largely reduce number of feature functions to learn.
-The pair ranking or detecting algorithm is called FAST in the paper.
+The pair ranking or detecting algorithm is called FAST in the original paper.
 
 Given the current best model,
 potential interactions are detected on model residual.
-And the residual sum of squares (RSS) is used as the criteria to include additional interaction.
+And the residual sum of squares (RSS) is used as the criteria whether to include additional interaction.
 If RSS does not reduce enough,
 it is suggesting the additional interaction is doing no benefit to the current best model.
 
@@ -1708,22 +1733,25 @@ FAST contains two stages:
 2. [STAGE 2] Fix $f_j$ for all $j$, iteratively build interaction functions $f_{ij}$ based on RSS reduction
 
 In stage one the process of learning one-dimensional feature functions is also called *feature shaping*.
-The name probably comes after the fact that upon finishing learning the function,
-we can plot the return value $f_j(x_j)$ against feature value $x_j$,
-effectively visaulize the shape of possible contributions of that feature along its values.
-
 In stage two where we extend GAM to GA<sup>2</sup>M,
 $f_{ij}$ is a bivariate tree model with efficient implementation based on cumulative histograms of the two involving features.
 Additionally,
-continuos features are further discretized into bins (say, 256 bins) of equi-frequency to speed up the tree split training.^[This is referred to as *histogram tree* approach and is also adopted in LightGBM's implementation of gradient boosting trees.]
+continuos features are further discretized into bins (say, 256 bins) of equi-frequency to speed up the tree split training.
+^[This is referred to as *histogram tree* approach and is also adopted in LightGBM's implementation of gradient boosting trees.
+Experiments suggest such approach greatly reduce training time without compromising model accuracy.]
 
-## Feature Ranking
+## Global Feature Ranking
 
 GA<sup>2</sup>M rank each feature importance (either one-dimensional or interaction) by the standard deviation of the function values: $\sqrt{E(f_j^2)}$
 Note that in a reduced form where feature function itself is linear:
 $f_j(x_j) = w_jx_j$,
 according to the formula the weight directly corresponds to the importance value:
 $\sqrt{E(f_j^2)} = w_j$.
+
+In plain words,
+the importance score measures how volatile the contribution of a given feature is over a given training set.
+A feature with higher volatility essentially play a bigger role in shaping the final model decision.
+Hence it is (globally) more important.
 
 ## Hands-on Explanation Demo
 
@@ -1791,7 +1819,10 @@ fid = ucihd_ebm_global.selector.Name.tolist().index("sex_0.0")
 ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_sex_imp.html", include_plotlyjs=False)
 ```
 
-##### Feature Importance {-}
+##### Global Feature Importance {-}
+
+As we discussed earlier the global feature importance score is represented by the standard deviation of the feature function output.
+Features marked more important means that they are more "active" in shaping the model decision.
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
@@ -1819,7 +1850,8 @@ htmltools::includeHTML("/tmp/ucihd_ebm_sex_imp.html")
 
 More importantly,
 we must be able to explain a specific model prediction locally.
-This can also be done easily with a couple of lines:
+EBM is inherently able to do exactly that.
+Using `interpret` this can be done easily with a couple of lines:
 
 ```{python ucihd_ebm_local_explain}
 # Explain the same instances previously on RF.
@@ -1848,7 +1880,7 @@ htmltools::includeHTML("/tmp/ucihd_ebm_exp_fp.html")
 
 # From Explanation to Trust
 
-Throughout all the exercises above we only demonstrate limited actual examples,
+Throughout all the exercises above we only demonstrate limited local actual examples,
 so nothing really conclusive here as which model is more reasonable for each problem in making their decision.
 But with more investigation there may be more insights on which model can be trusted more than the others.
 
