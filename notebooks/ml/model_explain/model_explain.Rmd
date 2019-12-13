@@ -25,13 +25,6 @@ nocite: |
 abstract: |
   Model explainability has gained more and more attention recently among machine learning practitioners. Especially with the popularization of deep learning frameworks, which further promotes the use of increasingly complicated models to improve accuracy. In the reality, however, model with the highest accuracy may not be the one that can be deployed. Trust is one important factor affecting the adoption of complicated models. In this notebook we give a brief introduction to several popular methods on model explainability. And we focus more on the hands-on which demonstrates how we can actually explain a model, under a variety of model families.
 ---
-<!--For equation reference in Rmd.-->
-<script type="text/x-mathjax-config">
-MathJax.Hub.Config({
-  TeX: { equationNumbers: { autoNumber: "AMS" } }
-});
-</script>
-
 <!-- Embed lime javascript library for explanation visualization.
   The source file, if not found, is programmatically generated within the notebook chunks.
 -->
@@ -75,6 +68,9 @@ if ( is(r, "try-error") ) {
 
 # Utility to post-process html output.
 library(xml2)
+
+# For some plots.
+library(ggplot2)
 
 write_lime_js <- function(infile) {
   # lime html output contains a huge js string,
@@ -283,6 +279,8 @@ In the actual implementation proximity is calculated in the interpretable space 
 So essentially we should have denoted the function as $\pi_{x\prime}(z\prime)$.
 Indeed,
 in the package source code the proximity function is defined as:
+^[In the R package [`iml`](https://github.com/christophM/iml) the default distance function for LIME is Gower's distance,
+which is designed to handle distance in data with mixed types.]
 
 $$
 \pi_{x\prime}(z\prime) = \sqrt{ \exp \bigg( \frac{-(D(x\prime, z\prime) \times 100)^2}{\sigma^2} \bigg)}.
@@ -1259,17 +1257,79 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 **TODO: Use a pre-trained model?**
 
-# Shapley Values
+# Shapley Value
 
-Shapley value is a game theory-inspired approach,
-proposed by @lipovetsky2001analysis,
-to estimate the average marginal contribution of a specific feature given a prediction.
-The idea is to calculate the marginal contribution of a feature based on a coalition of other features.
+Shapley value is a game theory term.
+In a cooperative game with $n$ players (denoted as set $N$ with $\vert N\vert = n$),
+Shapley value of a player is its contribution to the total payoff of the game,
+after taking into account all possible coalition among players.
+
+## A Cooperative Game
+
+When each player in a cooperative game may contribute differently to the payoff,
+Shapley value is a way to determine how important each player is to the final outcome.
+
+We define a function $\nu(S)$ where $S$ is a set of $m$ players ($\vert S\vert = m$),
+the value of $\nu$ is the expected payoff from all members in $S$ as a coalition.
+Shapley value suggests that the contribution of an individual member $j$ is calculated as the following formula:
+
+$$
+\varphi_j(\nu) =
+\sum _{S\subseteq N\setminus \{j\}}
+\gamma(S, N)
+\cdot
+\bigg[ \nu(S_{j+}) - \nu(S_{j-}) \bigg],
+$$
+
+where
+
+$$
+\gamma(S, N) = \frac {m!(n - m - 1)!}{n!}
+$$
+
+is the permutation proportional weight,
+and $N\setminus \{j\}$ is the entire player set except player $j$,
+$S_{j+}$ denotes a coalition with player $j$,
+$S_{j-}$ denotes a coalition without player $j$.
+
+So essentially Shapley value of player $j$ is the *weighted average payoff difference* between all possible team work compositions (coalitions) with and without $j$.
+
+## ML Models As Cooperative Games
+
+@lipovetsky2001analysis postulate a machine learning model inference task as such a cooperative game.
+Each feature value is now a player,
+the payoff is the difference between the final predicted value and the average prediction value.
+In this way,
+Shapley value of a feature can well represent its importance in the contribution to the prediction.
+Based on Shapely values of all features,
+we are able to explain a blackbox prediction.
+^[In their original work Shapley value is used to explain a large scale regression problem.
+But the concpet can easily extend to any machine learning model not limited to a regression model.]
+
+Now the real question is how can we implement the characteristic function $\nu(S)$ in order to calculate the payoff difference between any two feature coalitions?
+There are many different implementations on this.
+Here we briefly discuss some of them.
+
+### Obtain $\nu(S)$ with Model Re-Training
+
+$\nu$ in this case is exactly the model prediction function.
+One obvious way of calculating the term $\nu(S_{j+}) - \nu(S_{j-})$ for a given feature coalition is hence to train two separate models,
+one with only the coalition as feature sets ($S_{j-}$) and the other with the coalition plus the feature $j$ ($S_{j+}$).
+Obviously this will be infeasible for large applications.
+
+### Obtain $\nu(S)$ with Replacement Sampling
+
+To bypass the need for re-training,
+another way to obtain $\nu(S)$ is to marginalize the effect of all the features not present in the coalition set $S$.
+This is done by predict the same target instance,
+but with its non-coalition feature values replaced with random draws from the data.
+
 This is better illustrated with an example.
 Let's take the first row of the UCI Heart Disease data we explored just before:
 
 ```{r shapley_example}
-print(r$ucihd[1,])
+# R
+print(py$ucihd[1,])
 ```
 
 To make the example neat,
@@ -1278,32 +1338,28 @@ assuming we are only looking at a model trained on the following four attributes
 
 Our goal now is to explain that model prediction given these 4 feature values.
 Now if we want to calculate the contribution from `age=63`,
-a naive approach is to compare predictions between a case with `age=63` and a case with `age` value being randomly drawn from the dataset.
-And we repeat this for many times to average all resulting differences as the contribution value of `age=63` for this particular case.
+Other than
 
-Such naive approach of course is lacking robustness since it clearly ignores variable interactions.
 A more comprehensive way is to consider all possible feature combinations
 (or coalition, as used in game theory)
 when doing the exercise of include/exclude comparison.
 
-We illustrate the idea using the following plot:
+We illustrate the idea using the following plot (assuming `age` is the feature to calculate Shapley value):
 
 ```{r shapley_coalition_viz, echo=FALSE}
-library(ggplot2)
-
 g <- .01
 d <- data.frame(
   x1=c(1, 2, 2, 3, 2, 3, 4, 2, 4, 2, 4, 2, 3, 2) + g,
   x2=c(2, 5, 3, 5, 3, 4, 5, 4, 5, 4, 5, 3, 5, 5) - g,
   y1=c(1, 7, 6, 6, 5, 5, 5, 4, 4, 3, 3, 2, 2, 1) + g*2,
   y2=c(8, 8, 7, 7, 6, 6, 6, 5, 5, 4, 4, 3, 3, 2) - g*2,
-  r=c("Fixed (On)\n or\n Random (Off)",
-      "Random",
-      "Fixed", "Random",
-      "Random", "Fixed", "Random",
-      "Random", "Fixed",
-      "Fixed", "Random",
-      "Random", "Fixed",
+  r=c("Fixed (On)\n or\n Randomized (Off)",
+      "Randomized",
+      "Fixed", "Randomized",
+      "Randomized", "Fixed", "Randomized",
+      "Randomized", "Fixed",
+      "Fixed", "Randomized",
+      "Randomized", "Fixed",
       "Fixed")
 )
 ggplot(d) +
@@ -1324,45 +1380,63 @@ ggplot(d) +
     expand=c(0, 0))
 ```
 
-**TODO: Do we train a separate model for feature on/off or not?**
-**In SHAP paper the model is not using replacement samplgin but simply exclude the feature and retrain the model. Instead it is refer to as the shapley samping value-> no model retrain is necessary.**
+Each row in the plot represent a possible coalition case.
+For example:
+Row 1 indicates there is no coalition at all.
+Row 7 indicates a coalition of the rest 3 features.
+In each case,
+features not included in the coalition are randomized by replacing them with a random draw from the dataset.
+For each coalition case if we generate enough such (artificial) instances and average the result,
+we marginalize their effects on the model,
+as if they are not included in the model in the first place.
 
-**TODO: https://arxiv.org/pdf/1908.08474.pdf**
+For the target feature to calculate Shapley value,
+we also use the same randomization technique to indicate whether it is in or out of the coalition.
+Now $S_{j+}$ can be obtained by averaging model predictions over all randomized samples with feature `j` included in the coalition and all the other features replaced by random draws.
+And similarly for $S_{j-}$ with only one tweak:
+feature $j$ now is also randomized.
+For each possible coalition (corresponding to each row in the plot) we need to do this marginalization computation.
+After traverse through all possible coalitions,
+we take the weighted average of all prediction differences to arrive at the estimated Shapley value,
+with the weighting function $\gamma(S, N)$.
 
-The row 7 corresponds to our naive approach above,
-where the feature coalition contains exactly the other 3 features.
-We mark a coalition set as "Fixed" in the plot.
-For feature outside the coalition,
-their value will be derived from a random draw over the dataset.
+Even though this approach eliminate the need to re-train the model for every coalition,
+number of possible coalitions still grow exponentially with total number of features.
+As a result,
+in reality,
+it is still not feasible for any large application.
 
-For a 4-feature model to estimate the contribution value from one feature we end up have `(4 - 1)! + 1 = 7` possible coalition sets.
-For each coalition set we need to take a large sample to estimate the average contribution of the feature to be explained.
-We do this for all possible coalitions,
-then take a weighted average as the final contribution value,
-termed as the **Shapley value**.
+### Obtain $\nu(S)$ with Monte Carlo
 
-The weighting function reflect the proportion in feature permutation:
+To further reduce the computing time,
+another approach is to use Monte Carlo samples to approximate combinations of coalitions.
+So essentially the task will be simplified to solve:
 
 $$
-\gamma(m, n) = \frac{m!(n - m - 1)!}{n!},
+\hat\varphi_j(\nu) =
+\frac{1}{R} \sum _{r = 1}^R
+\bigg[ \nu(S_{j+}^r) - \nu(S_{j-}^r) \bigg],
 $$
 
-where $n$ is number of features and $m$ number of feature in a coalition set.
+where $R$ is number of Monte Carlo samples,
+$S_{j+}^r$ is a feature set with a random number of features whose value being replaced with random draws from the data,
+but fixing feature $j$.
+$S_{j-}^r$ is almost the same except for also randomizing feature $j$.
 
-To be complete,
-the Shapley value of the $j$-th feature can be expressed as
+This approximation makes Shapley value approach feasible even for large applications.
 
-$$
-SV_j = \sum \gamma(m, n) \cdot 
-$$
+## From Shapley to SHAP
 
 In theory a Shapley value considers all possible feature interactions and is global for the underlying machine learning model.
-(This is very different from LIME where the explanation is only local to the original model.)
-But apparently it is not scalable in number of features.
-So in reality an approximation solution is inevitable.
+This is very different from LIME where the explanation is only local to the original model.
+We can interpret individual prediction,
+or we can calculate Shapley values for all examples and aggregate the effect to profile global feature importance.
+Again the original model can be any blackbox algorithm.
+All we need is the access to its prediction interface AND also the original training dataset in order to do the sampling approximation.
 
-Again the original model can be any blackbox.
-All we need is the access to its prediction interface AND also the original training dataset in order to do the sampling replacement with coalition permutation.
+We will skip the hands-on exercise on Shapley value approach,
+jumping directly to a more general and also computationally efficient approach: SHAP
+But the discussion here will definitely help us understand SHAP since they are closely related to each other.
 
 # SHAP
 
@@ -1855,7 +1929,7 @@ Hence it is (globally) more important.
 
 ## Hands-on Explanation Demo
 
-### On Text/Image Data
+### On Text / Image Data
 
 EBM is not efficient for text dataset.
 Due to the algorithm's design it will run too long for bag-of-words model since there are too many feature functions to estimate.
