@@ -1259,10 +1259,110 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 **TODO: Use a pre-trained model?**
 
+# Shapley Values
 
-# Shapley Regression Values
+Shapley value is a game theory-inspired approach,
+proposed by @lipovetsky2001analysis,
+to estimate the average marginal contribution of a specific feature given a prediction.
+The idea is to calculate the marginal contribution of a feature based on a coalition of other features.
+This is better illustrated with an example.
+Let's take the first row of the UCI Heart Disease data we explored just before:
 
-**TODO: Theory Briefing here.**
+```{r shapley_example}
+print(r$ucihd[1,])
+```
+
+To make the example neat,
+assuming we are only looking at a model trained on the following four attributes:
+`age`, `sex`, `cp`, `ca`.
+
+Our goal now is to explain that model prediction given these 4 feature values.
+Now if we want to calculate the contribution from `age=63`,
+a naive approach is to compare predictions between a case with `age=63` and a case with `age` value being randomly drawn from the dataset.
+And we repeat this for many times to average all resulting differences as the contribution value of `age=63` for this particular case.
+
+Such naive approach of course is lacking robustness since it clearly ignores variable interactions.
+A more comprehensive way is to consider all possible feature combinations
+(or coalition, as used in game theory)
+when doing the exercise of include/exclude comparison.
+
+We illustrate the idea using the following plot:
+
+```{r shapley_coalition_viz, echo=FALSE}
+library(ggplot2)
+
+g <- .01
+d <- data.frame(
+  x1=c(1, 2, 2, 3, 2, 3, 4, 2, 4, 2, 4, 2, 3, 2) + g,
+  x2=c(2, 5, 3, 5, 3, 4, 5, 4, 5, 4, 5, 3, 5, 5) - g,
+  y1=c(1, 7, 6, 6, 5, 5, 5, 4, 4, 3, 3, 2, 2, 1) + g*2,
+  y2=c(8, 8, 7, 7, 6, 6, 6, 5, 5, 4, 4, 3, 3, 2) - g*2,
+  r=c("Fixed (On)\n or\n Random (Off)",
+      "Random",
+      "Fixed", "Random",
+      "Random", "Fixed", "Random",
+      "Random", "Fixed",
+      "Fixed", "Random",
+      "Random", "Fixed",
+      "Fixed")
+)
+ggplot(d) +
+  geom_rect(mapping=aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2, fill=r), alpha=0.5) +
+  geom_text(aes(x=x1+(x2-x1)/2, y=y1+(y2-y1)/2, label=r), size=4) +
+  labs(x="Feature Value (Target Example)", y="Possible Coalitions") +
+  theme(legend.position="none",
+        axis.ticks.x=element_blank(),
+        panel.background=element_blank()) +
+  scale_x_continuous(
+    position="top",
+    breaks=1:4 + .5,
+    labels=c("age=63", "sex=1", "cp=1", "ca=0"),
+    expand=c(0, 0)) +
+  scale_y_continuous(
+    breaks=1:7 + .5,
+    labels=7:1,
+    expand=c(0, 0))
+```
+
+**TODO: Do we train a separate model for feature on/off or not?**
+**In SHAP paper the model is not using replacement samplgin but simply exclude the feature and retrain the model. Instead it is refer to as the shapley samping value-> no model retrain is necessary.**
+
+**TODO: https://arxiv.org/pdf/1908.08474.pdf**
+
+The row 7 corresponds to our naive approach above,
+where the feature coalition contains exactly the other 3 features.
+We mark a coalition set as "Fixed" in the plot.
+For feature outside the coalition,
+their value will be derived from a random draw over the dataset.
+
+For a 4-feature model to estimate the contribution value from one feature we end up have `(4 - 1)! + 1 = 7` possible coalition sets.
+For each coalition set we need to take a large sample to estimate the average contribution of the feature to be explained.
+We do this for all possible coalitions,
+then take a weighted average as the final contribution value,
+termed as the **Shapley value**.
+
+The weighting function reflect the proportion in feature permutation:
+
+$$
+\gamma(m, n) = \frac{m!(n - m - 1)!}{n!},
+$$
+
+where $n$ is number of features and $m$ number of feature in a coalition set.
+
+To be complete,
+the Shapley value of the $j$-th feature can be expressed as
+
+$$
+SV_j = \sum \gamma(m, n) \cdot 
+$$
+
+In theory a Shapley value considers all possible feature interactions and is global for the underlying machine learning model.
+(This is very different from LIME where the explanation is only local to the original model.)
+But apparently it is not scalable in number of features.
+So in reality an approximation solution is inevitable.
+
+Again the original model can be any blackbox.
+All we need is the access to its prediction interface AND also the original training dataset in order to do the sampling replacement with coalition permutation.
 
 # SHAP
 
