@@ -1759,9 +1759,8 @@ Hence it is (globally) more important.
 
 EBM is not efficient for text dataset.
 Due to the algorithm's design it will run too long for bag-of-words model since there are too many feature functions to estimate.
-If we fit a EBM with the movie review dataset,
-even if not a large dataset,
-we will encounter OOM (out-of-memory) issue.
+If we fit a EBM with the movie review dataset (definitely not a big one),
+we will encounter OOM (out-of-memory) issue even without interaction terms.
 As a result,
 we will skip the discussion of EBM on a text classifier.
 (The same restriction applies to image dataset.)
@@ -1786,6 +1785,10 @@ print(roc_auc_score(ucihd_y_test, ucihd_ebm_yhat))
 
 The model performs very well on the heart disease dataset,
 outperforming both RF and GBT.
+^[To use FAST algorithm to detect interactions we need to pass explicitly an integer argument `interactions` to the constructor.
+By default `interactions=0`, i.e., no interaction is actually estimated at all.
+After several experiments it seems that in this particular case interactions does not help improve the model.
+So we stick to the default setting.]
 
 #### Global Explanation {-}
 
@@ -1823,6 +1826,8 @@ ucihd_ebm_global.visualize(fid).write_html("/tmp/ucihd_ebm_sex_imp.html", includ
 
 As we discussed earlier the global feature importance score is represented by the standard deviation of the feature function output.
 Features marked more important means that they are more "active" in shaping the model decision.
+^[Feature shaping plot for interaction will be plotted as a heatmap.
+We dind't demo that since interaction didn't help our model at all.]
 
 ```{r, echo=FALSE}
 htmltools::includeHTML("/tmp/ucihd_ebm_feat_imp.html")
