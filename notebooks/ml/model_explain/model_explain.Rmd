@@ -1506,8 +1506,8 @@ by the following procedure:
 
 1. Construct a number of random coalition vectors to subset the features of target example
 2. Transoform each sample back to the original feature space
-  a. For each coalition, do random sample replacement to impute features that are randomly marked as absent
-  b. Feed the transformed features into the original blackbox model to obtain predictions as labels
+    a. For each coalition, do random sample replacement to impute features that are randomly marked as absent
+    b. Feed the transformed features into the original blackbox model to obtain predictions as labels
 3. Fit all coalition vectors with a weighted linear regression
 
 Step 2 is to marginalize out the impact of absent features,
