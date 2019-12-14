@@ -125,12 +125,22 @@ but not for the facts we'd like to model.
 Nevertheless,
 understand how we can reason the model definitely will help us better model the actual pattern behind the scence.
 
+# Open Source Libraries for Model Explanation
+
 In this notebook we will walk through 3 popular approaches of model prediction explanation,
 each of them comes with a dedicated Python package:
 
-1. [`shap`](https://github.com/slundberg/shap)
-2. [`lime`](https://github.com/marcotcr/lime)
-3. [`interpret`](https://github.com/interpretml/interpret)
+1. [`shap`](https://github.com/slundberg/shap) for SHAP
+2. [`lime`](https://github.com/marcotcr/lime) for LIME
+3. [`interpret`](https://github.com/interpretml/interpret) for Explainable Boosting Machine
+
+All coding examples will be based on the above 3 packages.
+What if we'd like to explore these approaches in R?
+For `shap`,
+there is a R port called [`shapper`](https://github.com/ModelOriented/shapper).
+For `lime` we also have [`iml`](https://github.com/christophM/iml) which contains more than just LIME approach.
+As for `interpret`,
+it already comes with [its own R API](https://cran.r-project.org/web/packages/interpret/index.html).
 
 # Explanation Models
 
@@ -149,11 +159,13 @@ $$
 The *additive feature attribution methods* specify the explanation model of the following form:
 
 $$
-g(x\prime) = \phi_0 + \sum_{i = 1}^m \phi_i x_i\prime,
+g(z\prime) = \phi_0 + \sum_{j = 1}^n \phi_i z_i\prime,
 $$
 
-where $m$ is total number of simplified features,
-$x\prime \in \{0, 1\}$ simply an indicator.^[In many such methods, the simplified input is the indicator of feature presence. One example: Shapley regression values.]
+where $n$ is total number of simplified features,
+$z\prime \in \{0, 1\}$ simply an indicator.
+In many such methods,
+the simplified input is the indicator of feature presence.
 Apparently,
 the choice of an additive model is for (linear) intrepretability.
 The simplified features are an *interpretable representation* of the original model features.
@@ -1315,11 +1327,12 @@ Here we briefly discuss some of them.
 $\nu$ in this case is exactly the model prediction function.
 One obvious way of calculating the term $\nu(S_{j+}) - \nu(S_{j-})$ for a given feature coalition is hence to train two separate models,
 one with only the coalition as feature sets ($S_{j-}$) and the other with the coalition plus the feature $j$ ($S_{j+}$).
-Obviously this will be infeasible for large applications.
+Though using such method we can obtain the *exact* Shapley value,
+obviously this will be infeasible for large applications.
 
 ### Obtain $\nu(S)$ with Replacement Sampling
 
-To bypass the need for re-training,
+To bypass the need for re-training with an approximation solution,
 another way to obtain $\nu(S)$ is to marginalize the effect of all the features not present in the coalition set $S$.
 This is done by predict the same target instance,
 but with its non-coalition feature values replaced with random draws from the data.
@@ -1401,7 +1414,7 @@ As a result,
 in reality,
 it is still not feasible for any large application.
 
-### Obtain $\nu(S)$ with Monte Carlo
+### Obtain $\nu(S)$ with Monte Carlo {#coalition_sampling}
 
 To further reduce the computing time,
 another approach is to use Monte Carlo samples to approximate combinations of coalitions.
@@ -1438,22 +1451,120 @@ But the discussion here will definitely help us understand SHAP since they are c
 
 @NIPS2017_7062 propose SHAP (**SHapley Additive exPlanations**),
 yet another additive feature attribution method for model explainability.
-It is a more general approach where both LIME and Shapley value are indeed only a special case of it.
-Of course SHAP is also model-agnostic,
-in theory it can be applied to *any* machine learning model,
+As its name suggests,
+SHAP is based up top of Shapley value.
+It is indeed a more general approach unifying both LIME and Shapley value (and more).
+Of course SHAP is also model-agnostic.
+In theory it can be applied to *any* machine learning model,
 but `shap` comes with a customized fast implementation particularly for gradient boosting trees (GBT).
 It supports APIs of well-known open source GBT libraries such as
 [`xgboost`](https://github.com/dmlc/xgboost),
 [`lightgbm`](https://github.com/microsoft/LightGBM),
 and [`catboost`](https://github.com/catboost/catboost).
 
-It assigns each feature an importance value for a particular prediction.
-Hence it provides for any given model prediction what may be the driving force for the model to make such prediction.
-
 `shap` also comes with more visualization methods for feature investigation,
 especially for feature interaction exploration.
+Before we proceed to the hands-on section,
+let's briefly explore the methodology first.
 
-**TODO: Theory Briefing here.**
+## Estimate Shapley Value with a Linear Model
+
+Remember that the additive feature attribution method for an explanation model $g(\cdot)$ has the follwoing form:
+
+$$
+g(z\prime) = \phi_0 + \sum_{j = 1}^n \phi_j z_j\prime.
+$$
+
+LIME estimates the contribution factor $\phi_j$ using a local regularized regression model,
+with a weighting function measuring proximity between the sampled binarized features $z\prime$ and the target binarized feature $x\prime$.
+SHAP, instead, postulates $\phi_j$ as the Shapley value of feature $j$.
+It turns out that if we correctly setup the weighting function in a linear model,
+we can obtain the Shapley value using a weighted regression with randomized coalition sampling (just as what we discussed [here](#coalition_sampling)).
+
+The weighting function proven to be able to recover Shapley value is:
+
+$$
+\pi_{x\prime}(z\prime) =
+\frac{m - 1}
+{\binom{m}{\vert\ z\prime\vert}\vert z\prime\vert(m - \vert z\prime\vert)},
+$$
+
+where $m$ is the maximum coalition size possible for the given example $z$,
+and $\vert z\prime\vert$ is the size of current coalition.
+
+Now we optimize the loss:
+
+$$
+Loss = \sum_{z, z\prime} \pi_{x\prime}(z\prime) \cdot \big(f(z) - g(z\prime)\big)^2.
+$$
+
+(This objective function is in general the same as in LIME.)
+
+In `shap`,
+the `KernelExplainer` implements the weighted linear model to estimate Shapley value,
+by the following procedure:
+
+1. Construct a number of random coalition vectors to subset the features of target example
+2. Transoform each sample back to the original feature space
+  a. For each coalition, do random sample replacement to impute features that are randomly marked as absent
+  b. Feed the transformed features into the original blackbox model to obtain predictions as labels
+3. Fit all coalition vectors with a weighted linear regression
+
+Step 2 is to marginalize out the impact of absent features,
+which we've discussed already in the Shapley value section.
+
+### SHAP Kernel v.s. LIME
+
+This approach closely connects LIME with Shapley value approach.
+We summarize the major difference between SHAP and LIME.
+
+**Weighting Function**
+
+In LIME the choice of the weighting function $\pi_x\prime$ is heuristic,
+while in SHAP it is based on a theory to recover the Shapley value.
+
+**Regularization**
+
+Based on the theory,
+SHAP uses a linear regression without regularization in order to faithfully recover Shapley value.
+In LIME instead a LASSO path is used to prefer a sparse solution.
+
+### The Intuition
+
+We (purposely) skip the discussion on proving the above weighted linear model can recover Shapley value.
+For readers who are interested please refer to the supplementary material to the original paper.
+Here instead we discuss the intuition behind the scene.
+
+If we look at the definition of Shapley value:
+
+$$
+\varphi_j(\nu) =
+\sum _{S\subseteq N\setminus \{j\}}
+\frac {m!(n - m - 1)!}{n!}
+\bigg[ \nu(S_{j+}) - \nu(S_{j-}) \bigg],
+$$
+
+we realize that we are measuring an expected value of difference.
+To estimate such difference of a binary variable we know that we can simply include a dummy variable in our design matrix for a regression problem.
+Now the only task left is to specify a correct weighting scheme such that the expectation will take into consideration how feature coalition can be formed.
+SHAP is novel since it derives the correct weighting scheme such that the regression coefficients are exactly Shapley value.
+
+## Estimate Shapley Value with Tree Ensembles
+
+A limitation on the above linear regression approach is the assumption of feature independence.
+It is a natural consequence when we do coalition sampling by marginalizing out the absent features in order to construct regression samples to estimate the Shapley value.
+
+@lundberg2018consistent extend the work in `shap`,
+introduce `TreeExplainer` to release such constraint with a model-specific algorithm to calculate Shapley value.
+This can be done due to the nature of tree algorithm.
+The marginalization phase can take into account feature dependency by examine the tree structure and only average over terminal nodes conditional on any given node,
+based on the coalition set.
+
+In `TreeExplainer` the exact Shapley value is directly calculated using tree nodes instead of a linear model.
+One added-on benefit is to extend the Shapley value to Shapley interaction value so essentially a feature attribution vector will be generalized to a feature attribution matrix,
+with the interaction with all other features.
+
+Let's skip the details and move on to the actual hands-on examples!
 
 ## Hands-on Explanation Demo
 
