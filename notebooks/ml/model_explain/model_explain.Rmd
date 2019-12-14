@@ -1572,9 +1572,9 @@ Let's skip the details and move on to the actual hands-on examples!
 
 #### Explain Random Forest {-}
 
-`shap.TreeExplainer` is optimized for GBT but not RF.
-For model with high dimensionality like a bag-of-words model it will suffer from high computation cost for non-GBT model.
-Hence we will skip the discussion on RF and move forward to a GBT implementation.
+`shap.TreeExplainer` performance is bad for `scikit-learn`'s `RandomForestClassifier`.
+^[It is also buggy indeed. With the newest version we still encounter sparse input error and additivity check failure.]
+To fully explore the capability we will skip the RF and move on to a GBT model.
 
 #### Explain Gradient Boosting Trees {-}
 
