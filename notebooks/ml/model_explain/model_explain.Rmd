@@ -41,7 +41,7 @@ meta_header_file <- file("/tmp/meta_header.html")
 # Add open graph meta.
 meta <- c(
   '<meta name="author" content="Kyle Chung">',
-  '<meta property="og:title" content="On Model Explainability: From SHAP, LIME, to Interpretable Boosting">',
+  '<meta property="og:title" content="On Model Explainability: From LIME, SHAP, to Interpretable Boosting">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
