@@ -2152,7 +2152,28 @@ So the way we want to construct the explanation model may well affect our implem
 
 ### On Image Classifiers
 
-**TODO: Use a pre-trained model?**
+In `shap`,
+the `GradientExplainer` is used to handle image models.
+The method is particularly developed for deep neural networks.
+
+**TODO: Theory briefing?**
+
+```python
+# TODO: Fix this.
+# Prepare background distribution of ImageNet embeddings.
+bg_X, _ = shap.datasets.imagenet50()  # TODO: Use random sample from cats and dogs only?
+
+eg_explainer = shap.GradientExplainer(
+  model=(cat_dog_model.input, cat_dog_model.output),
+  data=[mobilenet_v2.preprocess_input(bg_X)])
+
+infile = cat_shot(4, data=img_data_test, filename=True)
+x = img_prep(infile)
+
+shap_values, _ = eg_explainer.shap_values(x)
+
+shap.image_plot(shap_values, x, ["Cat", "Dog"])
+```
 
 # Explainable Boosting Machine
 
