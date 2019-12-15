@@ -1326,8 +1326,8 @@ Here is a cat from our dataset:
 ```{python image_example}
 from tensorflow.keras.preprocessing import image
 
-def cat_shot(i, filename=False):
-  acat_file = img_data.loc[img_train["class"] == "Cat", "fullpath"].iloc[i]
+def cat_shot(i, data=img_data, filename=False):
+  acat_file = data.loc[img_train["class"] == "Cat", "fullpath"].iloc[i]
   if filename:
     return acat_file
   else:
@@ -1348,16 +1348,25 @@ cat_shot(137)
 
 #### Explain a Pre-Trained Model {-}
 
+Let's experiment with a MobileNet-V2 with pre-trained ImageNet embeddings.
+In the ImageNet network there are 1000 classes including more than just 1 cat category.
+
 ```{python image_model_pretrained}
 from tensorflow.keras.applications import mobilenet_v2
 from tensorflow.keras.applications import imagenet_utils
 
 mobilev2 = mobilenet_v2.MobileNetV2(weights="imagenet")
 
-def img_predict(infile):
+def img_prep(infile, add_batch_dim=True):
   img = image.load_img(infile, target_size=(224, 224))
-  img_a = np.expand_dims(image.img_to_array(img), axis=0)
-  i = mobilenet_v2.preprocess_input(img_a)
+  img_a = image.img_to_array(img)
+  if add_batch_dim:
+    img_a = np.expand_dims(img_a, axis=0)
+  m = mobilenet_v2.preprocess_input(img_a)
+  return m
+
+def img_predict(infile):
+  i = img_prep(infile)
   p = mobilev2.predict(i)
   return imagenet_utils.decode_predictions(p)
 
@@ -1366,10 +1375,22 @@ for e in img_predict(acat_file)[0]:
   print(e)
 ```
 
+The prediction looks good!
+Now try LIME explaination:
+
 ```{python lime_on_imagenet}
-# TODO
 from lime import lime_image
-img_explainer = lime_image.LimeImageExplainer()
+from skimage.segmentation import mark_boundaries
+
+def show_img_exp(infile, model):
+  explainer = lime_image.LimeImageExplainer()
+  img = img_prep(infile, add_batch_dim=False)
+  exp = explainer.explain_instance(img, model.predict, hide_color=0)
+  temp_img, mask = exp.get_image_and_mask(exp.top_labels[0], positive_only=False)
+  plt.imshow(mark_boundaries(temp_img, mask))
+  plt.show()
+
+show_img_exp(acat_file, mobilev2)
 ```
 
 #### Explain a Transfer-Learned Model {-}
@@ -1379,7 +1400,7 @@ which is too much for us who only care about dogs and cats (not even species).
 We'd like to use transfer learing to build a cat-or-dog model on top of the original ImageNet.
 To accomplish this,
 first we need to build a training pipeline.
-Since image is very different from either textual or tabular data.
+Since image is very different from either textual or tabular data:
 They are relatively huge in size.
 So for any image-related task it is better to build an on-disk data pipeline to make sure our training loop doesn't waste too much memory.
 
@@ -1406,7 +1427,7 @@ print(batch[1].shape)  # batch_size x num_class
 ```
 
 With the data generator,
-now we can train a model:
+now we can train a model (better with a GPU):
 
 ```{python image_model_transfer_learning}
 cat_dog_model_file = os.path.join(model_dir, "cat_dog.h5")
@@ -1444,19 +1465,23 @@ if not os.path.exists(cat_dog_model_file):
 else:
   cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)
 
-# TODO: Prediction. Do we need a pipeline?
-img = image.load_img(acat_file, target_size=(224, 224))
-img_a = np.expand_dims(image.img_to_array(img), axis=0)
-i = mobilenet_v2.preprocess_input(img_a)
-p = cat_dog_model.predict(i)
+def img_tr_predict(infile):
+  img = image.load_img(acat_file, target_size=(224, 224))
+  img_a = np.expand_dims(image.img_to_array(img), axis=0)
+  i = img_prep(infile)
+  p = cat_dog_model.predict(i)
+  return p
+
+# Predict a testing cat.
+cat_shot(4, data=img_data_test)
 
 print(img_generator.class_indices)
-print(p)
+print(img_tr_predict(cat_shot(4, data=img_data_test, filename=True)))
 ```
 
 ```{python lime_on_image_tr}
-# TODO
-img_tr_explainer = lime_image.LimeImageExplainer()
+infile = cat_shot(4, data=img_data_test, filename=True)
+show_img_exp(infile, cat_dog_model)
 ```
 
 # Shapley Value
