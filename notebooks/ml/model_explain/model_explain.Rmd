@@ -1267,7 +1267,197 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 ### On Image Classifiers
 
-**TODO: Use a pre-trained model?**
+We use image dataset from [Open Images](https://storage.googleapis.com/openimages/web/index.html)
+For speed it is recommended to download the files from Amazon S3 using `awscli`.
+We will only use a subset of all the available images.
+^[For more usages please refer to the repo:
+[open-images-dataset](https://github.com/cvdfoundation/open-images-dataset#download-images-with-bounding-boxes-annotations).]
+
+```bash
+# Install AWS client tool.
+pip install awscli
+
+# Data is partitioned by first char of hexidecimal image file name, from 0 to f.
+# We download two partitions.
+# (This can take considerable time so we didn't make it executable as rendering notebook.)
+aws s3 --no-sign-request cp s3://open-images-dataset/tar/train_0.tar.gz .
+aws s3 --no-sign-request cp s3://open-images-dataset/tar/train_f.tar.gz .
+tar xvzf train_0.tar.gz
+tar xvzf train_f.tar.gz
+```
+
+```{python prepare_image}
+img_data_dir = "e:/data/open_images"
+
+# Scan through all downloaded image files.
+def img_df(path):
+  img_files = os.listdir(path)
+  df = pd.DataFrame({"filename": img_files})
+  df["id"] = [os.path.splitext(f)[0] for f in df["filename"]]
+  df["fullpath"] = [os.path.join(path, f) for f in img_files]
+  return df
+
+img_data = pd.concat([
+  img_df(os.path.join(img_data_dir, "train_0")),
+  img_df(os.path.join(img_data_dir, "train_f"))
+])
+
+# Get boxable object classes.
+# Take only cats and dogs!
+img_classes = pd.read_csv(
+  os.path.join(img_data_dir, "class-descriptions-boxable.csv"),
+  header=None, names=["id", "class"])
+cat_dog_id = img_classes[img_classes["class"].isin(["Cat", "Dog"])]
+img_labels = pd.read_csv(
+  os.path.join(img_data_dir, "train-annotations-human-imagelabels-boxable.csv"))
+img_labels = img_labels.merge(cat_dog_id, left_on="LabelName", right_on="id")
+img_labels = img_labels[img_labels["Confidence"] == 1]  # Remove false labels verified by a human.
+img_labels.drop(["Source", "LabelName", "Confidence", "id"], axis=1, inplace=True)
+
+print(img_labels.ImageID.str[:1].value_counts())  # Check distribution of cats and dogs among partitions.
+
+img_data = img_labels.merge(img_data, left_on="ImageID", right_on="id")
+
+print(img_data.groupby("class").size())  # Available dogs and cats.
+```
+
+Here is a cat from our dataset:
+
+```{python image_example}
+from tensorflow.keras.preprocessing import image
+
+def cat_shot(i, filename=False):
+  acat_file = img_data.loc[img_train["class"] == "Cat", "fullpath"].iloc[i]
+  if filename:
+    return acat_file
+  else:
+    img = image.load_img(acat_file)
+    ax = plt.imshow(img)
+    plt.show()
+
+cat_shot(110)
+```
+
+And more!
+
+```{python more_cats}
+cat_shot(129)
+cat_shot(133)
+cat_shot(137)
+```
+
+#### Explain a Pre-Trained Model {-}
+
+```{python image_model_pretrained}
+from tensorflow.keras.applications import mobilenet_v2
+from tensorflow.keras.applications import imagenet_utils
+
+mobilev2 = mobilenet_v2.MobileNetV2(weights="imagenet")
+
+def img_predict(infile):
+  img = image.load_img(infile, target_size=(224, 224))
+  img_a = np.expand_dims(image.img_to_array(img), axis=0)
+  i = mobilenet_v2.preprocess_input(img_a)
+  p = mobilev2.predict(i)
+  return imagenet_utils.decode_predictions(p)
+
+acat_file = cat_shot(110, filename=True)
+for e in img_predict(acat_file)[0]:
+  print(e)
+```
+
+```{python lime_on_imagenet}
+# TODO
+from lime import lime_image
+img_explainer = lime_image.LimeImageExplainer()
+```
+
+#### Explain a Transfer-Learned Model {-}
+
+The pre-trained ImageNet has 1000 classes,
+which is too much for us who only care about dogs and cats (not even species).
+We'd like to use transfer learing to build a cat-or-dog model on top of the original ImageNet.
+To accomplish this,
+first we need to build a training pipeline.
+Since image is very different from either textual or tabular data.
+They are relatively huge in size.
+So for any image-related task it is better to build an on-disk data pipeline to make sure our training loop doesn't waste too much memory.
+
+```{python image_pipeline}
+# Train-test split.
+img_data_train, img_data_test = train_test_split(img_data, test_size=.1)
+
+img_train_generator = image.ImageDataGenerator(
+  preprocessing_function=mobilenet_v2.preprocess_input
+  ).flow_from_dataframe(
+    img_data_train, x_col="fullpath",
+    batch_size=32, target_size=(224, 224))
+
+img_test_generator = image.ImageDataGenerator(
+  preprocessing_function=mobilenet_v2.preprocess_input
+  ).flow_from_dataframe(
+    img_data_test, x_col="fullpath",
+    batch_size=32, target_size=(224, 224))
+
+# Test the generator.
+batch = img_train_generator.next()
+print(batch[0].shape)  # batch_size x 224 x 224 x 3
+print(batch[1].shape)  # batch_size x num_class
+```
+
+With the data generator,
+now we can train a model:
+
+```{python image_model_transfer_learning}
+cat_dog_model_file = os.path.join(model_dir, "cat_dog.h5")
+
+mobilev2_base = mobilenet_v2.MobileNetV2(weights="imagenet", include_top=False)
+mobilev2_base.trainable = False  # Freeze the pre-trained weights.
+
+def cat_dog_model_fn():
+  model = tf.keras.Sequential([
+    mobilev2_base,
+    tf.keras.layers.GlobalAveragePooling2D(name="Pooling"),
+    tf.keras.layers.Dense(1024, activation="relu", name="FC-1"),
+    tf.keras.layers.Dense(512, activation="relu", name="FC-2"),
+    tf.keras.layers.Dense(2, activation="softmax", name="Softmax")
+  ], name="cat_or_dog")
+  model.compile(optimizer="adam",
+                loss="categorical_crossentropy",
+                metrics=["accuracy"])
+  return model
+
+cat_dog_model = cat_dog_model_fn()
+print(cat_dog_model.summary(line_length=90))
+
+if not os.path.exists(cat_dog_model_file):
+  n_step = img_generator.n // img_generator.batch_size
+  metrics = cat_dog_model.fit_generator(
+    generator=img_train_generator,
+    steps_per_epoch=n_step, epochs=10,
+    validation_data=img_test_generator,
+    callbacks=[
+      tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
+      tf.keras.callbacks.ModelCheckpoint(cat_dog_model_file, monitor="val_loss", save_best_only=True)
+    ]
+    verbose=2)
+else:
+  cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)
+
+# TODO: Prediction. Do we need a pipeline?
+img = image.load_img(acat_file, target_size=(224, 224))
+img_a = np.expand_dims(image.img_to_array(img), axis=0)
+i = mobilenet_v2.preprocess_input(img_a)
+p = cat_dog_model.predict(i)
+
+print(img_generator.class_indices)
+print(p)
+```
+
+```{python lime_on_image_tr}
+# TODO
+img_tr_explainer = lime_image.LimeImageExplainer()
+```
 
 # Shapley Value
 
