@@ -1305,7 +1305,7 @@ we will build a classifier that only cares about cats and dogs.
 Hence we will only use a small part of the downloaded images.
 
 ```{python prepare_image}
-img_data_dir = "e:/data/open_images"
+img_data_dir = "e:/data/open_images"  # We untar the image data partitions under here.
 
 # Scan through all downloaded image files.
 def img_df(path):
@@ -1345,7 +1345,7 @@ Here is a cat from our dataset:
 from tensorflow.keras.preprocessing import image
 
 def cat_shot(i, data=img_data, filename=False):
-  acat_file = data.loc[img_train["class"] == "Cat", "fullpath"].iloc[i]
+  acat_file = data.loc[data["class"] == "Cat", "fullpath"].iloc[i]
   if filename:
     return acat_file
   else:
@@ -1484,7 +1484,7 @@ if not os.path.exists(cat_dog_model_file):
     callbacks=[
       tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
       tf.keras.callbacks.ModelCheckpoint(cat_dog_model_file, monitor="val_loss", save_best_only=True)
-    ]
+    ],
     verbose=2)
 else:
   cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)
@@ -1499,7 +1499,7 @@ def img_tr_predict(infile):
 # Predict a testing cat.
 cat_shot(4, data=img_data_test)
 
-print(img_generator.class_indices)
+print(img_test_generator.class_indices)
 print(img_tr_predict(cat_shot(4, data=img_data_test, filename=True)))
 ```
 
@@ -1692,7 +1692,7 @@ But the discussion here will definitely help us understand SHAP since they are c
 yet another additive feature attribution method for model explainability.
 As its name suggests,
 SHAP is based up top of Shapley value.
-It is indeed a more general approach unifying both LIME and Shapley value (and more).
+It is indeed a more theoretically sound approach unifying both LIME and Shapley value (and more).
 Of course SHAP is also model-agnostic.
 In theory it can be applied to *any* machine learning model,
 but `shap` comes with a customized fast implementation particularly for gradient boosting trees (GBT).
@@ -1760,13 +1760,21 @@ We summarize the major difference between SHAP and LIME.
 **Weighting Function**
 
 In LIME the choice of the weighting function $\pi_x\prime$ is heuristic,
-while in SHAP it is based on a theory to recover the Shapley value.
+while in SHAP it is based on a theoretical work to recover the Shapley value,
+which is in turn based on cooperative game theory.
 
 **Regularization**
 
-Based on the theory,
-SHAP uses a linear regression without regularization in order to faithfully recover Shapley value.
+Based on the theoretical derivation,
+SHAP uses a linear regression *without* regularization in order to faithfully recover Shapley value.
 In LIME instead a LASSO path is used to prefer a sparse solution.
+The choice is again heuristic and in `lime` it is possible to switch the local model to any other linear regressor.
+
+**SHAP as a Specific LIME Implementation**
+
+Put it differently,
+if we deliberately choose the weighting function and the local regressor,
+we are able to use LIME approach to just estimate Shapley value.
 
 ### The Intuition
 
@@ -1788,6 +1796,12 @@ To estimate such difference of a binary variable we know that we can simply incl
 Now the only task left is to specify a correct weighting scheme such that the expectation will take into consideration how feature coalition can be formed.
 SHAP is novel since it derives the correct weighting scheme such that the regression coefficients are exactly Shapley value.
 
+Although `KernelExplainer` is model-agnostic,
+it is also based on restricter assumption in approximating Shapley value.
+To arrive at better result,
+for certain models there are better ways to estimate Shapley value.
+Especially for tree ensembles and deep neural networks.
+
 ## Estimate Shapley Value with Tree Ensembles
 
 A limitation on the above linear regression approach is the assumption of feature independence.
@@ -1799,11 +1813,102 @@ This can be done due to the nature of tree algorithm.
 The marginalization phase can take into account feature dependency by examine the tree structure and only average over terminal nodes conditional on any given node,
 based on the coalition set.
 
-In `TreeExplainer` the exact Shapley value is directly calculated using tree nodes instead of a linear model.
+In `TreeExplainer` the exact Shapley value is directly estimated using tree nodes instead of a linear model.
 One added-on benefit is to extend the Shapley value to Shapley interaction value so essentially a feature attribution vector will be generalized to a feature attribution matrix,
 with the interaction with all other features.
 
-Let's skip the details and move on to the actual hands-on examples!
+## Estimate Shapley Value with Expected Gradients
+
+Ohter than a specific approach for tree ensembels,
+in `shap` the `GradientExplainer` is used to handle deep neural nets (and hence model-specific),
+especially image models.
+It connects Shapley value with *integrated gradients* (@sundararajan2017axiomatic),
+which is another model explanation approach specifically designed for deep neural networks.
+
+### Integrated Gradients
+
+To understand SHAP's expected gradients,
+we need to have a briefing on what is integrated gradients first.
+Mathematically speaking,
+the integrated gradient of input dimension $j$ is defined as:
+
+$$
+IG_j(x) = (x_j - x_j\prime)
+\int_0^1\frac{\partial f(x\prime + \alpha (x - x\prime))}{\partial x_j} d\alpha,
+$$
+
+where $f$ is the model function,
+$x\prime$ is the *base input* and $x$ the instance to be explained.
+Commonly used base input for image model is a black image input;
+for language model it is a zero embedding.
+
+The integration is done along the straight line between the base input and the target input.
+Instead of just taking derivative of the output relative to the input,
+we are taking model output derivatives along all points throughout the base input to the target input path,
+and sum them together.
+
+Why don't we just calculate $\frac{\partial f(x)}{\partial x_j}$?
+By definition it should tell us how much change in our output can be attributed to our input change.
+But this is not working well for a deep neural networks due to the saturation nature:
+an important feature may well have a tiny gradient.
+Readers interested can refer to @sundararajan2016gradients for detailed discussion about gradient saturation.
+
+Hence instead of calculating the input gradient,
+we calculate the gradient all along the way from the input being "missing" (represented by a base input) and gradually becomes the observed input.
+We accumulate all the resulting gradients to attribute the importance of that particular dimension.
+
+#### Base Input as Missingness {-}
+
+Apparently a base input is *required* in order to calculate the integrated gradients of a particular instance.
+The choice of base input can heavily affect our ability to interpret a model.
+By definition the value in base input must represent feature missing.
+A black image as base input has the inherent problem to assume black pixel is missing,
+which may be or may not be true,
+depending on the actual application.
+It is totally possible that in the original model a black pixel can be an important signal to the label.
+In such case,
+using a black image as base input is a no-go.
+The same problem applies to not just image but in any other application where a base input may potentially wrongly represent missingness to the model.
+
+As a result,
+how to choose a base input becomes a critical issue in integrated gradients.
+There are studies specifically focus on this area.
+One possible direction is to choose multiple base input and average them to arrive at the final results.
+This is refered to as *expected gradients*.
+^[For a detailed discussion on integrated gradients here is a great article:
+[VisualizingExpectedGradients](https://github.com/psturmfels/VisualizingExpectedGradients).]
+
+### From Integrated Gradients to Shapley Value
+
+From `shap`'s `GradientExplainer` docstring:
+
+```
+... Integrated gradients values are a bit
+different from SHAP values, and require a single reference value to integrate from. As an adaptation
+to make them approximate SHAP values, expected gradients reformulates the integral as an expectation
+and combines that expectation with sampling reference values from the background dataset. This leads
+to a single combined expectation of gradients that converges to attributions that sum to the
+difference between the expected model output and the current output.
+```
+
+So the idea is to first introduce a background distribution (using training dataset) as the base input,
+and integrate over the integrated gradients to arrive at the final attribution value.
+(There are two integral, two expectations involves.)
+
+Empirically,
+for input dimension $j$ the attribution value we are calculating is:
+
+$$
+EG_j(x) = \sum_{i=1}^k (x_j - x_j^i\prime) \cdot
+\frac{\partial f(x^i\prime + \alpha^i(x - x^i\prime) )}{\partial x_j},
+$$
+
+where $k$ is number of background samples,
+$x^i\prime$ is the $i$-th background sample,
+$x_j^i\prime$ is the $j$-th dimension of that sample,
+and $\alpha^i$ is a random draw in $[0, 1]$.
+
+Let's skip more details and move directly on to the actual hands-on examples.
 
 ## Hands-on Explanation Demo
 
@@ -2175,12 +2280,6 @@ From this particular aspect libary such as `lightgbm` provides the flexibility t
 So the way we want to construct the explanation model may well affect our implementation of the original model.
 
 ### On Image Classifiers
-
-In `shap`,
-the `GradientExplainer` is used to handle image models.
-The method is particularly developed for deep neural networks.
-
-**TODO: Theory briefing?**
 
 ```python
 # TODO: Fix this.
