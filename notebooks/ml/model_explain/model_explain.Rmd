@@ -215,12 +215,11 @@ So in plain words, just like we segment sentence into tokens,
 we simply segment image into multiple small pieces and again,
 use a binary vector to indicate the absence or presence of each piece for latter perturbation purpose.
 
-## Randomized Interpretable Feature Space
+**Numerical Data**
 
-For **Numerical Data**,
-there is no binarization.
+There is no binarization for numerical features.
 Instead,
-a random perturbation is done on the target example.
+a random perturbation (discussed in the next section) is directly done on the target example.
 Here is the docstrings taken from `LimeTabularExplainer` implementation in `lime`:
 
 ```
@@ -1281,7 +1280,7 @@ by skipping one-hot encoding pipeline our code can be much neater as well.
 
 ### On Image Classifiers
 
-We use image dataset from [Open Images](https://storage.googleapis.com/openimages/web/index.html)
+We use image dataset from [Open Images](https://storage.googleapis.com/openimages/web/index.html).
 For speed it is recommended to download the files from Amazon S3 using `awscli`.
 We will only use a subset of all the available images.
 ^[For more usages please refer to the repo:
@@ -1426,7 +1425,7 @@ So for any image-related task it is better to build an on-disk data pipeline to 
 
 ```{python image_pipeline}
 # Train-test split.
-img_data_train, img_data_test = train_test_split(img_data, test_size=.1)
+img_data_train, img_data_test = train_test_split(img_data, test_size=.1, random_state=64)
 
 img_train_generator = image.ImageDataGenerator(
   preprocessing_function=mobilenet_v2.preprocess_input
@@ -1490,23 +1489,31 @@ else:
   cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)
 
 def img_tr_predict(infile):
-  img = image.load_img(acat_file, target_size=(224, 224))
+  img = image.load_img(infile, target_size=(224, 224))
   img_a = np.expand_dims(image.img_to_array(img), axis=0)
   i = img_prep(infile)
   p = cat_dog_model.predict(i)
   return p
 
 # Predict a testing cat.
-cat_shot(4, data=img_data_test)
+cat_shot(19, data=img_data_test)
 
-print(img_test_generator.class_indices)
-print(img_tr_predict(cat_shot(4, data=img_data_test, filename=True)))
+print(img_test_generator.class_indices)  # Check label index.
+print(img_tr_predict(cat_shot(19, data=img_data_test, filename=True)))
 ```
 
 ```{python lime_on_image_tr}
-infile = cat_shot(4, data=img_data_test, filename=True)
+infile = cat_shot(19, data=img_data_test, filename=True)
 show_img_exp(infile, cat_dog_model)
 ```
+
+Here is a very good example of a model being correct but due to a wrong reason.
+Provided that our explanation model is locally faithful (which is of course open to discussion),
+the explanation suggests that the model is predicting the photo to be a cat only because of the blanket.
+The area containing the cat indeed *decreases* the model's confidience about a cat!
+
+Surely our model isn't trained seriously.
+But we do realize that via model explanation we are closer to understand how it infers.
 
 # Shapley Value
 
@@ -1580,7 +1587,7 @@ This is better illustrated with an example.
 Let's take the first row of the UCI Heart Disease data we explored just before:
 
 ```{python shapley_example}
-print(ucihd.iloc[0])
+print(ucihd.iloc[[0]])
 ```
 
 To make the example neat,
@@ -1849,8 +1856,8 @@ and sum them together.
 
 Why don't we just calculate $\frac{\partial f(x)}{\partial x_j}$?
 By definition it should tell us how much change in our output can be attributed to our input change.
-But this is not working well for a deep neural networks due to the saturation nature:
-an important feature may well have a tiny gradient.
+But this is not working well for a deep neural network due to the *saturation* nature:
+An important feature may well have a tiny gradient.
 Readers interested can refer to @sundararajan2016gradients for detailed discussion about gradient saturation.
 
 Hence instead of calculating the input gradient,
@@ -1873,12 +1880,12 @@ The same problem applies to not just image but in any other application where a 
 As a result,
 how to choose a base input becomes a critical issue in integrated gradients.
 There are studies specifically focus on this area.
-One possible direction is to choose multiple base input and average them to arrive at the final results.
+One possible direction is to choose multiple base inputs and average them to arrive at the final results.
 This is refered to as *expected gradients*.
 ^[For a detailed discussion on integrated gradients here is a great article:
 [VisualizingExpectedGradients](https://github.com/psturmfels/VisualizingExpectedGradients).]
 
-### From Integrated Gradients to Shapley Value
+### From Integrated Gradients to SHAP
 
 From `shap`'s `GradientExplainer` docstring:
 
@@ -1893,10 +1900,10 @@ difference between the expected model output and the current output.
 
 So the idea is to first introduce a background distribution (using training dataset) as the base input,
 and integrate over the integrated gradients to arrive at the final attribution value.
-(There are two integral, two expectations involves.)
+(There are two integrals, two expectations involves.)
 
 Empirically,
-for input dimension $j$ the attribution value we are calculating is:
+for input dimension $j$ the attribution value we are calculating now becomes:
 
 $$
 EG_j(x) = \sum_{i=1}^k (x_j - x_j^i\prime) \cdot
@@ -1906,9 +1913,17 @@ $$
 where $k$ is number of background samples,
 $x^i\prime$ is the $i$-th background sample,
 $x_j^i\prime$ is the $j$-th dimension of that sample,
-and $\alpha^i$ is a random draw in $[0, 1]$.
+and $\alpha^i$ is a real number random draw in range $[0, 1]$.
 
-Let's skip more details and move directly on to the actual hands-on examples.
+Note that this sampling approach implicitly assumes feature independence,
+which is generally not true.
+For example,
+pixels are not independent from their surrounding pixels.
+So the solution is at best an approximation.
+For all the above `shap` explainers we've discussed,
+only the `TreeExplainer` does not need to assume feature independence.
+
+Let's skip more technical details and move directly on to the actual hands-on examples.
 
 ## Hands-on Explanation Demo
 
