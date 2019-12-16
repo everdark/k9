@@ -1507,10 +1507,9 @@ infile = cat_shot(19, data=img_data_test, filename=True)
 show_img_exp(infile, cat_dog_model)
 ```
 
-Here is a very good example of a model being correct but due to a wrong reason.
+Here is a very good example of a model being correct but probably due to a wrong reason.
 Provided that our explanation model is locally faithful (which is of course open to discussion),
-the explanation suggests that the model is predicting the photo to be a cat only because of the blanket.
-The area containing the cat indeed *decreases* the model's confidience about a cat!
+the explanation suggests that the model is predicting the photo to be a cat partly becasue of the blanket.
 
 Surely our model isn't trained seriously.
 But we do realize that via model explanation we are closer to understand how it infers.
