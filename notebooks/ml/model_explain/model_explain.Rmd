@@ -633,7 +633,7 @@ for i in range(len(coefs.T) - 1, 0, -1):
 explainer = Ridge(alpha=1, fit_intercept=True, random_state=64)
 _ = explainer.fit(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weight=weights)
 
-# Fitness.
+# Fitness (R^2).
 # This can be a score to judge how good the local approximation is.
 print(explainer.score(local_samples_z[:,nonzero_coefs], local_samples_y, sample_weight=weights))
 
@@ -682,8 +682,8 @@ seq_test_padded = pad_sequences(seq_test, padding="post", maxlen=maxlen)
 assert tokenizer.index_word[1] == oov_token
 assert seq_train_padded.max() == vocab_size - 1
 
-# Wrap Keras Sequential model with scikit-learn API.
-# This is because LimeTextExplainer seems buggy with a native Keras model.
+# Wrap Keras Sequential model with scikit-learn API to have the predict_proba method.
+# Easier to interact with lime API.
 nn_model_file = os.path.join(model_dir, "text_clf_nn.h5")
 
 def nn_model_fn():
@@ -1366,8 +1366,10 @@ cat_shot(137)
 
 #### Explain a Pre-Trained Model {-}
 
-Let's experiment with a MobileNet-V2 with pre-trained [ImageNet](http://www.image-net.org/) embeddings.
+Let's experiment with a MobileNet-V2 (@sandler2018mobilenetv2) with pre-trained [ImageNet](http://www.image-net.org/) embeddings.
 In the ImageNet network there are 1000 classes including more than just 1 cat category.
+We can not only predict the cat but also its species:
+a tabby, a Persian, ...
 
 ```{python image_model_pretrained}
 from tensorflow.keras.applications import mobilenet_v2
@@ -1447,7 +1449,7 @@ print(batch[1].shape)  # batch_size x num_class
 With the data generator,
 now we can train a model (better with a GPU).
 We strip the final output layer for 1000 units (used for a softmax optimization in the original architecture),
-apply one global average pooling layer,
+apply one global average pooling layer over all convolution kernels,
 and then add two additional fully-connected layers with decreasing number of units,
 then a final 2-unit layer for a 2-class softmax optimization.
 
