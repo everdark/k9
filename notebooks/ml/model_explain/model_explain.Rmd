@@ -2107,9 +2107,8 @@ the word `great` play a big role in shaping the GBT prediction toward positive.
 #### Explain Neural Nets with Word Embeddings {-}
 
 As of `r format(Sys.time(), '%Y-%m-%d')` `shap.DeepExplainer` does not yet support TF 2.0.^[https://github.com/slundberg/shap/issues/850.]
-And `shap.GradientExplainer` is not well documented yet for TF 2.0.
-So we will use the `shap.KernelExplainer` which is a implementation-agnostic explainer in `shap`.
-The compromise is that it will run very slow for each prediction.
+Let's take this chance to use the model-agnostic `shap.KernelExplainer`.
+The compromise is that it will run very slow for even just one prediction.
 
 ```{python shap_kernel_imdb_nn}
 imdb_exp_ind = np.array([imdb_rf_tp_idx[0], imdb_rf_fp_idx[0]])
@@ -2124,35 +2123,6 @@ imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
 # Contribution is attributed to original sequence input.
 # In order to make explanation readable,
 # we need to map each position to original word id then to word.
-```
-
-```python
-# TODO: Makje sure everything works here.
-
-# shap does not support keras model in scikit-learn wrapper.
-# Let's re-build the model and retain its Sequental class.
-dl_model = model_fn()
-metrics = dl_model.fit(
-  x=seq_train_padded, y=imdb_y_train,
-  batch_size=256, epochs=20,
-  validation_data=(seq_test_padded, imdb_y_test),
-  validation_steps=20,
-  callbacks=[
-    tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2),
-    tf.keras.callbacks.ModelCheckpoint(tr_model_file, monitor="val_loss", save_best_only=True)
-  ],
-  verbose=0)
-
-# DeepExplainer.
-dl_shap_explainer = shap.DeepExplainer(dl_model, seq_train_padded)  # Wont' work.
-
-# GradientExplainer.
-imdb_nn_shap_explainer = shap.GradientExplainer(dl_model, seq_train_padded[:100])
-
-imdb_nn_shap_explainer = shap.GradientExplainer(
-  (imdb_tr.layers[0].input, imdb_tr.layers[-1].output),  # Not working for TF 2.0.
-  seq_train_padded[:100])
-imdb_nn_shap_explainer.shap_values(seq_test_padded[:3])  # Error here.
 ```
 
 ### On Tabular Data Classifiers
