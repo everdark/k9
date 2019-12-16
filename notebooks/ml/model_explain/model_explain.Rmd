@@ -1293,12 +1293,16 @@ pip install awscli
 
 # Data is partitioned by first char of hexidecimal image file name, from 0 to f.
 # We download two partitions.
-# (This can take considerable time so we didn't make it executable as rendering notebook.)
+# (This can take considerable time so we didn't make this chunk executable as rendering notebook.)
 aws s3 --no-sign-request cp s3://open-images-dataset/tar/train_0.tar.gz .
 aws s3 --no-sign-request cp s3://open-images-dataset/tar/train_f.tar.gz .
 tar xvzf train_0.tar.gz
 tar xvzf train_f.tar.gz
 ```
+
+To simplify our discussion,
+we will build a classifier that only cares about cats and dogs.
+Hence we will only use a small part of the downloaded images.
 
 ```{python prepare_image}
 img_data_dir = "e:/data/open_images"
@@ -1362,7 +1366,7 @@ cat_shot(137)
 
 #### Explain a Pre-Trained Model {-}
 
-Let's experiment with a MobileNet-V2 with pre-trained ImageNet embeddings.
+Let's experiment with a MobileNet-V2 with pre-trained [ImageNet](http://www.image-net.org/) embeddings.
 In the ImageNet network there are 1000 classes including more than just 1 cat category.
 
 ```{python image_model_pretrained}
@@ -1410,7 +1414,7 @@ show_img_exp(acat_file, mobilev2)
 #### Explain a Transfer-Learned Model {-}
 
 The pre-trained ImageNet has 1000 classes,
-which is too much for us who only care about dogs and cats (not even species).
+which is too much for us who only care about cats and dogs (not even species).
 We'd like to use transfer learing to build a cat-or-dog model on top of the original ImageNet.
 To accomplish this,
 first we need to build a training pipeline.
@@ -1441,7 +1445,11 @@ print(batch[1].shape)  # batch_size x num_class
 ```
 
 With the data generator,
-now we can train a model (better with a GPU):
+now we can train a model (better with a GPU).
+We strip the final output layer for 1000 units (used for a softmax optimization in the original architecture),
+apply one global average pooling layer,
+and then add two additional fully-connected layers with decreasing number of units,
+then a final 2-unit layer for a 2-class softmax optimization.
 
 ```{python image_model_transfer_learning}
 cat_dog_model_file = os.path.join(model_dir, "cat_dog.h5")
@@ -1453,8 +1461,8 @@ def cat_dog_model_fn():
   model = tf.keras.Sequential([
     mobilev2_base,
     tf.keras.layers.GlobalAveragePooling2D(name="Pooling"),
-    tf.keras.layers.Dense(1024, activation="relu", name="FC-1"),
-    tf.keras.layers.Dense(512, activation="relu", name="FC-2"),
+    tf.keras.layers.Dense(768, activation="relu", name="FC-1"),
+    tf.keras.layers.Dense(128, activation="relu", name="FC-2"),
     tf.keras.layers.Dense(2, activation="softmax", name="Softmax")
   ], name="cat_or_dog")
   model.compile(optimizer="adam",
@@ -1466,7 +1474,7 @@ cat_dog_model = cat_dog_model_fn()
 print(cat_dog_model.summary(line_length=90))
 
 if not os.path.exists(cat_dog_model_file):
-  n_step = img_generator.n // img_generator.batch_size
+  n_step = img_train_generator.n // img_train_generator.batch_size
   metrics = cat_dog_model.fit_generator(
     generator=img_train_generator,
     steps_per_epoch=n_step, epochs=10,
