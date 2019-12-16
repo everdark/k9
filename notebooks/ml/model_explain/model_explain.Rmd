@@ -215,9 +215,23 @@ So in plain words, just like we segment sentence into tokens,
 we simply segment image into multiple small pieces and again,
 use a binary vector to indicate the absence or presence of each piece for latter perturbation purpose.
 
-**Numerical Data**
+## Randomized Interpretable Feature Space
 
-TBC.
+For **Numerical Data**,
+there is no binarization.
+Instead,
+a random perturbation is done on the target example.
+Here is the docstrings taken from `LimeTabularExplainer` implementation in `lime`:
+
+```
+Explains predictions on tabular (i.e. matrix) data.
+For numerical features, perturb them by sampling from a Normal(0,1) and
+doing the inverse operation of mean-centering and scaling, according to the
+means and stds in the training data. For categorical features, perturb by
+sampling according to the training distribution, and making a binary
+feature that is 1 when the value is the same as the instance being
+explained.
+```
 
 ## Local Sampling (Perturbation)
 
