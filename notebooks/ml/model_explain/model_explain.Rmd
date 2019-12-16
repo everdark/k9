@@ -130,17 +130,17 @@ understand how we can reason the model definitely will help us better model the 
 In this notebook we will walk through 3 popular approaches of model prediction explanation,
 each of them comes with a dedicated Python package:
 
-1. [`shap`](https://github.com/slundberg/shap) for SHAP
-2. [`lime`](https://github.com/marcotcr/lime) for LIME
+1. [`lime`](https://github.com/marcotcr/lime) for LIME
+2. [`shap`](https://github.com/slundberg/shap) for SHAP
 3. [`interpret`](https://github.com/interpretml/interpret) for Explainable Boosting Machine
 
 All coding examples will be based on the above 3 packages.
 What if we'd like to explore these approaches in R?
+For `lime` we have [`iml`](https://github.com/christophM/iml) which contains more than just LIME approach.
 For `shap`,
 there is a R port called [`shapper`](https://github.com/ModelOriented/shapper).
-For `lime` we also have [`iml`](https://github.com/christophM/iml) which contains more than just LIME approach.
 As for `interpret`,
-it already comes with [its own R API](https://cran.r-project.org/web/packages/interpret/index.html).
+it already comes with its own [R API](https://cran.r-project.org/web/packages/interpret/index.html).
 
 # Explanation Models
 
