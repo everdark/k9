@@ -1306,7 +1306,8 @@ we will build a classifier that only cares about cats and dogs.
 Hence we will only use a small part of the downloaded images.
 
 ```{python prepare_image}
-img_data_dir = "e:/data/open_images"  # We untar the image data partitions under here.
+# We untar the image data partitions under here.
+img_data_dir = os.environ.get("IMG_DATA_DIR", "e:/data/open_images")
 
 # Scan through all downloaded image files.
 def img_df(path):
@@ -2146,7 +2147,7 @@ imdb_exp_ind = np.array([imdb_rf_tp_idx[0], imdb_rf_fp_idx[0]])
 def mm(X):
   return imdb_tr.predict_proba(X)[:,1]
 
-imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:100])
+imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:50])
 # This is VERY slow...
 #imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
 # TODO:
