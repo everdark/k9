@@ -2042,7 +2042,7 @@ import shap
 imdb_lgb_explainer = shap.TreeExplainer(imdb_bst)
 imdb_lgb_shap_values = imdb_lgb_explainer.shap_values(imdb_X_test)
 
-def imdb_lgb_shap_plot(test_id, matplotlib=True):
+def imdb_lgb_shap_plot(test_id, matplotlib=False):
   shap_plt = shap.force_plot(
     imdb_lgb_explainer.expected_value[1],
     imdb_lgb_shap_values[1][test_id,:],
@@ -2080,7 +2080,12 @@ For the review that RF correctly label positive,
 we have the `shap` explanation with the following visualization:
 
 ```{python shap_imdb_lgb_tp_exp}
-imdb_lgb_shap_plot(imdb_rf_tp_idx[0])
+shap.plots.force.save_html("/tmp/shap_explain_lgb_text_rf_tp.html",
+  imdb_lgb_shap_plot(imdb_rf_tp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_lgb_text_rf_tp.html")
 ```
 
 Note that by default `shap` for `lightgbm` shows log-odds rather than probability in the plot.
@@ -2128,7 +2133,12 @@ and the presence of `love` contributes positively,
 to the final prediction.
 
 ```{python shap_imdb_lgb_fp_exp}
-imdb_lgb_shap_plot(imdb_rf_fp_idx[0])
+shap.plots.force.save_html("/tmp/shap_explain_lgb_text_rf_fp.html",
+  imdb_lgb_shap_plot(imdb_rf_fp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_lgb_text_rf_fp.html")
 ```
 
 For the false positive case,
@@ -2154,7 +2164,7 @@ imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[
 
 # The attribution is assigned on original input sequence.
 # To convert it into readable content we need to make them back to token id.
-def imdb_nn_shap_plot(test_id, matplotlib=True):
+def imdb_nn_shap_plot(test_id, matplotlib=False):
   # Strip paddings.
   features = seq_test_padded[test_id]
   maxlen = (features != 0).sum()
@@ -2169,18 +2179,18 @@ def imdb_nn_shap_plot(test_id, matplotlib=True):
   )
   return shap_plt
 
-shap.plots.force.save_html("/tmp/shap_explain_text_rf_tp.html",
-  imdb_nn_shap_plot(0, matplotlib=False))
-shap.plots.force.save_html("/tmp/shap_explain_text_rf_fp.html",
-  imdb_nn_shap_plot(1, matplotlib=False))
+shap.plots.force.save_html("/tmp/shap_explain_nn_text_rf_tp.html",
+  imdb_nn_shap_plot(0), full_html=False)
+shap.plots.force.save_html("/tmp/shap_explain_nn_text_rf_fp.html",
+  imdb_nn_shap_plot(1), full_html=False)
 ```
 
 ```{r echo=FALSE}
-htmltools::includeHTML("/tmp/shap_explain_text_rf_tp.html")
+htmltools::includeHTML("/tmp/shap_explain_nn_text_rf_tp.html")
 ```
 
 ```{r echo=FALSE}
-htmltools::includeHTML("/tmp/shap_explain_text_rf_fp.html")
+htmltools::includeHTML("/tmp/shap_explain_nn_text_rf_fp.html")
 ```
 
 ### On Tabular Data Classifiers
@@ -2193,7 +2203,7 @@ We do the same exercise on the tabular dataset previously explained by `lime`.
 ucihd_rf_explainer = shap.TreeExplainer(ucihd_rf)
 ucihd_rf_shap_values = ucihd_rf_explainer.shap_values(ucihd_X_test)
 
-def ucihd_rf_shap_plot(test_id, matplotlib=True):
+def ucihd_rf_shap_plot(test_id, matplotlib=False):
   shap_plt = shap.force_plot(
     ucihd_rf_explainer.expected_value[1],
     ucihd_rf_shap_values[1][test_id,:],
@@ -2251,12 +2261,22 @@ Such behavior difference results from the optimization customized for GBT model 
 
 ```{python shap_ucihd_rf_tp_exp}
 # The true positive case in RF.
-ucihd_rf_shap_plot(ucihd_rf_tp_idx[0])
+shap.plots.force.save_html("/tmp/shap_explain_ucihd_rf_tp.html",
+  ucihd_rf_shap_plot(ucihd_rf_tp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_ucihd_rf_tp.html")
 ```
 
 ```{python shap_ucihd_rf_fp_exp}
 # The false positive case in RF.
-ucihd_rf_shap_plot(ucihd_rf_fp_idx[0])
+shap.plots.force.save_html("/tmp/shap_explain_ucihd_rf_fp.html",
+  ucihd_rf_shap_plot(ucihd_rf_fp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_ucihd_rf_fp.html")
 ```
 
 #### Explain Gradient Boosting Trees {-}
@@ -2268,7 +2288,7 @@ where categoricals are encoded internally without explicit one-hot encoding.
 ucihd_lgb_explainer = shap.TreeExplainer(ucihd_bst_2)
 ucihd_lgb_shap_values = ucihd_lgb_explainer.shap_values(ucihd_test.drop("label", axis=1))
 
-def ucihd_lgb_shap_plot(test_id, matplotlib=True):
+def ucihd_lgb_shap_plot(test_id, matplotlib=False):
   shap_plt = shap.force_plot(
     ucihd_lgb_explainer.expected_value[1],
     ucihd_lgb_shap_values[1][test_id,:],
@@ -2307,11 +2327,23 @@ plt.gcf().subplots_adjust(left=.25)
 ##### Local Explanation {-}
 
 ```{python shap_ucihd_lgb_tp_exp}
-ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0])
+# The true positive case in RF.
+shap.plots.force.save_html("/tmp/shap_explain_lgb_ucihd_rf_tp.html",
+  ucihd_lgb_shap_plot(ucihd_rf_tp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_lgb_ucihd_rf_tp.html")
 ```
 
 ```{python shap_ucihd_lgb_fp_exp}
-ucihd_lgb_shap_plot(ucihd_rf_fp_idx[0])
+# The false positive case in RF.
+shap.plots.force.save_html("/tmp/shap_explain_lgb_ucihd_rf_fp.html",
+  ucihd_lgb_shap_plot(ucihd_rf_fp_idx[0]), full_html=False)
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_lgb_ucihd_rf_fp.html")
 ```
 
 #### Impact of One-Hot Encoding On Explanation {-}
