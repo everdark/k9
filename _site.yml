@@ -21,7 +21,7 @@ navbar:
         - text: "Introduction to Learning-to-Rank"
           href: notebooks/ml/learning_to_rank/learning_to_rank.html
         - text: "---"
-        - text: "On Model Explainability (WIP)"
+        - text: "On Model Explainability"
           href: notebooks/ml/model_explain/model_explain.nb.html
     - text: "Natural Language Understanding"
       menu:
