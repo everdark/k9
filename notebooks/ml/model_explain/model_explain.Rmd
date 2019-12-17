@@ -2107,6 +2107,17 @@ print(p)
 print(to_log_odds(p))  # This is the reported number on the default shap plot.
 ```
 
+The *base value* shown in the force plot is the mean of the model output over the background dataset.
+For `TreeExplainer` background dataset is the training dataset.
+To verify this:
+
+```{python}
+mean_raw_pred = imdb_bst.predict(imdb_X_train, raw_score=True).mean()
+print(mean_raw_pred)
+to_p(mean_raw_pred)  # If force plot is showing prob, this will be the base value.
+```
+
+Note that the expectation is taken over the raw outputs instead of probabilities.
 For any given prediction,
 the shap values of all features should sum up to the difference between the predicted log-odds and the expected log-odds.
 To verify this on the specific positive example:
