@@ -323,8 +323,9 @@ Notice that the local explanation model is a linear model,
 the explanation hence is subject to linearity.
 If we have any evidence suggesting heavy non-linearity around a prediction,
 the output of such explanation model won't be faithful.
+Of course this is more of a compromise for better intrepretability.
 
-**No Explanation for a NULL Effect**
+**No Explanation for a NULL Effect for Text Classifiers**
 
 And for the local sampling,
 notice that we only subsample from the presence of features on the target example.
@@ -343,6 +344,11 @@ instead of the presence of the 6 features,
 the missingness of feature `Z` is the most important driving force for the machine learning model to make the prediction.
 However due to the local sampling scheme,
 the importance of (the null of) `Z` can never be estimated by the explanation model.
+
+Be aware that in `lime`'s implementation this limitation only applies to text classifiers.
+The initial local sampling is subject to only non-missing features, i.e., present tokens.
+For tabular data features are all considered present.
+The way we mark a feature as absent (missing) is through replacing it randomly.
 
 ## Hands-on Explanation Demo
 
@@ -715,8 +721,7 @@ if not os.path.exists(nn_model_file):
     ],
     verbose=2)
 
-# Restore the model with wrapper.
-imdb_nn.model = tf.keras.models.load_model(nn_model_file)
+imdb_nn.model = tf.keras.models.load_model(nn_model_file)  # Restore the best model with wrapper.
 imdb_nn.classes_ = np.array([0, 1])
 imdb_nn_yhat = imdb_nn.predict_proba(seq_test_padded)[:,1]
 imdb_nn_pred = (imdb_nn_yhat > .5).astype(int)
@@ -865,8 +870,7 @@ if not os.path.exists(tr_model_file):
     ],
     verbose=2)
 
-# Restore the model with wrapper.
-imdb_tr.model = tf.keras.models.load_model(tr_model_file)
+imdb_tr.model = tf.keras.models.load_model(tr_model_file)  # Restore the best model with wrapper.
 imdb_tr.classes_ = np.array([0, 1])
 imdb_tr_yhat = imdb_tr.predict_proba(seq_test_padded)[:,1]
 imdb_tr_pred = (imdb_tr_yhat > .5).astype(int)
@@ -958,8 +962,7 @@ if not os.path.exists(rnn_model_file):
     ],
     verbose=2)
 
-# Restore the model with wrapper.
-imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)
+imdb_rnn.model = tf.keras.models.load_model(rnn_model_file)  # Restore the best model with wrapper.
 imdb_rnn.classes_ = np.array([0, 1])
 imdb_rnn_yhat = imdb_rnn.predict_proba(seq_test_padded)[:,1]  # Interence of RNN take time.
 imdb_rnn_pred = (imdb_rnn_yhat > .5).astype(int)
@@ -1344,11 +1347,12 @@ Here is a cat from our dataset:
 from tensorflow.keras.preprocessing import image
 
 def cat_shot(i, data=img_data, filename=False):
-  acat_file = data.loc[data["class"] == "Cat", "fullpath"].iloc[i]
+  """Return a cat image in file path or plot."""
+  outfile = data.loc[data["class"] == "Cat", "fullpath"].iloc[i]
   if filename:
-    return acat_file
+    return outfile
   else:
-    img = image.load_img(acat_file)
+    img = image.load_img(outfile)
     ax = plt.imshow(img)
     plt.show()
 
@@ -1389,7 +1393,11 @@ def img_predict(infile):
   p = mobilev2.predict(i)
   return imagenet_utils.decode_predictions(p)
 
-acat_file = cat_shot(110, filename=True)
+acat_file = cat_shot(110, filename=True)  # This is a tabby.
+for e in img_predict(acat_file)[0]:
+  print(e)
+
+acat_file = cat_shot(137, filename=True)  # This is a Persian.
 for e in img_predict(acat_file)[0]:
   print(e)
 ```
@@ -1485,12 +1493,10 @@ if not os.path.exists(cat_dog_model_file):
       tf.keras.callbacks.ModelCheckpoint(cat_dog_model_file, monitor="val_loss", save_best_only=True)
     ],
     verbose=2)
-else:
-  cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)
+
+cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)  # Restore the best model.
 
 def img_tr_predict(infile):
-  img = image.load_img(infile, target_size=(224, 224))
-  img_a = np.expand_dims(image.img_to_array(img), axis=0)
   i = img_prep(infile)
   p = cat_dog_model.predict(i)
   return p
@@ -1507,10 +1513,11 @@ infile = cat_shot(19, data=img_data_test, filename=True)
 show_img_exp(infile, cat_dog_model)
 ```
 
-Here the model failed to capture the cat's head.
+Here the model failed to capture the cat's head hiding in-between a white blanket.
 
 Surely our model isn't trained seriously.
-But we do realize that via model explanation we are closer to understand how it infers.
+But we do realize that via model explanation we are closer to understand how it infers,
+provided that our explanation is locally faithful.
 
 # Shapley Value
 
@@ -1687,7 +1694,7 @@ Again the original model can be any blackbox algorithm.
 All we need is the access to its prediction interface AND also the original training dataset in order to do the sampling approximation.
 
 We will skip the hands-on exercise on Shapley value approach,
-jumping directly to a more general and also computationally efficient approach: SHAP
+jumping directly to a more general and also computationally efficient approach: SHAP.
 But the discussion here will definitely help us understand SHAP since they are closely related to each other.
 
 # SHAP
@@ -1755,6 +1762,21 @@ by the following procedure:
 
 Step 2 is to marginalize out the impact of absent features,
 which we've discussed already in the Shapley value section.
+`shap` does this with what it calls a "background dataset."
+The size of the background dataset significantly impacts the performance of the explainer,
+since each coalition sample must be averaged over the model prediction of all background data points.
+
+For completeness,
+here is a quote from the docstring of `KernelExplainer` about the marginalization task:
+
+```
+...Since most models aren't designed to handle arbitrary missing data at test
+time, we simulate "missing" by replacing the feature with the values it takes in the
+background dataset. So if the background dataset is a simple sample of all zeros, then
+we would approximate a feature being missing by setting it to zero. For small problems
+this background dataset can be the whole training set, but for larger problems consider
+using a single reference value or using the kmeans function to summarize the dataset.
+```
 
 ### SHAP Kernel v.s. LIME
 
@@ -1771,6 +1793,8 @@ which is in turn based on cooperative game theory.
 
 Based on the theoretical derivation,
 SHAP uses a linear regression *without* regularization in order to faithfully recover Shapley value.
+^[In `shap.KernelExplainer`'s actual implementation it may still use a LASSO with a non-zero regularization term.
+Readers interested can refer to the source code of `KernelExplainer`.]
 In LIME instead a LASSO path is used to prefer a sparse solution.
 The choice is again heuristic and in `lime` it is possible to switch the local model to any other linear regressor.
 
@@ -1780,13 +1804,17 @@ Put it differently,
 if we deliberately choose the weighting function and the local regressor,
 we are able to use LIME approach to just estimate Shapley value.
 
+Another important but subtle difference is in explaining text classifiers.
+`lime` restricts its local sampling to present tokens of the target example only,
+while `shap` doesn't.
+
 ### The Intuition
 
 We (purposely) skip the discussion on proving the above weighted linear model can recover Shapley value.
 For readers who are interested please refer to the supplementary material to the original paper.
 Here instead we discuss the intuition behind the scene.
 
-If we look at the definition of Shapley value:
+If we look at the definition of Shapley value restated here:
 
 $$
 \varphi_j(\nu) =
@@ -1795,7 +1823,7 @@ $$
 \bigg[ \nu(S_{j+}) - \nu(S_{j-}) \bigg],
 $$
 
-we realize that we are measuring an expected value of difference.
+we realize that we are measuring an expected value of differences.
 To estimate such difference of a binary variable we know that we can simply include a dummy variable in our design matrix for a regression problem.
 Now the only task left is to specify a correct weighting scheme such that the expectation will take into consideration how feature coalition can be formed.
 SHAP is novel since it derives the correct weighting scheme such that the regression coefficients are exactly Shapley value.
@@ -1823,7 +1851,7 @@ with the interaction with all other features.
 
 ## Estimate Shapley Value with Expected Gradients
 
-Ohter than a specific approach for tree ensembels,
+Ohter than a specific approach for tree ensembles,
 in `shap` the `GradientExplainer` is used to handle deep neural nets (and hence model-specific),
 especially image models.
 It connects Shapley value with *integrated gradients* (@sundararajan2017axiomatic),
@@ -1866,7 +1894,7 @@ We accumulate all the resulting gradients to attribute the importance of that pa
 Apparently a base input is *required* in order to calculate the integrated gradients of a particular instance.
 The choice of base input can heavily affect our ability to interpret a model.
 By definition the value in base input must represent feature missing.
-A black image as base input has the inherent problem to assume black pixel is missing,
+A black image as base input implicitly assumes black pixel is missing,
 which may be or may not be true,
 depending on the actual application.
 It is totally possible that in the original model a black pixel can be an important signal to the label.
@@ -1879,6 +1907,9 @@ how to choose a base input becomes a critical issue in integrated gradients.
 There are studies specifically focus on this area.
 One possible direction is to choose multiple base inputs and average them to arrive at the final results.
 This is refered to as *expected gradients*.
+The rationale is the same as all the methods we already discussed:
+We marginalize the effect of a feature value in model inference task,
+as if that value is not even present in the first place.
 ^[For a detailed discussion on integrated gradients here is a great article:
 [VisualizingExpectedGradients](https://github.com/psturmfels/VisualizingExpectedGradients).]
 
@@ -2263,20 +2294,25 @@ So the way we want to construct the explanation model may well affect our implem
 
 ### On Image Classifiers
 
+We use the expected gradients to explain our image model.
+
 ```python
-# TODO: Fix this.
 # Prepare background distribution of ImageNet embeddings.
-bg_X, _ = shap.datasets.imagenet50()  # TODO: Use random sample from cats and dogs only?
+# Since we freeze our imagenet embeddings, we can use the built-in summary embeddings.
+bg_X, _ = shap.datasets.imagenet50()
 
+# NOTE:
+# GradientExplainer does not support Keras models without pre-determined input shape.
 eg_explainer = shap.GradientExplainer(
-  model=(cat_dog_model.input, cat_dog_model.output),
-  data=[mobilenet_v2.preprocess_input(bg_X)])
+  # We can also choose to explain an intermediate layer.
+  model=(mobilev2.input, mobilev2.output),
+  data=mobilenet_v2.preprocess_input(bg_X))
 
-infile = cat_shot(4, data=img_data_test, filename=True)
+infile = cat_shot(19, data=img_data_test, filename=True)
 x = img_prep(infile)
 
+# TODO: This is damn slow...
 shap_values, _ = eg_explainer.shap_values(x)
-
 shap.image_plot(shap_values, x, ["Cat", "Dog"])
 ```
 
