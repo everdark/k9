@@ -2377,8 +2377,7 @@ bg_X, _ = shap.datasets.imagenet50()
 # NOTE:
 # GradientExplainer does not support Keras models without pre-determined input shape.
 eg_explainer = shap.GradientExplainer(
-  # We can also choose to explain an intermediate layer.
-  model=(mobilev2.input, mobilev2.output),
+  model=mobilev2,
   data=mobilenet_v2.preprocess_input(bg_X))
 
 infile = cat_shot(19, data=img_data_test, filename=True)
