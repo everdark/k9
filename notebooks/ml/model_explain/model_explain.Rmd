@@ -2142,18 +2142,45 @@ Let's take this chance to use the model-agnostic `shap.KernelExplainer`.
 The compromise is that it will run very slow for even just one prediction.
 
 ```{python shap_kernel_imdb_nn}
+# Explain the two RF examples previously used.
 imdb_exp_ind = np.array([imdb_rf_tp_idx[0], imdb_rf_fp_idx[0]])
-# KernelExplainer.
-def mm(X):
-  return imdb_tr.predict_proba(X)[:,1]
 
-imdb_nn_shap_explainer = shap.KernelExplainer(mm, seq_train_padded[:50])
-# This is VERY slow...
-#imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
-# TODO:
-# Contribution is attributed to original sequence input.
-# In order to make explanation readable,
-# we need to map each position to original word id then to word.
+# We use only a small set of data as the background for feature marginalization.
+imdb_nn_shap_explainer = shap.KernelExplainer(imdb_nn.predict_proba, seq_train_padded[:50])
+
+# This can be VERY slow. (~1.5 min for just 2 predictions.)
+# Since we have a relatively large input space. (Max len of input sequence.)
+imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
+
+# The attribution is assigned on original input sequence.
+# To convert it into readable content we need to make them back to token id.
+def imdb_nn_shap_plot(test_id, matplotlib=True):
+  # Strip paddings.
+  features = seq_test_padded[test_id]
+  maxlen = (features != 0).sum()
+  features = features[:maxlen]
+  feature_names = [tokenizer.index_word.get(i, "<pad>") for i in features]
+  shap_plt = shap.force_plot(
+    imdb_nn_shap_explainer.expected_value[1],
+    imdb_nn_kernel_shap_values[1][test_id,:maxlen],
+    features=features,
+    feature_names=feature_names,
+    matplotlib=matplotlib
+  )
+  return shap_plt
+
+shap.plots.force.save_html("/tmp/shap_explain_text_rf_tp.html",
+  imdb_nn_shap_plot(0, matplotlib=False))
+shap.plots.force.save_html("/tmp/shap_explain_text_rf_fp.html",
+  imdb_nn_shap_plot(1, matplotlib=False))
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_text_rf_tp.html")
+```
+
+```{r echo=FALSE}
+htmltools::includeHTML("/tmp/shap_explain_text_rf_fp.html")
 ```
 
 ### On Tabular Data Classifiers
