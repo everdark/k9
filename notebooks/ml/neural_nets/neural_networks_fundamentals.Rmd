@@ -181,7 +181,7 @@ def plot_offline(data, layout, ofile):
            include_plotlyjs=False)
   return p
 
-ofile = "plots/toy_reg.html"
+ofile = "/tmp/toy_reg.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=X[:,1], y=y, mode="markers")],
@@ -338,7 +338,7 @@ In general if the sample size is too small a smaller learning rate should be use
 This can be more clearly seen if we plot the trace of our training losses:
 
 ```{python linear_reg_diff_lr_plot}
-ofile = "plots/toy_reg_loss_compare.html"
+ofile = "/tmp/toy_reg_loss_compare.html"
 pdata = [go.Scatter(x=np.arange(len(losses[lr])), y=losses[lr], name=lr)
          for lr in losses.keys()]
 p = plot_offline(
@@ -405,7 +405,7 @@ In our simple problem indeed just 1 epoch can have a good approximation already.
 The trace of (per-instance) loss for the first 500 updates:
 
 ```{python linear_reg_sgd_plot}
-ofile = "plots/toy_reg_sgd_loss.html"
+ofile = "/tmp/toy_reg_sgd_loss.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=np.arange(len(sgd_loss[:500])), y=sgd_loss[:500])],
@@ -512,7 +512,7 @@ prob = np.linspace(.001, .95, num=100)
 odds = prob / (1 - prob)
 log_odds = np.log(odds)
 
-ofile = "plots/prob_odds.html"
+ofile = "/tmp/prob_odds.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=prob, y=odds)],
@@ -530,7 +530,7 @@ If we further transform odds to log-odds,
 the range is transformed from $[0,\infty]$ to $[-\infty,\infty]$.
 
 ```{python logit_odds_logodds_plot}
-ofile = "plots/prob_odds.html"
+ofile = "/tmp/prob_odds_log.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=odds, y=log_odds)],
@@ -555,7 +555,7 @@ def sigmoid(t):
   return np.exp(-np.logaddexp(0, -t))
 
 t = np.linspace(-10, 10, num=100)
-ofile = "plots/sigmoid.html"
+ofile = "/tmp/sigmoid.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=t, y=sigmoid(t))],
@@ -603,7 +603,7 @@ def entropy_binary(p):
 
 prob = np.linspace(.01, .99, num=100)
 
-ofile = "plots/entropy.html"
+ofile = "/tmp/entropy.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=prob, y=entropy_binary(prob))],
@@ -830,7 +830,7 @@ print(log_beta)
 ```
 
 ```{python logit_loss_plot}
-ofile = "plots/toy_log_loss.html"
+ofile = "/tmp/toy_log_loss.html"
 pdata = [go.Scatter(x=np.arange(len(log_loss)), y=log_loss)]
 p = plot_offline(
   ofile=ofile,
@@ -1553,7 +1553,7 @@ shapes = [
 w1_axis = dict(title=r"$w_{1}$", range=[-t*1.5, t*1.5])
 w2_axis = dict(title=r"$w_{2}$", range=[-t*1.5, t*1.5], scaleanchor="x", scaleratio=1)
 
-ofile = "plots/reg_geom.html"
+ofile = "/tmp/reg_geom.html"
 p = plot_offline(
   ofile=ofile,
   data=[
@@ -1594,7 +1594,7 @@ z_loss = np.asarray(z_loss).reshape(20, 20, order="F")
 ```{python 3d_loss_plot}
 w1, w2 = ols(X, y)  # Unregularized OLS solution.
 
-ofile = "plots/3d_loss.html"
+ofile = "/tmp/3d_loss.html"
 p = plot_offline(
   ofile=ofile,
   data=[
@@ -1632,7 +1632,7 @@ especially the contour on the parameter plain,
 the tangent point between the regularization area and the contour is exactly our regularized solution for the weights.^[Since plotly.js currently doesn't support uneven interval for contour plot, in the contour-regularization plot we take natrual log of MSE just to scale the value so that the contour line will have non-linear interval. This help us show more lines when loss becomes smaller.]
 
 ```{python loss_contour_reg_plot}
-ofile = "plots/loss_contour_reg.html"
+ofile = "/tmp/loss_contour_reg.html"
 p = plot_offline(
   ofile=ofile,
   data=[
@@ -1714,7 +1714,7 @@ from scipy.stats import laplace, norm
 
 xticks = np.linspace(-5, 5, num=1000)
 
-ofile = "plots/reg_prior.html"
+ofile = "/tmp/reg_prior.html"
 p = plot_offline(
   ofile=ofile,
   data=[go.Scatter(x=xticks, y=laplace.pdf(xticks), name="Laplacean Prior (L1)"),
