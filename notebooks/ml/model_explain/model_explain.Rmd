@@ -365,8 +365,7 @@ import os
 import logging
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import warnings
-warnings.simplefilter(action="ignore", category=UserWarning)
-warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=Warning)
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -2296,7 +2295,7 @@ So the way we want to construct the explanation model may well affect our implem
 
 We use the expected gradients to explain our image model.
 
-```python
+```{python shap_eg_on_image}
 # Prepare background distribution of ImageNet embeddings.
 # Since we freeze our imagenet embeddings, we can use the built-in summary embeddings.
 bg_X, _ = shap.datasets.imagenet50()
@@ -2311,10 +2310,22 @@ eg_explainer = shap.GradientExplainer(
 infile = cat_shot(19, data=img_data_test, filename=True)
 x = img_prep(infile)
 
-# TODO: This is damn slow...
-shap_values, _ = eg_explainer.shap_values(x)
-shap.image_plot(shap_values, x, ["Cat", "Dog"])
+shap_values, top_ind = eg_explainer.shap_values(x, ranked_outputs=2)
+
+# Retreieve original imagenet label.
+# This is auto downloaded when we init the imagenet embeddings.
+with open(os.path.join(cache_dir, "models", "imagenet_class_index.json"), "r") as f:
+  imagenet_classes = json.load(f)
+
+# Convert predicted label to readable class.
+top_cls_ind = np.array([imagenet_classes[str(i)][1] for i in top_ind[0]])
+
+# Plot EG explanation.
+shap.image_plot(shap_values, x, top_cls_ind[np.newaxis,:])
 ```
+
+Apparently the hidding cat's head is also ignored by the pre-trained ImageNet model.
+Blanket plays a bigger role in shaping the prediction.
 
 # Explainable Boosting Machine
 
