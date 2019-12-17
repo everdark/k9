@@ -1352,6 +1352,9 @@ def cat_shot(i, data=img_data, filename=False):
     return outfile
   else:
     img = image.load_img(outfile)
+    # Down-scale to reduce notebook file size.
+    w, h = img.size
+    img = img.resize((w // 2, h // 2))
     ax = plt.imshow(img)
     plt.show()
 
