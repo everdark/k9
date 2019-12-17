@@ -2172,7 +2172,8 @@ imdb_nn_shap_explainer = shap.KernelExplainer(imdb_nn.predict_proba, seq_train_p
 
 # This can be VERY slow. (~1.5 min for just 2 predictions.)
 # Since we have a relatively large input space. (Max len of input sequence.)
-imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(seq_test_padded[imdb_exp_ind])
+imdb_nn_kernel_shap_values = imdb_nn_shap_explainer.shap_values(
+  seq_test_padded[imdb_exp_ind], silent=True)
 
 # The attribution is assigned on original input sequence.
 # To convert it into readable content we need to make them back to token id.
