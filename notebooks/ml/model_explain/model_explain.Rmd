@@ -1558,6 +1558,32 @@ and $N\setminus \{j\}$ is the entire player set except player $j$,
 $S_{j+}$ denotes a coalition with player $j$,
 $S_{j-}$ denotes a coalition without player $j$.
 
+**All Paths to a Full Coalition**
+
+Here is to understand the equation a bit more.
+The factorial $n!$ is the total number of possible ways to grow coalitions from empty to full.
+For example if we have 3 players when forming a coalition we have 3 choices to pick up the first person,
+then 2 choices to pick up the second person,
+and only 1 choice left to form a coalition full of 3.
+So total possible paths to full coalitions will be $3! = 3 \times 2 \times 1 = 6$.
+
+**Individual Contribution**
+
+Now in each path a player $j$ will join the coalition at some point in time.
+This is where the attribution term $\nu(S_{j+}) - \nu(S_{j-})$ can be calculated for that player.
+Apparently,
+since we have $n!$ different paths it suggests that a player $j$ will have $n!$ such attribution values.
+
+**Weighted by Possibility**
+
+While we have in total $n!$ different paths from zero to full coalition,
+there is only 4 distinct pairs of $(S_{j+}, S_{j-})$ for player $j$.
+And they are not equally likely to happen.
+This is why we have the numerator term in $\gamma(S,N)$,
+scaling each pair by its frequency in all possible paths.
+$m$ is the coalition size before $j$ joins.
+For example when $m = 0$ (from empty coalition) the frequency of $j$ becoming the first player in coalition is $m!(n - m - 1)! = 0!(3 - 0 - 1)! = 2$ out of $n! = 3! = 6$ paths.
+
 So essentially Shapley value of player $j$ is the *weighted average payoff difference* between all possible team work compositions (coalitions) with and without $j$.
 
 ## ML Models As Cooperative Games
