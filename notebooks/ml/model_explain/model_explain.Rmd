@@ -1456,14 +1456,14 @@ img_data_train, img_data_test = train_test_split(img_data, test_size=.1, random_
 img_train_generator = image.ImageDataGenerator(
   preprocessing_function=mobilenet_v2.preprocess_input
   ).flow_from_dataframe(
-    img_data_train, x_col="fullpath",
+    img_data_train, x_col="fullpath", classes=["Cat", "Dog"],
     batch_size=32, target_size=(224, 224))
 
 img_test_generator = image.ImageDataGenerator(
   preprocessing_function=mobilenet_v2.preprocess_input
   ).flow_from_dataframe(
-    img_data_test, x_col="fullpath",
-    batch_size=32, target_size=(224, 224))
+    img_data_test, x_col="fullpath", classes=["Cat", "Dog"],
+    batch_size=32, target_size=(224, 224), shuffle=False)
 
 # Test the generator.
 batch = img_train_generator.next()
@@ -1514,6 +1514,12 @@ if not os.path.exists(cat_dog_model_file):
 
 cat_dog_model = tf.keras.models.load_model(cat_dog_model_file)  # Restore the best model.
 
+cat_dog_yhat = cat_dog_model.predict(img_test_generator)
+cat_dog_pred = (cat_dog_yhat[:,1] > .5).astype(int)
+
+print(classification_report(img_test_generator.labels, cat_dog_pred))
+print(roc_auc_score(img_test_generator.labels, cat_dog_yhat[:,1]))
+
 def img_tr_predict(infile):
   i = img_prep(infile)
   p = cat_dog_model.predict(i)
@@ -1532,6 +1538,9 @@ show_img_exp(infile, cat_dog_model)
 ```
 
 Here the model failed to capture the cat's head hiding in-between a white blanket.
+(The red area is decreasing the prediction toward a cat.)
+Whatever it is predicting,
+it is not really capture the correct signal in the photo.
 
 Surely our model isn't trained seriously.
 But we do realize that via model explanation we are closer to understand how it infers,
