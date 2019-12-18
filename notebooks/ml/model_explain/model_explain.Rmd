@@ -2570,10 +2570,11 @@ from interpret.glassbox import ExplainableBoostingClassifier
 ucihd_ebm = ExplainableBoostingClassifier(
   n_estimators=16, feature_names=ucihd_2.columns, n_jobs=1)
 _ = ucihd_ebm.fit(ucihd_X_train, ucihd_y_train)
+```
 
+```{python ucihd_ebm_eval}
 ucihd_ebm_yhat = ucihd_ebm.predict_proba(ucihd_X_test)[:,1]
 ucihd_ebm_pred = (ucihd_ebm_yhat > .5).astype(int)
-
 print(classification_report(ucihd_y_test, ucihd_ebm_pred))
 print(roc_auc_score(ucihd_y_test, ucihd_ebm_yhat))
 ```
