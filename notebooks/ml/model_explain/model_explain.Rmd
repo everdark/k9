@@ -334,7 +334,7 @@ Of course this is more of a compromise for better intrepretability.
 
 And for the local sampling,
 notice that we only subsample from the presence of features on the target example.
-So the explanation is on the presence or absence of the anything actually present in the target example.
+So the explanation is on the presence or absence of anything actually present in the target example.
 A feature that is originally not present in the example can never be part of the explanation.
 This could potentially miss an important null effect of a feature.
 
@@ -354,6 +354,10 @@ Be aware that in `lime`'s implementation this limitation only applies to text cl
 The initial local sampling is subject to only non-missing features, i.e., present tokens.
 For tabular data features are all considered present.
 The way we mark a feature as absent (missing) is through replacing it randomly.
+
+This is indeed a very important concept as how we represent missingness.
+In the latter discussion on Shapley value (and more),
+we will see that the ability to well represent a feature value to be missing is the key to attribute feature importance in a theoretically sound manner.
 
 ## Hands-on Explanation Demo
 
@@ -919,7 +923,11 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_tp.html"))
 For the negative review,
 interestingly,
 the transfer learning NN indeed makes a correct prediction of negative label.
-The word `bore` becomes the main driving force to lower down the score.
+^[Making neural network model reproducible is tricky,
+especially with GPU.
+In our experiments we realize sometimes the word `bore` becomes the main driving force to lower down the score.
+But sometimes it does not.
+Whether it is due to the sensitivity of the original model or the local explanation model is not clear.]
 
 ```{r, echo=FALSE}
 htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
@@ -932,7 +940,8 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_text_tr_fp.html"))
 As a final exercise on text classification,
 let's experiment the explanation modeling with a recurrent neural network (RNN)
 RNN is known to be able to capture sequential dependencies better than ngram bag-of-words approach.
-^[Note that, even for a single recurrent layer, training a RNN will be prohibitively slow without a GPU.]
+
+(Note that, even for a single recurrent layer, training a RNN will be prohibitively slow without a GPU.)
 
 ```{python imdb_rnn}
 rnn_model_file = os.path.join(model_dir, "text_clf_rnn.h5")
@@ -1072,7 +1081,7 @@ print(ucihd.head())
 
 #### Explain Random Forest {-}
 
-Again we try to explain tree ensembels.
+Again we try to explain tree ensembles.
 
 ```{python ucihd_rf}
 # sklearn's implementation of RF doesn't allow missing value.
@@ -1244,7 +1253,7 @@ htmltools::includeHTML(parse_lime_html_output("/tmp/explain_tab_lgb_fp.html"))
 **This section is a digression on `lightgbm` usage.**
 
 Since `lime`'s API requires us to prepare our dataset in one-hot encoding representation,
-our `lightgbm` code use the same data pipeline as in `scikit-learn` random forest.
+our `lightgbm` code uses the same data pipeline as in `scikit-learn` random forest.
 But that is actually not optimized for `lightgbm`.
 The following code chunk showcases the best practice of encoding categoricals in `lightgbm`:
 We don't encode them at all!
@@ -2171,9 +2180,7 @@ print(shap_v)  # Shap values of all features for the example.
 print(shap_v.shap_value.sum())  # The sum of shap values.
 ```
 
-From the entire shap values we can know for example that the absence of `great` contributes negatively,
-and the presence of `love` contributes positively,
-to the final prediction.
+And here is the SHAP explanation for the RF false positive case:
 
 ```{python shap_imdb_lgb_fp_exp}
 shap.plots.force.save_html("/tmp/shap_explain_lgb_text_rf_fp.html",
@@ -2184,9 +2191,11 @@ shap.plots.force.save_html("/tmp/shap_explain_lgb_text_rf_fp.html",
 htmltools::includeHTML("/tmp/shap_explain_lgb_text_rf_fp.html")
 ```
 
-For the false positive case,
-similar to RF,
-the word `great` play a big role in shaping the GBT prediction toward positive.
+From both cases we can know for example that the absence of `bad`
+(indicated by a 0 tf-idf value)
+contributes positively to the final prediction.
+This is different from LIME where exh explanation on a text classifier is only conditioned on present tokens at the target example.
+For SHAP all features will be assigned their contribution.
 
 #### Explain Neural Nets with Word Embeddings {-}
 
@@ -2401,6 +2410,7 @@ So the way we want to construct the explanation model may well affect our implem
 ### On Image Classifiers
 
 We use the expected gradients to explain our image model.
+We explain the top 2 predictions within the ImageNet 1000 classes.
 
 ```{python shap_eg_on_image}
 # Prepare background distribution of ImageNet embeddings.
@@ -2432,6 +2442,8 @@ shap.image_plot(shap_values, x, top_cls_ind[np.newaxis,:])
 
 Apparently the hidding cat's head is also ignored by the pre-trained ImageNet model.
 Blanket plays a bigger role in shaping the prediction.
+Interestingly,
+the second most possible prediction is a dog.
 
 # Explainable Boosting Machine
 
