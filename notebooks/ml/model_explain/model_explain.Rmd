@@ -261,6 +261,11 @@ By default in the paper 5,000 samples are generated for each single explanation.
 A hyperparameter $K$ (default at 10) is used to cap how many non-zero interpretable features we'd like to estimate in the subsequent model learning phase,
 to not only keep the model solving tractable but also manageable for human interpretation.
 
+Note that for tabular data the notion of non-zero above does not apply.
+Because a value of 0 can be valid.
+So instead of doing local sampling subject to non-zero values,
+all feature values are taken into consideration and we randomize them (by also randomly choosing which feature values to randomized).
+
 ## Learning Task of the Explanation Model
 
 Now each of the perturbed example will be first *transformed back* to their original feature space,
