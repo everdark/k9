@@ -2666,4 +2666,22 @@ In general it allows us...
 3. To differentiate different models with similar testing scores
 4. To build trust on a model, especially for the end user, to better formulate the subsequent action item
 
+While explanation is good,
+we also need to be careful about its limitation.
+@ghorbani2019interpretation,
+for example,
+demonstrate *adversarial attacks* on interpretation of deep neural networks on an image classification task,
+showing that interpretation can be drastically changed by such attack without changing model prediction.
+And the attack is a random permutation not noticeable by human eyes.
+Such limitations come directly from the complexity of neural networks themselves,
+especially in high dimension and non-linearity.
+
+To sum up,
+the research on explainable machine learning models is still relatively new and very active.
+This notebook reviews several influential approaches with hands-on coding examples to practice how we can experiment and interact with model explanation.
+^[Google Cloud just launched their [xAI](https://cloud.google.com/explainable-ai/) product for model explainability.
+They implement two approaches:
+integrated gradients and sampling Shapley values.
+Refer to their [whitepaper](https://storage.googleapis.com/cloud-ai-whitepapers/AI%20Explainability%20Whitepaper.pdf) for more details.]
+
 # References
