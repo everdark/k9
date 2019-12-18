@@ -1524,23 +1524,59 @@ def img_tr_predict(infile):
   i = img_prep(infile)
   p = cat_dog_model.predict(i)
   return p
-
-# Predict a testing cat.
-cat_shot(19, data=img_data_test)
-
-print(img_test_generator.class_indices)  # Check label index.
-print(img_tr_predict(cat_shot(19, data=img_data_test, filename=True)))
 ```
 
-```{python lime_on_image_tr}
+Here are some explanations.
+
+```{python lime_on_image_tr_0}
+# Predict a testing cat.
+cat_shot(0, data=img_data_test)
+
+print(img_test_generator.class_indices)  # Check label index.
+print(img_tr_predict(cat_shot(0, data=img_data_test, filename=True)))  # Check top predicted label.
+
+infile = cat_shot(0, data=img_data_test, filename=True)
+show_img_exp(infile, cat_dog_model)
+```
+
+```{python lime_on_image_tr_1}
+# Predict another testing cat.
+cat_shot(99, data=img_data_test)
+
+print(img_tr_predict(cat_shot(99, data=img_data_test, filename=True)))  # Check top predicted label.
+
+infile = cat_shot(99, data=img_data_test, filename=True)
+show_img_exp(infile, cat_dog_model)
+```
+
+```{python lime_on_image_tr_2}
+# Predict yet another testing cat.
+cat_shot(100, data=img_data_test)
+
+print(img_tr_predict(cat_shot(10, data=img_data_test, filename=True)))  # Check top predicted label.
+
+infile = cat_shot(100, data=img_data_test, filename=True)
+show_img_exp(infile, cat_dog_model)
+```
+
+```{python lime_on_image_tr_3}
+# Predict a challenging testing cat.
+cat_shot(19, data=img_data_test)
+
+print(img_tr_predict(cat_shot(19, data=img_data_test, filename=True)))  # Check top predicted label.
+
 infile = cat_shot(19, data=img_data_test, filename=True)
 show_img_exp(infile, cat_dog_model)
 ```
 
+The last case is indeed challenging for the model.
 Here the model failed to capture the cat's head hiding in-between a white blanket.
-(The red area is decreasing the prediction toward a cat.)
+(The red area is decreasing the prediction toward a top class.)
 Whatever it is predicting,
 it is not really capture the correct signal in the photo.
+Indeed,
+our model is very sensitive to this particular image.
+Re-training the model may give different prediction.
 
 Surely our model isn't trained seriously.
 But we do realize that via model explanation we are closer to understand how it infers,
