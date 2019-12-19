@@ -1,0 +1,100 @@
+---
+title: "Introduction to Gradient Boosting Trees"
+subtitle: "From Theory to Hands-On Examples"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (09 Dec 2019 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: gbt.bib
+nocite: |
+  @reticulate
+  @friedman2001greedy
+abstract: |
+  TBC.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Introduction to Gradient Boosting Trees: From Theory to Hands-On Examples">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/gradient_boosting/gbt.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
+  '<meta property="og:description" content="A data science notebook about gradient boosting trees.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/ml/gradient_boosting")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+```
+
+---
+
+This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate),
+a package that allows inter-operation between R and Python.
+
+---
+
+# Motivation
+
+# Gradient Boosting Machines
+
+General discussion.
+
+# Tree Ensembles
+
+Do we need to review decision tree?
+
+non-differentiable model -> additive training
+each single tree is a week learner
+how to add the next tree? optimization critera
+
+regularization term -> impurity measure with regularization (this is novel in xgb)
+
+# XGBoost
+
+@Chen:2016:XST:2939672.2939785
+
+loss function is approximated by taylor expansion up to 2nd order -> allow plig-and-play any loss function
+
+> For model, it might be more suitable to be called as regularized gradient boosting.
+
+Split on missing.
+
+# LightGBM
+
+@ke2017lightgbm
+
+Histogram tree.
+Leaf-wise split.
+
+also include? DART: Dropouts meet Multiple Additive Regression Trees.
+@rashmi2015dart
