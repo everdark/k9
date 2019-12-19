@@ -1943,6 +1943,8 @@ with the interaction with all other features.
 Ohter than a specific approach for tree ensembles,
 in `shap` the `GradientExplainer` is used to handle deep neural nets (and hence model-specific),
 especially image models.
+Or in a broader sense,
+any *differentiable* model.
 It connects Shapley value with *integrated gradients* (@sundararajan2017axiomatic),
 which is another model explanation approach specifically designed for deep neural networks.
 
@@ -1978,6 +1980,42 @@ Hence instead of calculating the input gradient,
 we calculate the gradient all along the way from the input being "missing" (represented by a base input) and gradually becomes the observed input.
 We accumulate all the resulting gradients to attribute the importance of that particular dimension.
 
+#### Connection between IG and Shapley Value {-}
+
+Though sharing with similar properties,
+integrated gradients are not Shapley value.
+If we'd like to calculate the Shapley value using integrated gradients for a differentiable model,
+instead of integrate along the straight line between the base input and the target input,
+we need to integrate along all possible extremal paths and take the average.
+We will have $n!$ such paths for $n$ features in the Euclidean space.
+Each path corresponds to a specific way to grow the coalition from an empty set to the full feature set.
+This can be visually illustrated in the following plot:
+
+```{r ig_extremal_path, echo=FALSE}
+ig1 <- data.frame(x=c(0, .5), y=c(0, .5))
+ig2 <- data.frame(x=c(.5, 1), y=c(.5, 1))
+p1 <- data.frame(x=c(0, 0, 1), y=c(0, 1, 1))
+p2 <- data.frame(x=c(0, 1, 1), y=c(0, 0, 1))
+
+ggplot(mapping=aes(x, y)) +
+  geom_path(data=ig1, arrow=arrow(), color="blue") +
+  geom_path(data=ig2, color="blue") +
+  geom_path(data=p1, arrow=arrow(), color="red") +
+  geom_path(data=p2, arrow=arrow(), color="red") +
+  annotate("text", x=.5, y=.4, label="Integrated Gradients Path", color="blue") +
+  annotate("text", x=.5, y=.025, label="Extremal Path 1", color="red") +
+  annotate("text", x=.025, y=.5, label="Extremal Path 2", color="red")
+```
+
+For a simple case of only two features,
+total number of possible coalition paths are just 2.
+Assuming the zero origin as the base input and $(1, 1)$ as the target example,
+for each feature we need to do path integrated gradients along the two red lines and take averge to arrive at the Shapley value of that feature.
+
+In the original IG paper the authors mentioned that the choice of extremal path average or a straight line approach is somewhat subjective.
+And since the former requires a considerablly higher computation cost,
+they propose the latter approach.
+
 #### Base Input as Missingness {-}
 
 Apparently a base input is *required* in order to calculate the integrated gradients of a particular instance.
@@ -2001,6 +2039,10 @@ We marginalize the effect of a feature value in model inference task,
 as if that value is not even present in the first place.
 ^[For a detailed discussion on integrated gradients here is a great article:
 [VisualizingExpectedGradients](https://github.com/psturmfels/VisualizingExpectedGradients).]
+
+Note that in Shapley value approach the base input is implicitly assumed.
+In theory it is the model output of an empty coalition.
+Practically it will be the average predicted value over a bakcground dataset (usually the training dataset).
 
 ### From Integrated Gradients to SHAP
 
@@ -2039,6 +2081,22 @@ pixels are not independent from their surrounding pixels.
 So the solution is at best an approximation.
 For all the above `shap` explainers we've discussed,
 only the `TreeExplainer` does not need to assume feature independence.
+
+#### Expected Gradients = Shapley Value? {-}
+
+The method of expected gradients does not average over all possible extremal paths from the a single base input.
+Instead,
+it is averaging over the integrated gradients along the straight line from a set of base inputs.
+So strictly speaking expected gradients do not exactly follow the notion of Shapley value (from SHAP's point of view),
+where the attribution must take into consideration the discrete order of feature joinning the coalition.
+If we accept that IG over the straight line is an approximation for averaging IG along all extremal paths,
+then expected gradients can be viewed as an approximation for Shapley value,
+where the base input is no longer a single reference but a distribution.
+
+We should be aware that all these works are inspired by Shapley values,
+but there is no strict definition of feature missingness in the first place when we apply it to a machine learning model.
+In SHAP's philosophy,
+a missing feature is represented by that feature being marginalized over a background dataset.
 
 Let's skip more technical details and move directly on to the actual hands-on examples.
 
