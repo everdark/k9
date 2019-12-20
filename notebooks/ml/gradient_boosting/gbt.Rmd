@@ -4,14 +4,14 @@ subtitle: "From Theory to Hands-On Examples"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (09 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (20 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
     number_sections: yes
     theme: paper
     toc: yes
-    toc_depth: 4
+    toc_depth: 3
     toc_float: yes
     includes:
       in_header: /tmp/meta_header.html
@@ -68,33 +68,304 @@ a package that allows inter-operation between R and Python.
 # Gradient Boosting Machines
 
 General discussion.
+boosting vs gradient boosting.
+adaboost as boosting example
+
+use a linear model as example for gb?
+
+the best learner in GBM is tree. -> discuss tree in the next section
 
 # Tree Ensembles
 
-Do we need to review decision tree?
+Tree models are non-differentiable.
+Gradient-based optimizers won't directly work on tree models.
+This makes them very different from other machine learning models such as neural networks.
 
-non-differentiable model -> additive training
-each single tree is a week learner
-how to add the next tree? optimization critera
+Tree models are powerful because they are non-linear.
+Features are allowed to interacted with each other in a sequential and loss-guided manner.
+And they are invariant to feature scale since a tree split is only ordinal.
+This simplifies data preprocessing and hence the overall pipeline.
 
-regularization term -> impurity measure with regularization (this is novel in xgb)
+## A Single Tree
+
+The idea of a single tree model is rather simple.
+The model uses a split finding algorithm to enumerate over all the possible splits on all the features.
+Once a best split is found based on a particular measure,
+the model move on to find the next split given the current node,
+growing the tree deeper and deeper until a certain criterion is met.
+
+Here is a general pseudo code describing a single split algorithm in its *exact* form:
+
+```
+[Exact Tree Split Algorithm]
+
+m: total number of features
+n: total number of examples
+s: score to measure the quality of a split
+x_ij: the i-th example value on feature j
+
+for feature j in 1 to m:
+  sort x_j
+  for example x_ij in 1 to n on feature j:
+    compute s
+
+do split using j* at x_ij* associated with maximum s
+```
+
+A Tree model involves multiple *sequential* splits to arrive at the terminal node which gives prediction.
+Here are several important components that must be taken care for a detailed implementation:
+
+#### Feature Iteration {-}
+
+The algorithm is greedy.
+To search for the optimal split all features are traversed.
+The immediate consequence is the over-fitting nature of a single tree.
+And it is such difficulty in generalization leads to the idea of tree ensembles.
+
+#### Feature Value Iteration {-}
+
+For each feature,
+a sorting operation is required to traverse over the (distinct) sorted values of that feature.
+The more values a feature can take the more computing resources are needed to find the best split.
+
+#### Quality of Split Measure {-}
+
+This is probably the most imnportant part of a split algorithm.
+It directly affects the accuracy of the resulting tree.
+The quality score measures how good a node is splitting the examples.
+In the literature this is often refered to as *impurity*.
+A classical impurity measure is Gini index for classification and residual sum of squares for regression.
+
+#### Depth of the Tree {-}
+
+How deep (how many splits) should we grow the tree?
+This is a hyper-parameter that can affect model generalization.
+For classification we can grow a tree as deep as until every node contains only one single example.
+That is,
+until no split can be further achieved.
+A tree that is too deep will definitely suffer from over-fitting.
+
+A single tree is usually very bad at generalization.
+The only benefit is probably its *interpretability* since the tree structure itself is a set of human friendly decision rules.
+However due to its poor generalization over unseen data,
+such interpretability is practically of no use.
+
+### A Toy Example
+
+We use the old-school [UCI Iris](https://archive.ics.uci.edu/ml/datasets/iris) dataset to quickly demo a single tree.
+
+```{r rpart_train}
+library(rpart)
+library(rpart.plot)
+
+set.seed(666)
+
+confusion_matrix <- function(y_true, y_pred) {
+  table(y_true, y_pred)
+}
+
+# Split IRIS dataset into train-test.
+is_test <- runif(nrow(iris)) < .3
+iris_train <- iris[!is_test,]
+iris_test <- iris[is_test,]
+
+# Grow a single classification tree.
+f <- rpart(Species ~ ., data=iris_train, method="class")
+rpart.plot(f)
+```
+
+```{r rpart_eval_train}
+# Confusion matrix for the training set.
+print(confusion_matrix(iris_train$Species, predict(f, iris_train, type="class")))
+```
+
+```{r rpart_eval_test}
+# Confusion matrix for the testing set.
+print(confusion_matrix(iris_test$Species, predict(f, iris_test, type="class")))
+```
+
+A single tree model can perform both well in training and testing set for Iris.
+Since the dataset is a bit too trivial.
+In any real world application,
+a single tree is usually not enough to solve the problem.
+And this is where we need *more* trees.
+
+## From One Tree to Many Trees
+
+To overcome the shortfall of a single tree,
+ensembling technique is used to combine multiple trees into one single model.
+There are two very successful ensembling techniques used for tree models:
+bagging and boosting.
+The general idea is to combine many simple (hence weak) trees as a tree committee for final prediction.
+It turns out that the variability in many simple/weak learners can jointly outperform a single (and usually over-fitting) complicated/strong learner.
+
+### Bagging Ensembles
+
+The most well-known bagging tree model is Random Forest (RF hereafter).
+In each single tree in RF the split algorithm is modified to only iterate over a subsample of all features.
+This reduces the ability of any single tree to over-fit the training data and create diversity among different trees.
+RF also use boostrap sampling on the training dataset when doing feature value iteration.
+Rather than search split on full training set it only search on a set of boostrap samples.
+Some model variants even perform only a small number of random splits (instead of finding the best split with a full scan) on the feature value iteration phase.
+
+Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and boostrap (row) sampling,
+in reality RF can still easily over-fit without proper tunning.
+
+One obvious advantage of RF,
+in temrs of computational efficiency,
+is that it is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel).
+Most modern implementation of RF supports single-machine cpu parallel or even distributed computing.
+
+### Boosting Ensembles
+
+Another ensembling technique which has been proven to be even more power empirically is boosting.
+We have already discussed the difference between boosting and gradient boosting.
+Here we specifically refer to gradient boosting since it usually gives better results and it is our main topic in this notebook.
+
+Unlike RF which trains multiple trees independently and aggregates the results,
+gradient boosting trees (GBT hereafter) adopt an additive training procedure,
+so each tree is iteratively added into the model.
+
+Similar to RF or any other tree ensembling,
+each individual tree is a very weak learner.
+But jointly they become very good at generalization.
+Boosting trees indeed have achieved quite some of the state-of-the-art performance real world applications.
+
+Even though GBT has been introduced in the literature for almost 20 years already,
+it is the recent 5 years that several very powerful open source implementations have emerged to really shape the practitioners' choice of toolbox.
+In this notebook we'd like to deep-dive into two of them:
+`xgboost` and `lightgbm`.
+We will focus especially on their novelty in bettering GBT to the extreme.
 
 # XGBoost
 
-@Chen:2016:XST:2939672.2939785
+@Chen:2016:XST:2939672.2939785 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
+probably one of the most influential GBT framework to date.
 
-loss function is approximated by taylor expansion up to 2nd order -> allow plig-and-play any loss function
+## Regularization on Impurity
 
-> For model, it might be more suitable to be called as regularized gradient boosting.
+> The name xgboost, though, actually refers to the engineering goal to push the limit of computations resources for boosted tree algorithms.
+Which is the reason why many people use xgboost.
+For model, it might be more suitable to be called as regularized gradient boosting.
+^[Quoted from the creator of xgboost: https://www.quora.com/What-is-the-difference-between-the-R-gbm-gradient-boosting-machine-and-xgboost-extreme-gradient-boosting]
 
-Split on missing.
+One important and novel feature of XGBoost is to introduce regularization in the impurity measure.
+Before this,
+most tree ensembles focus on using traditional way of regularization,
+such as pruning, subsampling, or limiting number of leaves.
 
-# LightGBM
+In `xgboost` the formulation of the objective function make its tree ensembles extremely flexible.
+Loss can be plug-and-play as well as evaluation metrics.
+In general,
+the model has the following cost function:
+
+$$
+\text{Cost} = \sum_{i=1}^n L(y_i, \hat{y_i}) +
+\frac{1}{2}\lambda\vert\vert W \vert\vert^2 +
+\alpha\vert\vert W\vert\vert,
+$$
+
+where $L(y_i, \hat{y_i})$ is a per-instance loss,
+$W$ is the weights of all tree leaves,
+$\lambda$ and $\alpha$ are L2 and L1 regularization term,
+respectively.
+
+(By default `xgboost` has $\lambda = 1$ and $\alpha = 0$.)
+
+The cost function indeed looks no different than any other differentiable machine learning model we already know.
+What makes it novel is that `xgboost` use the cost as the impurity measure to implement the split finding algorithm in a tree,
+which is not differentiable.
+But how?
+
+### Additive Training
+
+### 2nd-Order Loss Approximation
+
+loss function is approximated by taylor expansion up to 2nd order -> allow plug-and-play any loss function
+
+
+regularization term -> impurity measure with regularization (this is novel in xgb)
+column subsampling
+row subsampling (boostrap bagging)
+shrinkage for newly added weights
+
+## Approximated Tree Split
+
+The exact split finding algorithm is not scalable in large applications.
+So instead XGBoost supports an approximated split algorithm described in the following pseudo code:
+^[Approximated split search is not particularly novel in XGBoost.
+It has been well studied in other academic works.]
+
+```
+[Approximated Tree Split Algorithm]
+
+m: total number of features
+s: score to measure the quality of a split
+eps: percentile increment, dividing feature roughly into 1/eps buckets
+x_pj: the p-th example percentile value on feature j
+
+for feature j in 1 to m:
+  divided feature j into buckets based on eps
+  aggregate s for each bucket
+
+for feature j in 1 to m:
+  for all value x_pj on feature j:
+    compute s based on bucketed aggregation
+
+do split using j* at x_pj* associated with maximum s
+```
+
+The idea is to split only at percentile value,
+introducing one additional parameter called `sketch_eps` (default at 0.03 in `xgboost`) to control the granularity of the buckets.
+So the number of search for each continous variable will be capped roughly at 1/`sketch_eps` instead of the number of distinct values,
+which can be huge.
+
+By default in `xgboost` the bucketization is done only once at the model initialization phase.
+All subsequent splits are performed on the same set of buckets for each feature.
+It is also possible to re-propose new buckets after each optimal split,
+as pointed out in the original paper,
+but such control is not yet open to end user in `xgboost` interface as of `r format(Sys.time(), '%Y-%m-%d')`.
+
+More specifically,
+in `xgboost` the parameter `tree_method` controls the type of splitting algorithm:
+
++ `tree_method="exact"`: The exact splitting algorithm by default when dataset is small
++ `tree_method="approx"`: The approximated splitting algorithm
++ `tree_method="hist"`: The histogram tree approach (refer to [LightGBM section](#lgb) for details)
+
+## Sparsity Awareness: Split on Missing
+
+One novelty in `xgboost` is its capability of dealing with missing values.
+It solves the missing value problem by learning a default branch (either the left or the right child node) for each node in a split.
+During training,
+in each node the missing value can go to either left or right branch.
+Qaulity score for both branches are now computed based on the assumption that missing values should go to the other branch.
+In the end the split algorithm returns not only optimal split but also optimal default branch for missing value.
+
+
+
+
+
+
+
+out-of-core computation (memory efficient)
+process data too large to fit into memory
+
+
+
+
+
+
+
+# LightGBM {#lgb}
 
 @ke2017lightgbm
 
-Histogram tree.
-Leaf-wise split.
+## Histogram Tree Split
+
+## Leaf-Wise Split
+
+
 
 also include? DART: Dropouts meet Multiple Additive Regression Trees.
 @rashmi2015dart
