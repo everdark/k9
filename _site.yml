@@ -23,6 +23,9 @@ navbar:
         - text: "---"
         - text: "On Model Explainability"
           href: notebooks/ml/model_explain/model_explain.nb.html
+        - text: "---"
+        - text: "Introduction to Gradient Boosting Trees (WIP)"
+          href: notebooks/ml/gradient_boosting/gbt.nb.html
     - text: "Natural Language Understanding"
       menu:
         - text: "On Subword Units"

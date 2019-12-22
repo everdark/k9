@@ -20,6 +20,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/notebooks/ml/learning_to_rank/learning_to_rank.html)
     + [On Model Explainability](https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html)
+    + [Introduction to Gradient Boosting Trees (W.I.P.)]
 + Natural Language Understanding
     + [On Subword Units](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html)
     + [Contex-Free Word Embeddings (W.I.P.)](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
@@ -73,7 +74,6 @@ pip install -r requirements.txt
 ### Topics
 + Machine Learning
     + Factorization Machines
-    + Gradient Boosting Trees
     + Recurrent Neural Nets
     + Sequence-to-Sequence Models
     + GANs
