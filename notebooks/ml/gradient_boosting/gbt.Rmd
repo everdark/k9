@@ -20,7 +20,6 @@ bibliography: gbt.bib
 nocite: |
   @reticulate
   @friedman2001greedy
-  @rpart
 abstract: |
   TBC.
 ---
@@ -487,7 +486,6 @@ probably one of the most influential GBT framework to date.
 print(packageVersion("xgboost"))
 ```
 
-
 ## Regularization on Impurity
 
 > The name xgboost, though, actually refers to the engineering goal to push the limit of computations resources for boosted tree algorithms.
@@ -500,7 +498,7 @@ Before this,
 most tree ensembles focus on using traditional way of regularization,
 such as pruning, subsampling, or limiting number of leaves.
 
-In `xgboost` the formulation of the objective function make its tree ensembles extremely flexible.
+In `xgboost` the formulation of the objective function makes its tree ensembles extremely flexible.
 Loss can be plug-and-play as well as evaluation metrics.
 In general,
 the model has the following cost function:
@@ -519,13 +517,68 @@ respectively.
 (By default `xgboost` has $\lambda = 1$ and $\alpha = 0$.)
 
 The cost function indeed looks no different than any other differentiable machine learning model we already know.
-What makes it novel is that `xgboost` use the cost as the impurity measure to implement the split finding algorithm in a tree,
+What makes it novel is that `xgboost` uses the cost as the impurity measure to implement the split finding algorithm in a tree,
 which is not differentiable.
 But how?
 
 ### Additive Training
 
+For convenience let's re-state the model function here,
+with a bit more detailed notations:
+
+$$
+\begin{aligned}
+\hat{y}^{(k)} = F_k(x)
+&= \sum_k f_k(x) \\
+&= \sum_{t=1}^{k-1}f_t(x) + f_k(x),
+\end{aligned}
+$$
+
+where $\hat{y}^{(k)}$ is the model prediction for model at round $k$.
+
+Define the loss function (without regularization term for now for simplicity) at round $k$ for $i = 1, ..., n$ examples to be:
+
+$$
+\begin{aligned}
+\text{Loss} &= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k)}) \\
+&= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k-1)} + f_k(x_i)).
+\end{aligned}
+$$
+
+Here $\hat{y_i}^{(k-1)}$ is purely determined by model already trained in the previous round,
+we only care about picking up a tree model $f_k(x_i)$ which can further reduce the loss the most.
+
+When the loss is a squared error,
+the function is somewhat trackable:
+
+$$
+\begin{aligned}
+\text{MSE-Loss} &= \frac{1}{n}\sum_{i=1}^n (y_i - \hat{y_i}^{(k)})^2 \\
+&= \frac{1}{n}\sum_{i=1}^n \bigg[
+\underbrace{(y_i - \hat{y}^{(k-1)})^2}_\text{Constant}
+- 2(y_i - \hat{y_i}^{(k-1)})f_k(x_i)
++ f_k(x_i)^2\bigg] \\
+&= \frac{1}{n}\sum_{i=1}^n \bigg[
+- 2\underbrace{(y_i - \hat{y_i}^{(k-1)}}_\text{Residual at k-1})f_k(x_i)
++ f_k(x_i)^2\bigg] + \text{Constant}.
+\end{aligned}
+$$
+
+But when the loss is, say, a cross-entropy loss (which is fairly common),
+the function becomes much harder to deal with.
+
 ### 2nd-Order Loss Approximation
+
+In order to allow a general plug-and-play framework for different loss functions,
+instead of solving the exact functional form of a particular loss,
+`xgboost` approximates the loss with a 2nd-order [Taylor series]((https://en.wikipedia.org/wiki/Taylor_series)) expansion:
+
+$$\begin{aligned}
+\text{Approx. Loss} &= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k)}) \\
+&= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k-1)} + f_k(x_i)).
+\end{aligned}
+$$
+
 
 loss function is approximated by taylor expansion up to 2nd order -> allow plug-and-play any loss function
 
@@ -586,22 +639,24 @@ It solves the missing value problem by learning a default branch (either the lef
 During training,
 in each node the missing value can go to either left or right branch.
 Qaulity score for both branches are now computed based on the assumption that missing values should go to the other branch.
-In the end the split algorithm returns not only optimal split but also optimal default branch for missing value.
+In the end the split algorithm returns not only optimal split but also optimal default branch for missing value at each node.
 
+`xgboost` is indeed not the first tree model to handle missing values in its own way.
+For example,
+`rpart` also handles missing value in a particular manner.
+In `rpart`,
+each split will come with additional surrogate variables to handle cases where the split feature value is missing at inference time.
+A surrogate variable is a feature other than the best split feature but used to classify the resulting child nodes passing a minimum quality criterion.
+For more details readers may refer to @rpart.
 
+Comparing to `rpart`'s surrogate variable approach,
+which increases computation cost,
+`xgboost`'s approach is more computationally efficient and seems can also result in better model accuracy.
 
+## Out-of-Core Computation
 
-
-
-
-out-of-core computation (memory efficient)
-process data too large to fit into memory
-
-
-
-
-
-
+`xgboost` is memory efficient.
+It is able to process data too large to fit into memory.
 
 # LightGBM {#lgb}
 
