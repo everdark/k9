@@ -521,7 +521,7 @@ What makes it novel is that `xgboost` uses the cost as the impurity measure to i
 which is not differentiable.
 But how?
 
-### Additive Training
+## Additive Training
 
 For convenience let's re-state the gradient boosting model function here,
 with a bit more detailed notations:
@@ -567,26 +567,63 @@ $$
 But when the loss is, say, a cross-entropy loss (which is fairly common),
 the function becomes much harder to deal with.
 
-### Second-Order Loss Approximation
+## Second-Order Loss Approximation
 
 In order to allow a general plug-and-play framework for different loss functions,
 instead of solving the exact functional form of a particular loss,
-`xgboost` approximates the loss with a 2nd-order [Taylor series]((https://en.wikipedia.org/wiki/Taylor_series)) expansion:
+`xgboost` approximates the loss with a second-order [Taylor series]((https://en.wikipedia.org/wiki/Taylor_series)) expansion.
 
-$$\begin{aligned}
-\text{Approx. Loss} &= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k)}) \\
-&= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k-1)} + f_k(x_i)).
+The 2nd-order expansion of a function $L(x)$ at point $x_0$ can be written as:
+
+$$
+L(x) \approx L(x_0) + L'(x_0)(x - x_0) + \frac{1}{2}L''(x_0)(x - x_0)^2.
+$$
+
+Now define:
+
+$$
+x - x_0 = a,
+$$
+
+we then have:
+
+$$
+L(x_0 + a) \approx L(x_0) + L'(x_0)a + \frac{1}{2}L''(x_0)a^2,
+$$
+
+or simply:
+
+$$
+L(x + a) \approx L(x) + L'(x)a + \frac{1}{2}L''(x)a^2.
+$$
+
+Use the form we can re-write our loss function:
+
+
+$$
+\begin{aligned}
+\text{Loss}
+&= \sum_{i=1}^n L(y_i, \hat{y_i}^{(k)}) \\
+&= \sum_{i=1}^n
+L(y_i, \hat{y_i}^{(k-1)} + f_k(x_i)), \\
+\text{Approx. Loss} &= \sum_{i=1}^n
+\Bigg[
+\underbrace{
+\vphantom{\frac{\partial L(y_i, \hat{y_i}^{(k-1)})}{\partial \hat{y_i}^{(k-1)}}}
+L(y_i, \hat{y_i}^{(k-1)})}_\text{Constant} +
+\underbrace{\frac{\partial L(y_i, \hat{y_i}^{(k-1)})}{\partial \hat{y_i}^{(k-1)}}}_{g_i}f_k(x_i) +
+\underbrace{\frac{\partial^2 L(y_i, \hat{y_i}^{(k-1)})}{\partial^2 \hat{y_i}^{(k-1)}}}_{h_i}f_k(x_i)^2
+\Bigg] \\
+&= \sum_{i=1}^n
+\Bigg[
+g_if_k(x_i) +
+h_if_k(x_i)^2
+\Bigg] + \text{Constant}.
 \end{aligned}
 $$
 
-
-loss function is approximated by taylor expansion up to 2nd order -> allow plug-and-play any loss function
-
-
-regularization term -> impurity measure with regularization (this is novel in xgb)
-column subsampling
-row subsampling (boostrap bagging)
-shrinkage for newly added weights
+We follow the author's notation on the first order term as $g_i$ (g for gradient) and the second order term as $h_i$ (h for [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix)).
+Together with the regularization term it becomes the quality of split measure which ultimately guides the model to pick up the next learner $f_k$ at round $k$.
 
 ## Approximated Tree Split
 
@@ -657,6 +694,12 @@ which increases computation cost,
 
 `xgboost` is memory efficient.
 It is able to process data too large to fit into memory.
+
+
+column subsampling
+row subsampling (boostrap bagging)
+shrinkage for newly added weights
+
 
 # LightGBM {#lgb}
 
