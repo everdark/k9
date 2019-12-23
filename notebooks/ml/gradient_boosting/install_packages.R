@@ -3,6 +3,7 @@
 required_pkgs <- c(
     "reticulate",
     "rmarkdown",
-    "rpart.plot"
+    "rpart.plot",
+    "xgboost"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")

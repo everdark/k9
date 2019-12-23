@@ -20,6 +20,7 @@ bibliography: gbt.bib
 nocite: |
   @reticulate
   @friedman2001greedy
+  @rpart
 abstract: |
   TBC.
 ---
@@ -67,51 +68,141 @@ a package that allows inter-operation between R and Python.
 
 # Gradient Boosting Machines
 
+Gradient boosting is a model ensembling technique.
+It combines multiple models into one in an *iterative and additive* manner.
+Each individual model is indeed a weak learner,
+but jointly they end up providing powerful predictions.
+Mathematically speaking,
+the model can be expressed as:
 
+$$
+\hat{y} = F_k(x) = \sum_k f_k(x),
+$$
 
-functional gradient descent
+where $k$ is number of iterations (and hence number of weak learners),
+$f_k$ belongs to some model family and $x$ is the feature vector.
 
+A weak learner can be a model with lesser features,
+lesser parameters,
+or a simpler structure.
 
-General discussion.
-boosting vs gradient boosting.
-adaboost as boosting example
+## Functional Gradient Descent
 
-use a linear model as example for gb?
+Now if we rewrite the above model as:
 
+$$
+\begin{aligned}
+y
+&= F_k(x) + \epsilon \\
+&= F_{k-1}(x) + f_k(x) + \epsilon,
+\end{aligned}
+$$
 
+then we have:
 
+$$
+f_k(x) = y - F_{k-1}(x) - \epsilon.
+$$
 
-```{r}
+The equation tells us that the function added at round $k$ is fitting the *model residual* of the previous ensembled model ($F_{k-1}$).
+If our loss is squared error,
+model residual is indeed the negative gradient to the loss w.r.t. the function at the last step (ignoring the constant term):
+
+$$
+- \frac{\partial\frac{1}{2}\big[y - F_{k-1}\big]^2}{\partial F_{k-1}} = (y - F_{k-1}).
+$$
+
+To generalize the idea,
+given any loss function $L(y, F(x))$,
+to solve for the optimal function $f_k$ to add at round $k$ we are actually doing *functional gradient descent*:
+
+$$
+f_k(x) = - \frac{\partial L(y, F_{k-1}(x))}{\partial F_{k-1}(x)}.
+$$
+
+The negative gradient is also referred to as *pseudo-residual*.
+When our loss function is not squared error,
+we no longer literally fit a model on residuals but on the pseudo-residuals.
+
+## Boosting v.s. Gradient Boosting
+
+It can be easily confused about the name *gradient boosting*.
+As we already seen,
+graident boosting is indeed a gradient descent algorithm,
+but operating at functional space.
+That is,
+to optimize the objective function we are not looking for parameters but looking for functions.
+In the training phase we are iteratively searching for a function (a weak learner) to be included into our model.
+
+*Boosting* is yet another different model ensembling technique,
+not to be confused with gradient boosting.
+The general idea of boosting is to also train a model iteratively.
+In each round the training examples will be re-weighted based on the results (losses) from the last run.
+Harder examples will gain higher weights so the subsequent training will shift focus onto them.
+The most popular boosting algorithm is probably [AdaBoost](https://en.wikipedia.org/wiki/AdaBoost),
+abbreviated from adaptive boosting.
+
+Boosting is similar to gradient boosting in that both are model ensembling with additive weak learners and iterative training.
+But they are very different in the way they search for the optimal function at each iteration.
+Boosting fits a learner with examples re-weighted by loss generated from the previous ensemble.
+Gradient boosting instead fits a learner with pseudo-residuals:
+the negative functional gradient w.r.t. the loss.
+
+## Linear Model as Weak Learner
+
+The choice of weak learner has a huge impact on the effectiveness of gradient boosting machines.
+Not all weak learners can gain equally from such ensemble.
+In this section we demonstrate a model ensemble using a weak linear learner.
+It turns out that gradient boosting with a linear model may do no good at all.
+
+Let's create some simulated data baseed on a simple ground-truth (non-linear) data generating process:
+
+```{r sim_data}
 library(data.table)
 
 set.seed(666)
 
-# y = 3 x_1 + 6 x_2 -1.5 x_1x_2 + e
+# DGP: y = 3 x_1 + 6 x_2 -1.5 x_1x_2 + e
 n <- 1000
 x1 <- rnorm(n, 2, 4)
 x2 <- runif(n)
 e <- rnorm(n)
 y <- 3 * x1 + 6 * x2 - 1.5 * x1 * x2 + e
 
+# Train-test split.
 is_test <- runif(n) < .2
 D <- data.table(x1=x1, x2=x2, y=y)
+head(D)
+```
 
+We fit a linear model with all features (consdier it as a "strong" learner):
 
-mse <- function(y, yhat) {
-  mean((y - yhat)^2)
-}
-
+```{r sim_data_fit}
+# Fit a linear model with all features.
 f <- lm(y ~ x1 + x2, data=D[!is_test])
 D[, yhat:=predict(f, D)]
 
 
+# MSE as our loss function.
+mse <- function(y, yhat) {
+  mean((y - yhat)^2)
+}
+
+# Compute testing loss.
 with(D[is_test], mse(y, yhat))
+```
 
+Now let's ensemble a weak learner which only take one feature.
+We train the model based on gradient boosting framework.
+Since our loss is squared error,
+we can simply fit the model residual of the previous ensemble:
 
-# A one-dimensional weak learner.
+```{r gbm_linear_learner}
 f1 <- lm(y ~ x1, data=D[!is_test])
 D[, yhat1:=predict(f1, D)]
 D[, resid1:=y - yhat1]
+
+with(D[is_test], mse(y, yhat1))
 
 f2 <- lm(resid1 ~ x2, data=D[!is_test])
 D[, yhat2:=predict(f2, D)]
@@ -130,41 +221,70 @@ D[, yhat4:=predict(f4, D)]
 D[, resid4:=y - yhat1 - yhat2 - yhat3 - yhat4]
 
 with(D[is_test], mse(y, yhat1 + yhat2 + yhat3 + yhat4))
-
-
 ```
 
-```{r}
+As one may realize,
+the boosted model won't outperform a simple linear model with all features included.
+Is it because of our naive built-from-scratch implementation?
+Not really.
+Let's use `xgboost`--one of the state-of-the-art gradient boosting frameworks--to train a GBM with linear learner:
 
+```{r xgb_linear_learner}
 library(xgboost)
 
 Dx <- xgb.DMatrix(as.matrix(D[!is_test, .(x1, x2)]), label=D[!is_test, y])
 Dt <- xgb.DMatrix(as.matrix(D[is_test, .(x1, x2)]), label=D[is_test, y])
-bst <- xgb.train(params=list(objective="reg:squarederror"), 
-                 data=Dx, watchlist=list(test=Dt),
-                 nround=50, early_stopping_rounds=5)
-yhat <- predict(bst, as.matrix(D[is_test, .(x1, x2)]))
-mse(D[is_test, y], yhat)
 
-
-# Demo that a linear model won't work.
 bst <- xgb.train(params=list(objective="reg:squarederror", booster="gblinear"), 
                  data=Dx, watchlist=list(test=Dt),
-                 nround=50, early_stopping_rounds=5)
+                 nround=50, early_stopping_rounds=5, verbose=0)
+
 yhat <- predict(bst, as.matrix(D[is_test, .(x1, x2)]))
 mse(D[is_test, y], yhat)
 ```
 
-the best learner in GBM is tree. -> discuss tree in the next section
+The result is roughly the same.
+
+In general,
+gradient boosting does not help imporving a linear model.
+This is by large due to the fact that GBM is an additive model.
+Combining linear models additively will just result in yet another linear model.
+Indeed,
+using a linear model as the base learner will have the effect of solving a full linear system (a model with all features) in an iterative and approximated manner.
+So at best the result is the same as a single linear model with all features.
+
+## Tree Model as Weak Learner
+
+Based on empirical findings,
+the best weak learner in GBM is a tree.
+Most of the gradient boosting (or just boosting) implementations use tree models as their base learner.
+
+For our simulated data,
+gradient boosted trees can easily outperform the linear model:
+
+```{r xgb_tree_learner}
+bst2 <- xgb.train(params=list(objective="reg:squarederror", booster="gbtree"), 
+                  data=Dx, watchlist=list(test=Dt),
+                  nround=50, early_stopping_rounds=5, verbose=0)
+
+yhat <- predict(bst2, as.matrix(D[is_test, .(x1, x2)]))
+mse(D[is_test, y], yhat)  # Smaller loss achieved.
+```
+
+For the rest of the notebook we will focus our discussion on tree-based gradient boosting.
 
 # Tree Ensembles
+
+Before we talk about gradient boosting trees,
+let's have a brief review on tree models in general,
+from a single tree to tree ensembles.
 
 Tree models are non-differentiable.
 Gradient-based optimizers won't directly work on tree models.
 This makes them very different from other machine learning models such as neural networks.
 
 Tree models are powerful because they are non-linear.
-Features are allowed to interacted with each other in a sequential and loss-guided manner.
+Features are allowed to interact with each other in a sequential and loss-guided manner.
 And they are invariant to feature scale since a tree split is only ordinal.
 This simplifies data preprocessing and hence the overall pipeline.
 
@@ -232,16 +352,55 @@ The only benefit is probably its *interpretability* since the tree structure its
 However due to its poor generalization over unseen data,
 such interpretability is practically of no use.
 
-### A Toy Example
+### A Regression Tree
 
-We use the old-school [UCI Iris](https://archive.ics.uci.edu/ml/datasets/iris) dataset to quickly demo a single tree.
+Continue with our simulated dataset,
+let's quickly build a single regression tree and evaluate its performance on the testing set.
 
-```{r rpart_train}
-library(rpart)
+```{r sim_data_tree_train}
+library(rpart)  # Recursive PARTitioning 
 library(rpart.plot)
 
-set.seed(666)
+f <- rpart(y ~ x1 + x2, data=D[!is_test], method="anova", model=TRUE)
+rpart.plot(f, digits=3)  # For each node the mean value and population are shown.
+```
 
+The testing score is worse than a linear model:
+
+```{r sim_data_tree_eval}
+mse(D[is_test, y], predict(f, D[is_test]))
+```
+
+Even though our true model is non-linear,
+a tree failed to outperform a linear model.
+Does that make sense?
+Our tree may be too simple to perform a task on predicting a continous value.
+The tree is only capable of predicting 9 distinct values,
+which make it difficult to compete with a linear model on a continous metric such as squared error.
+
+Indeed it is very easy to build a more complicated (less regulated) tree to outperform the linear model:
+
+```{r sim_data_better_tree}
+f2 <- rpart(y ~ x1 + x2, data=D[!is_test], method="anova", model=TRUE,
+            control=rpart.control(minsplit=10, cp=5e-4))
+uniqueN(f2$where)  # How many terminal nodes?
+mse(D[is_test, y], predict(f2, D[is_test]))
+```
+
+Put aside regularization and model complexity,
+a common quality of split measure for a regression tree is the sum of squares $SS = \sum (y_i -\bar{y})^2$.
+So for a given node we find a split such that the decrease in sum-of-squares $SS_T - (SS_L + SS_R)$ is the largest.
+$SS_T$ is the $SS$ of current node,
+$SS_R$ is $SS$ of the right-hand node resulted from the split,
+$SS_L$ the $SS$ of left-hand node.
+Note that the prediction of a regression tree node is its mean value.
+Hence $SS$ is the squared error of that node.
+
+### A Classification Tree
+
+We use the old-school [UCI Iris](https://archive.ics.uci.edu/ml/datasets/iris) dataset to quickly demo a single classification tree.
+
+```{r rpart_train}
 confusion_matrix <- function(y_true, y_pred) {
   table(y_true, y_pred)
 }
@@ -266,7 +425,7 @@ print(confusion_matrix(iris_train$Species, predict(f, iris_train, type="class"))
 print(confusion_matrix(iris_test$Species, predict(f, iris_test, type="class")))
 ```
 
-A single tree model can perform both well in training and testing set for Iris.
+A single classification tree model can perform both well in training and testing set for Iris.
 Since the dataset is a bit too trivial.
 In any real world application,
 a single tree is usually not enough to solve the problem.
@@ -279,7 +438,7 @@ ensembling technique is used to combine multiple trees into one single model.
 There are two very successful ensembling techniques used for tree models:
 bagging and boosting.
 The general idea is to combine many simple (hence weak) trees as a tree committee for final prediction.
-It turns out that the variability in many simple/weak learners can jointly outperform a single (and usually over-fitting) complicated/strong learner.
+It turns out that the variability in many simple/weak and especially non-linear learners can jointly outperform a single (and usually over-fitting) complicated/strong learner.
 
 ### Bagging Ensembles
 
@@ -315,7 +474,7 @@ Boosting trees indeed have achieved quite some of the state-of-the-art performan
 
 Even though GBT has been introduced in the literature for almost 20 years already,
 it is the recent 5 years that several very powerful open source implementations have emerged to really shape the practitioners' choice of toolbox.
-In this notebook we'd like to deep-dive into two of them:
+In the following sections we'd like to deep-dive into two of them:
 `xgboost` and `lightgbm`.
 We will focus especially on their novelty in bettering GBT to the extreme.
 
@@ -323,6 +482,11 @@ We will focus especially on their novelty in bettering GBT to the extreme.
 
 @Chen:2016:XST:2939672.2939785 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
 probably one of the most influential GBT framework to date.
+
+```{r xgb_ver}
+print(packageVersion("xgboost"))
+```
+
 
 ## Regularization on Impurity
 
@@ -442,6 +606,18 @@ process data too large to fit into memory
 # LightGBM {#lgb}
 
 @ke2017lightgbm
+
+
+As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRAN](https://cran.r-project.org).
+And it can be tricky when installing on Windows machines without access to Visual Studio.
+To make the notebook platform friendly here we instead will demo with `lightgbm`'s Python pacakge.
+
+```{python}
+import lightgbm
+
+print(lightgbm.__version__)
+```
+
 
 ## Histogram Tree Split
 
