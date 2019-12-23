@@ -179,7 +179,7 @@ We fit a linear model with all features (consdier it as a "strong" learner):
 ```{r sim_data_fit}
 # Fit a linear model with all features.
 f <- lm(y ~ x1 + x2, data=D[!is_test])
-D[, yhat:=predict(f, D)]
+D <- D[, yhat:=predict(f, D)]
 
 
 # MSE as our loss function.
@@ -198,26 +198,26 @@ we can simply fit the model residual of the previous ensemble:
 
 ```{r gbm_linear_learner}
 f1 <- lm(y ~ x1, data=D[!is_test])
-D[, yhat1:=predict(f1, D)]
-D[, resid1:=y - yhat1]
+D <- D[, yhat1:=predict(f1, D)]
+D <- D[, resid1:=y - yhat1]
 
 with(D[is_test], mse(y, yhat1))
 
 f2 <- lm(resid1 ~ x2, data=D[!is_test])
-D[, yhat2:=predict(f2, D)]
-D[, resid2:=y - yhat1 - yhat2]
+D <- D[, yhat2:=predict(f2, D)]
+D <- D[, resid2:=y - yhat1 - yhat2]
 
 with(D[is_test], mse(y, yhat1 + yhat2))
 
 f3 <- lm(resid2 ~ x1, data=D[!is_test])
-D[, yhat3:=predict(f3, D)]
-D[, resid3:=y - yhat1 - yhat2 - yhat3]
+D <- D[, yhat3:=predict(f3, D)]
+D <- D[, resid3:=y - yhat1 - yhat2 - yhat3]
 
 with(D[is_test], mse(y, yhat1 + yhat2 + yhat3))
 
 f4 <- lm(resid3 ~ x2, data=D[!is_test])
-D[, yhat4:=predict(f4, D)]
-D[, resid4:=y - yhat1 - yhat2 - yhat3 - yhat4]
+D <- D[, yhat4:=predict(f4, D)]
+D <- D[, resid4:=y - yhat1 - yhat2 - yhat3 - yhat4]
 
 with(D[is_test], mse(y, yhat1 + yhat2 + yhat3 + yhat4))
 ```
