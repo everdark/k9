@@ -452,7 +452,7 @@ Although it is claimed in theory that RF is strong against over-fitting due to b
 in reality RF can still easily over-fit without proper tunning.
 
 One obvious advantage of RF,
-in temrs of computational efficiency,
+in terms of computational efficiency,
 is that it is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel).
 Most modern implementation of RF supports single-machine cpu parallel or even distributed computing.
 
@@ -469,7 +469,7 @@ so each tree is iteratively added into the model.
 Similar to RF or any other tree ensembling,
 each individual tree is a very weak learner.
 But jointly they become very good at generalization.
-Boosting trees indeed have achieved quite some of the state-of-the-art performance real world applications.
+Boosting trees indeed have achieved quite some of the state-of-the-art performance in real world applications.
 
 Even though GBT has been introduced in the literature for almost 20 years already,
 it is the recent 5 years that several very powerful open source implementations have emerged to really shape the practitioners' choice of toolbox.
@@ -479,7 +479,7 @@ We will focus especially on their novelty in bettering GBT to the extreme.
 
 # XGBoost
 
-@Chen:2016:XST:2939672.2939785 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
+@Chen2016 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
 probably one of the most influential GBT framework to date.
 
 ```{r xgb_ver}
@@ -499,7 +499,7 @@ most tree ensembles focus on using traditional way of regularization,
 such as pruning, subsampling, or limiting number of leaves.
 
 In `xgboost` the formulation of the objective function makes its tree ensembles extremely flexible.
-Loss can be plug-and-play as well as evaluation metrics.
+Loss can be plug-and-played as well as evaluation metrics.
 In general,
 the model has the following cost function:
 
@@ -523,7 +523,7 @@ But how?
 
 ### Additive Training
 
-For convenience let's re-state the model function here,
+For convenience let's re-state the gradient boosting model function here,
 with a bit more detailed notations:
 
 $$
@@ -567,7 +567,7 @@ $$
 But when the loss is, say, a cross-entropy loss (which is fairly common),
 the function becomes much harder to deal with.
 
-### 2nd-Order Loss Approximation
+### Second-Order Loss Approximation
 
 In order to allow a general plug-and-play framework for different loss functions,
 instead of solving the exact functional form of a particular loss,
