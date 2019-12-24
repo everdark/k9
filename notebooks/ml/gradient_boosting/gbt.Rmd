@@ -481,6 +481,10 @@ We will focus especially on their novelty in bettering GBT to the extreme.
 
 @Chen2016 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
 probably one of the most influential GBT framework to date.
+It also comes with the most variety of langauge API support:
+Python, R, Julia, Java, ..., etc.
+It is also more or less integrated with distributed computing platform such as Spark,
+and cloud solution such as GCP and AWS.
 
 ```{r xgb_ver}
 print(packageVersion("xgboost"))
@@ -599,7 +603,6 @@ $$
 
 Use the form we can re-write our loss function:
 
-
 $$
 \begin{aligned}
 \text{Loss}
@@ -624,6 +627,75 @@ $$
 
 We follow the author's notation on the first order term as $g_i$ (g for gradient) and the second order term as $h_i$ (h for [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix)).
 Together with the regularization term it becomes the quality of split measure which ultimately guides the model to pick up the next learner $f_k$ at round $k$.
+
+Essentially XGBoost employs a functional gradient descent up to the second-order derivative.
+This makes it more precise in finding the next best learner.
+
+Note that the value of $g_i$ and $h_i$ both remain the same for the current round,
+meaning that the computing cost is largely reduced when we are evaluating among different tree splits.
+This is one of the reason why XGBoost is so much faster than any other vanilla implementation of GBT.
+
+## Tree Split Optimization
+
+Now let's formally parameterize a tree model $f_k(x_i)$ with $T$ terminal nodes (leaves),
+$w_j$ denotes the weight for $j$-th leaf,
+and $I_j$ the set of examples assigned to leaf $j$.
+The approximated loss (with regularization term this time) at round $k$ can then be re-written in a *group-by-leaf* summation:
+
+$$
+\begin{aligned}
+Cost^k &=
+\sum_{i=1}^n
+\Bigg[
+g_if_k(x_i) + h_if_k(x_i)^2
+\Bigg] +
+\frac{1}{2}\lambda\vert\vert W \vert\vert^2 +
+\alpha\vert\vert W\vert\vert \\
+&= \sum_{j=1}^T
+\Bigg[
+\sum_{i \in I_j} g_iw_j + \frac{1}{2}\sum_{i \in I_j}h_iw_j^2
+\Bigg] +
+\frac{1}{2}\lambda\sum_{j=1}^T w_j^2 + \alpha\sum_{j=1}^T w_j \\
+&= \sum_{j=1}^T
+\Bigg[
+\sum_{i \in I_j} g_iw_j + \frac{1}{2}(\sum_{i \in I_j}h_i + \lambda)w_j^2 + \alpha\vert w_j\vert
+\Bigg].
+\end{aligned}
+$$
+
+Given the cost function we can solve for optimal weight $w_j^*$ minimizing the cost with a first-order-condition:
+
+$$
+\frac{\partial Cost^k}{\partial w_j} = 0,
+$$
+
+which gives:
+
+$$
+\sum_{i \in I_j} g_i + (\sum_{i \in I_j}h_i + \lambda)w_j + \alpha\frac{w_j}{\vert w_j\vert} = 0
+$$
+
+For a null L1 penalty ($\alpha = 0$) the solution is simply:
+
+$$
+w_j^* =- \frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}.
+$$
+
+For non-zero $\alpha$:
+
+$$
+\begin{aligned}
+w_j^* &=\frac{-\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}, \\
+&\text{or} \\
+w_j^* &=\frac{\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}.
+\end{aligned}
+$$
+
+Now we have solved the weights that minimize the cost.
+We will also need the optimized cost to determine the best split.
+The best split should result in two nodes such that the total cost of two nodes is reduced the most from their parent node.
+
+**TODO: built-from-scratch implementation?**
 
 ## Approximated Tree Split
 
