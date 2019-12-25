@@ -829,9 +829,10 @@ feature_iteration <- function(D, all_features) {
 
 
 y <- D$y
+yhat <- 0
 dy <- eval(dy2y)
-D[, g:=attr(dy, "gradient")]
-D[, h:=attr(dy, "hessian")]
+D[, g:=attr(dy, "gradient")[,"yhat"]]
+D[, h:=attr(dy, "hessian")[,"yhat","yhat"]]
 
 # Feature iteration on the first layer split.
 r <- feature_iteration(D, all_features)
