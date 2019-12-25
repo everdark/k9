@@ -1,5 +1,5 @@
 ---
-title: "Introduction to Gradient Boosting Trees"
+title: "Demystify Modern Gradient Boosting Trees"
 subtitle: "From Theory to Hands-On Examples"
 author:
 - name: Kyle Chung
@@ -30,7 +30,7 @@ meta_header_file <- file("/tmp/meta_header.html")
 # Add open graph meta.
 meta <- c(
   '<meta name="author" content="Kyle Chung">',
-  '<meta property="og:title" content="Introduction to Gradient Boosting Trees: From Theory to Hands-On Examples">',
+  '<meta property="og:title" content="Demystify Modern Gradient Boosting Trees: From Theory to Hands-On Examples">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/gradient_boosting/gbt.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
@@ -46,22 +46,6 @@ writeLines(contents, meta_header_file)
 
 close(meta_header_file)
 ```
-
-```{r setup, include=FALSE}
-library(reticulate)
-r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
-if ( is(r, "try-error") ) {
-  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
-  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
-}
-```
-
----
-
-This notebook is written with [`reticulate`](https://github.com/rstudio/reticulate),
-a package that allows inter-operation between R and Python.
-
----
 
 # Motivation
 
@@ -405,9 +389,9 @@ confusion_matrix <- function(y_true, y_pred) {
 }
 
 # Split IRIS dataset into train-test.
-is_test <- runif(nrow(iris)) < .3
-iris_train <- iris[!is_test,]
-iris_test <- iris[is_test,]
+is_test_iris <- runif(nrow(iris)) < .3
+iris_train <- iris[!is_test_iris,]
+iris_test <- iris[is_test_iris,]
 
 # Grow a single classification tree.
 f <- rpart(Species ~ ., data=iris_train, method="class")
@@ -672,14 +656,208 @@ $$
 which gives:
 
 $$
-\sum_{i \in I_j} g_i + (\sum_{i \in I_j}h_i + \lambda)w_j + \alpha\frac{w_j}{\vert w_j\vert} = 0
+\sum_{i \in I_j} g_i + (\sum_{i \in I_j}h_i + \lambda)w_j + \alpha\frac{w_j}{\vert w_j\vert} = 0.
 $$
 
 For a null L1 penalty ($\alpha = 0$) the solution is simply:
 
 $$
-w_j^* =- \frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}.
+\begin{aligned}
+w_j^* &= - \frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}, \\
+Cost^{k*} &= - \frac{1}{2} \sum_{j=1}^T \frac{\big(\sum_{i \in I_j} g_i\big)^2}{\sum_{i \in I_j}h_i + \lambda}.
+\end{aligned}
 $$
+
+Now we have solved the weights that minimize the cost once $T$ is determined.
+We will also need the optimized cost to determine the best split.
+That is,
+the quality of split measure.
+The best split should result in two nodes such that the total cost of two nodes is reduced the most from that of their parent node.
+
+Here is a pseudo code describing the core algorithm:
+
+```
+[XGBoost Additive Training Algorithm]
+
+F: initial model
+M: total number of features
+N: total number of examples
+K: total number of iterations (tree models)
+T: total number of leaves
+g_ik: g_i for example i at round k
+h_ik: h_i for example i at round k
+g_ijk: g_i for example i at round k assigned to leaf j
+h_ijk: h_i for example i at round k assigned to leaf j
+cost: the score at leaf j, sum(g_ijk)^2 / (sum(h_ijk) + lambda)
+x_im: the i-th example value on feature m
+
+for round k in 1 to K:
+  while number of split < T:
+    compute g_ik, h_ik for all i
+    for feature j in 1 to m:
+      sort x_j
+      for example x_im in i = 1 to n on feature m:
+        split by x_im into left and right leaves
+        compute sum of cost on left and right leaves
+    find best split using feature m* at x_im* associated with minimum cost
+  update model F <- F + tree learned
+```
+
+### Common Loss Functions
+
+#### Squared Loss {-}
+
+$$
+\begin{aligned}
+g_i &= \frac{\partial(y_i - \hat{y}_i^{(k-1)})^2}{\partial\hat{y}_i^{(k-1)}} = 2(\hat{y}_i^{(k-1)} - y_i), \\
+h_i &= \frac{\partial^2(y_i - \hat{y}^{(k-1)})^2}{\partial^2\hat{y}^{(k-1)}} = 2.
+\end{aligned}
+$$
+
+We can ignore constant so the gradient $g_i$ is simply $\hat{y} - y$ and the hessian is unity.
+
+Let's use R's *symbolic derivatives* to verify our derivation:
+
+```{r symbolic_deriv_squared_loss}
+# Demonstrate symbolic derivatives.
+dy2y <- deriv3(~ (y - yhat)^2, c("yhat", "y"))  #  (y - yhat)^2, since y is constant we simply use 1.
+yhat <- rnorm(5)
+y <- rnorm(5)
+
+2*(yhat - y)  # Gradient by hands.
+
+eval(dy2y)  # By symbolic derivatives.
+```
+
+#### Cross-Entropy Loss {-}
+
+$$
+\begin{aligned}
+g_i &= \frac{\partial\big[- y_i\ln\hat{y}_i^{(k-1)} - (1 - y_i)\ln(1 - \hat{y}_i^{(k-1)})\big]}
+{\partial\hat{y}_i^{(k-1)}} =
+\frac{\hat{y}_i^{(k-1)} - y_i}{(1 - \hat{y}_i^{(k-1)})\hat{y}_i^{(k-1)}}, \\
+h_i &= \frac{\partial^2\big[- y_i\ln\hat{y}_i^{(k-1)} - (1 - y_i)\ln(1 - \hat{y}_i^{(k-1)})\big]}
+{\partial^2\hat{y}_i^{(k-1)}} = \frac{1 - y_i}{(1 - \hat{y}_i^{(k-1)})^2} + \frac{y_i}{(\hat{y}_i^{(k-1)})^2}.
+\end{aligned}
+$$
+
+```{r symbolic_deriv_log_loss}
+# Demonstrate symbolic derivatives.
+dq2q <- deriv3(~ - (y*log(q) + (1-y)*log(1 - q)), c("q", "y"))
+y <- sample(c(0, 1), 5, replace=TRUE)
+q <- runif(5)
+
+(1 - y)/(1 - q) - y / q  # Gradient by hands.
+
+(1 - y)/(1-q)^2 + y / q^2  # Hessian by hands.
+
+eval(dq2q)  # By symbolic derivatives.
+```
+
+The above derivation assumes $\hat{y}$ is the sigmoid model output (probability).
+While actually in `xgboost`'s implementation for logistic regression the term $\hat{y}$ is *before* sigmoid transformation (what the auther refers to as *margin*).
+So the model weights are raw scores.
+This makes sense since the model is additive.
+It is better to do the add operation before the final sigmoid transformation.
+That is,
+each tree predict raw scores and the final model ensemble is the sigmoid of the sum of all the raw scores (from the assigned leaves).
+This also largely simplifies the derivatives because now we will be doing:
+
+$$
+g_i = \frac{\partial L}{\partial t}\frac{\partial t}{\partial\hat{y}},
+$$
+
+where $t$ is the sigmoid $t(\hat{y}) = \frac{1}{1 + e^{-\hat{y}}}$.
+Based on the fact that $\frac{\partial t}{\partial \hat{y}} = t(1 - t)$,
+we finally have (simplying $\hat{y}_i^{(k-1)}$ as $\hat{y}$ to save typings):
+
+$$
+\begin{aligned}
+g_i &= \frac{t - y_i}{t(1 - t)} \times t(1-t) \\
+&= t(\hat{y}) - y_i, \\
+h_i &= t(\hat{y})(1 - t(\hat{y})).
+\end{aligned}
+$$
+
+### Exercise: Implement a Single XGB Split
+
+```{r xgb_from_scratch}
+lambd <- 1  # L2 regularization.
+
+dy2y <- deriv3(~ (y - yhat)^2, c("yhat", "y"))  #  (y - yhat)^2, since y is constant we simply use 1.
+all_features <- c("x1", "x2")
+
+cost <- function(df) {
+  # The XGB optimal cost based on 2nd-order Taylor expansion.
+  - sum(df$g)^2 / 2*(sum(df$h) + lambd)
+}
+
+cost_on_split <- function(D, split_ind) {
+  # Split the data into left and right child nodes.
+  DL <- D[1:split_ind, .(g, h)]
+  DR <- D[(split_ind + 1):nrow(D), .(g, h)]
+  cost(DL) + cost(DR)
+}
+
+feature_iteration <- function(D, all_features) {
+  feature_best_costs <- list()
+  best_split_ind <- list()
+  for ( x in all_features ) {
+    # Sort examples by x.
+    setorderv(D, x)
+
+    # Feature value iteration.
+    cur_cost <- cost(D)
+    split_cost <- numeric(nrow(D) - 1)
+    for ( i in seq_len(nrow(D) - 1) ) {
+      split_cost[i] <- cost_on_split(D, i)
+    }
+    feature_best_costs[[x]] <- min(split_cost)
+    best_split_ind[[x]] <- which.min(split_cost)
+  }
+
+  # Determine which feature gains the largest reduction in cost.
+  best_cost <- min(unlist(feature_best_costs))
+  split_col <- names(which.min(feature_best_costs))
+  split_ind <- best_split_ind[[split_col]]
+  split_val <- D[[split_col]][split_ind]
+  list(split_col=split_col,
+       split_ind=split_ind,
+       split_val=split_val,
+       best_cost=best_cost)
+}
+
+
+y <- D$y
+dy <- eval(dy2y)
+D[, g:=attr(dy, "gradient")]
+D[, h:=attr(dy, "hessian")]
+
+# Feature iteration on the first layer split.
+r <- feature_iteration(D, all_features)
+DR <- D[get(r$split_col) > r$split_val]
+DL <- D[get(r$split_col) <= r$split_val]
+```
+
+
+
+```{r xgb_tree_learner_verify}
+# Verify the result with a real xgboost implementation.
+bst3 <- xgb.train(params=list(objective="reg:squarederror", max_depth=1),
+                  data=Dx, nround=1, verbose=0)
+
+
+```
+
+
+### Parallelization
+
+
+### V.S. Vanilla Gradient Boosting Trees
+
+**TODO: discuss the novelty of xGB in tree split.**
+
+### With L1 Regularization
 
 For non-zero $\alpha$:
 
@@ -690,12 +868,6 @@ w_j^* &=\frac{-\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}, \\
 w_j^* &=\frac{\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}.
 \end{aligned}
 $$
-
-Now we have solved the weights that minimize the cost.
-We will also need the optimized cost to determine the best split.
-The best split should result in two nodes such that the total cost of two nodes is reduced the most from their parent node.
-
-**TODO: built-from-scratch implementation?**
 
 ## Approximated Tree Split
 
@@ -782,12 +954,18 @@ As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRA
 And it can be tricky when installing on Windows machines without access to Visual Studio.
 To make the notebook platform friendly here we instead will demo with `lightgbm`'s Python pacakge.
 
-```{python}
+```python
 import lightgbm
 
 print(lightgbm.__version__)
 ```
 
+**TODO: Make this nb R-only for simplicity.**
+
+```{r import_lgb}
+library(lightgbm)
+packageVersion("lightgbm")
+```
 
 ## Histogram Tree Split
 
