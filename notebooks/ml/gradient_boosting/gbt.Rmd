@@ -768,6 +768,7 @@ g_i = \frac{\partial L}{\partial t}\frac{\partial t}{\partial\hat{y}},
 $$
 
 where $t$ is the sigmoid $t(\hat{y}) = \frac{1}{1 + e^{-\hat{y}}}$.
+
 Based on the fact that $\frac{\partial t}{\partial \hat{y}} = t(1 - t)$,
 we finally have (simplying $\hat{y}_i^{(k-1)}$ as $\hat{y}$ to save typings):
 
