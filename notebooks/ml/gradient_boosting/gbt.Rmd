@@ -1124,7 +1124,7 @@ Here we only walk-through those important and non-trivial ones.
 
 ### Regularization Parameters
 
-#### L1/L2 Penalties {-}
+#### L1/L2 Penalties
 
 Both packages implement the same penalties on cost function.
 Only the names and default values are different.
@@ -1142,7 +1142,7 @@ alpha=0
 lambda=1
 ```
 
-#### Leaf Size {-}
+#### Leaf Size
 
 One way to regularize a tree model is to limit the size of its terminal node (leaf).
 In `lightgbm` this can be done by either limiting the minimum number of examples or limiting the minimum sum of hessian ($\sum_{i \in I_j}h_i$ for node $j$).
@@ -1176,7 +1176,7 @@ so the hessian sum will be the same as example counts.
 Notice the difference in the default values between `lightgbm` and `xgboost`.
 The former has less tolerance on over-fitting (more regularized).
 
-#### Tree Size {-}
+#### Tree Size
 
 A larger tree has more leaves and hence more complicated.
 More leaves also means more interaction among variables,
