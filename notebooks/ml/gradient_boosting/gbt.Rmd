@@ -866,7 +866,7 @@ print(r)
 # Verify the result with a real xgboost implementation.
 bst3 <- xgb.train(params=list(objective="reg:squarederror", max_depth=1),
                   data=Dx, nround=1)
-print(xgb.model.dt.tree(model=bst3))
+xgb.model.dt.tree(model=bst3)
 ```
 
 So the optimal split at root node from our toy implementation agrees with that of `xgboost`.
@@ -991,7 +991,7 @@ yet another powerful GBT framework with its own remarkable novel implementation.
 ^[As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRAN](https://cran.r-project.org) for its R wrapper.
 Please refer to the [official instruction](https://github.com/microsoft/LightGBM/tree/master/R-package) to install it separately.]
 
-```{r import_lgb}
+```{r import_lgb, message=FALSE}
 library(lightgbm)
 packageVersion("lightgbm")
 ```
@@ -1083,7 +1083,7 @@ lgbst2 <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_
                                 num_leaves=2),
                     data=Dx2, num_iterations=1, verbose=0)
 
-print(lgb.model.dt.tree(model=lgbst2)[])
+lgb.model.dt.tree(model=lgbst2)[]
 ```
 
 # XGBoost v.s. LightGBM
@@ -1124,7 +1124,7 @@ Here we only walk-through those important and non-trivial ones.
 
 ### Regularization Parameters
 
-#### L1/L2 Penalties
+#### L1/L2 Penalties {-}
 
 Both packages implement the same penalties on cost function.
 Only the names and default values are different.
