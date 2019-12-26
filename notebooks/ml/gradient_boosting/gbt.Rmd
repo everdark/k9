@@ -17,6 +17,7 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 bibliography: gbt.bib
+link-citations: yes
 abstract: |
   Modern gradient boosting trees (GBT) is undoubtedly one of the most powerful machine learning algorithms for traditional supervised learning tasks in the recent decade. In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`. We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT, which has been formally introduced nearly 20 years ago.
 ---
@@ -51,7 +52,7 @@ Ever since the creation of XGBoost there is a booming in different modern design
 
 In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`.
 We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT,
-which has been formally introduced nearly 20 years ago (@friedman2001greedy).
+which has been formally introduced nearly 20 years ago [@friedman2001greedy].
 
 # Gradient Boosting Machines
 
@@ -781,14 +782,14 @@ So the model weights are raw scores (*logits*) instead of probabilities.
 This makes sense since the model is additive.
 It is better to do the add operation before the final sigmoid transformation of the ensembler.
 That is,
-each tree predict raw scores and the final model ensemble is the sigmoid of the sum of all the raw scores (from the assigned leaves).
+each tree predicts raw scores and the final model ensemble is the sigmoid of the sum of all the raw scores (from the assigned leaves).
 This also largely simplifies the derivatives because now what we will be doing is:
 
 $$
 g_i = \frac{\partial L}{\partial t}\frac{\partial t}{\partial\hat{y}},
 $$
 
-where $t$ is the sigmoid $t(\hat{y}) = \frac{1}{1 + e^{-\hat{y}}}$.
+where $t$ is the sigmoid $t(\hat{y}) = \frac{1}{1 + \exp(-\hat{y})}$.
 
 Based on the fact that $\frac{\partial t}{\partial \hat{y}} = t(1 - t)$,
 we finally have (simplying $\hat{y}_i^{(k-1)}$ as $\hat{y}$ to save typings):
@@ -853,8 +854,8 @@ y <- D$y[!is_test]
 dy2y <- deriv3(~ (y - yhat)^2, c("yhat"))
 yhat <- .5  # This is the initial prediction used by xgboost.
 dy <- eval(dy2y)
-D[!is_test, g:=attr(dy, "gradient")[,"yhat"]]
-D[!is_test, h:=attr(dy, "hessian")[,"yhat","yhat"]]
+D <- D[!is_test, g:=attr(dy, "gradient")[,"yhat"]]
+D <- D[!is_test, h:=attr(dy, "hessian")[,"yhat","yhat"]]
 
 # Feature iteration on the root split.
 r <- feature_iteration(D[!is_test], all_features)
@@ -898,7 +899,6 @@ In vanilla gradient boosting at each iteration we fit a tree to the pseudo resid
 i.e., negative gradient of loss function w.r.t. model output.
 The tree (or any other base learner) is learning from the pseudo residuals with its own loss.
 Such loss is local and may not reflect the global objective we want to optimize.
-
 XGBoost incorporates that global objective (with regularization) into each iteration,
 making the base learner more relevant to our end goal.
 
@@ -1308,6 +1308,8 @@ One remaining difference is `lightgbm`'s special support for categorical feature
 For training data containing categoricals the usual way to do is to one-hot encode the data into a sparse matrix.
 But for `lightgbm` such effort is saved so the data pipeline can be much cleaner.
 
-```{r}
+```r
 # TODO: DEMO categorical features.
 ```
+
+# References
