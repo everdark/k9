@@ -27,7 +27,7 @@ Pull the code base:
 
 ```sh
 git clone git@github.com:everdark/k9.git
-cd natural_language_understanding/subword_units
+cd notebooks/ml/natural_language_understanding/subword_units
 ```
 
 Though most of the coding examples is written in Python,

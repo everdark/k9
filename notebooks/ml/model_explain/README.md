@@ -42,7 +42,7 @@ Pull the code base:
 
 ```sh
 git clone git@github.com:everdark/k9.git
-cd model_explain
+cd notebooks/ml/model_explain
 ```
 
 Though most of the coding examples is written in Python,

@@ -25,7 +25,7 @@ Pull the code base:
 
 ```sh
 git clone git@github.com:everdark/k9.git
-cd natural_language_understanding/word_embeddings
+cd notebooks/ml/natural_language_understanding/word_embeddings
 ```
 
 Though most of the coding examples is written in Python,
