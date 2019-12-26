@@ -51,6 +51,9 @@ close(meta_header_file)
 
 # Gradient Boosting Machines
 
+Before we step into the modern design of gradient boosting trees,
+let's have a look at the traditional gradient boosting machines.
+
 Gradient boosting is a model ensembling technique.
 It combines multiple models into one in an *iterative and additive* manner.
 Each individual model is indeed a weak learner,
@@ -674,6 +677,9 @@ That is,
 the quality of split measure.
 The best split should result in two nodes such that the total cost of two nodes is reduced the most from that of their parent node.
 
+A learning rate can be applied to the optimal weights at each iteration,
+making the ensembler more conservative in updating itself.
+
 Here is a pseudo code describing the core algorithm:
 
 ```
@@ -705,7 +711,13 @@ for round k in 1 to K:
 
 ### Common Loss Functions
 
+`xgboost` already comes with several loss functions built-in.
+We can also define our custom loss easily by just implementing the first ($g$) and second order ($h$) gradients of that loss w.r.t. model output.
+Here we simply review the two mostly used loss functions.
+
 #### Squared Loss {-}
+
+Deriving $g$ and $h$ for a squared loss is trivial:
 
 $$
 \begin{aligned}
@@ -719,8 +731,8 @@ We can ignore constant so the gradient $g_i$ is simply $\hat{y} - y$ and the hes
 Let's use R's *symbolic derivatives* to verify our derivation:
 
 ```{r symbolic_deriv_squared_loss}
-# Demonstrate symbolic derivatives.
-dy2y <- deriv3(~ (y - yhat)^2, c("yhat", "y"))  #  (y - yhat)^2, since y is constant we simply use 1.
+dy2y <- deriv3(~ (y - yhat)^2, c("yhat"))
+
 yhat <- rnorm(5)
 y <- rnorm(5)
 
@@ -730,6 +742,9 @@ eval(dy2y)  # By symbolic derivatives.
 ```
 
 #### Cross-Entropy Loss {-}
+
+A subtle details must be taken care for cross-entropy loss.
+Intuitively we'd like to just take the derivative w.r.t. the model output probability:
 
 $$
 \begin{aligned}
@@ -741,9 +756,11 @@ h_i &= \frac{\partial^2\big[- y_i\ln\hat{y}_i^{(k-1)} - (1 - y_i)\ln(1 - \hat{y}
 \end{aligned}
 $$
 
+Again use symbolic differentiation to verify our derivation:
+
 ```{r symbolic_deriv_log_loss}
 # Demonstrate symbolic derivatives.
-dq2q <- deriv3(~ - (y*log(q) + (1-y)*log(1 - q)), c("q", "y"))
+dq2q <- deriv3(~ - (y*log(q) + (1-y)*log(1 - q)), c("q"))
 y <- sample(c(0, 1), 5, replace=TRUE)
 q <- runif(5)
 
@@ -756,12 +773,12 @@ eval(dq2q)  # By symbolic derivatives.
 
 The above derivation assumes $\hat{y}$ is the sigmoid model output (probability).
 While actually in `xgboost`'s implementation for logistic regression the term $\hat{y}$ is *before* sigmoid transformation (what the auther refers to as *margin*).
-So the model weights are raw scores.
+So the model weights are raw scores (*logits*) instead of probabilities.
 This makes sense since the model is additive.
-It is better to do the add operation before the final sigmoid transformation.
+It is better to do the add operation before the final sigmoid transformation of the ensembler.
 That is,
 each tree predict raw scores and the final model ensemble is the sigmoid of the sum of all the raw scores (from the assigned leaves).
-This also largely simplifies the derivatives because now we will be doing:
+This also largely simplifies the derivatives because now what we will be doing is:
 
 $$
 g_i = \frac{\partial L}{\partial t}\frac{\partial t}{\partial\hat{y}},
@@ -782,18 +799,20 @@ $$
 
 ### Exercise: Implement a Single XGB Split
 
-```{r xgb_from_scratch}
-lambd <- 1  # L2 regularization.
+To verify our understanding,
+as an exercise we built a single tree with just one split (a *decision stump*).
+And we comapre the result of our implementation to that of `xgboost` to see if they agree with each other.
 
-dy2y <- deriv3(~ (y - yhat)^2, c("yhat", "y"))  #  (y - yhat)^2, since y is constant we simply use 1.
+```{r xgb_one_split_from_scratch}
+lambd <- 1  # L2 regularization.
 all_features <- c("x1", "x2")
 
 cost <- function(df) {
   # The XGB optimal cost based on 2nd-order Taylor expansion.
-  - sum(df$g)^2 / 2*(sum(df$h) + lambd)
+  - sum(df$g)^2 / (2*(sum(df$h) + lambd))
 }
 
-cost_on_split <- function(D, split_ind) {
+cost_on_split2 <- function(D, split_ind) {
   # Split the data into left and right child nodes.
   DL <- D[1:split_ind, .(g, h)]
   DR <- D[(split_ind + 1):nrow(D), .(g, h)]
@@ -803,78 +822,93 @@ cost_on_split <- function(D, split_ind) {
 feature_iteration <- function(D, all_features) {
   feature_best_costs <- list()
   best_split_ind <- list()
+  best_split_val <- list()
   for ( x in all_features ) {
     # Sort examples by x.
     setorderv(D, x)
 
     # Feature value iteration.
-    cur_cost <- cost(D)
-    split_cost <- numeric(nrow(D) - 1)
+    split_cost <- rep(NA_real_, nrow(D) - 1)
     for ( i in seq_len(nrow(D) - 1) ) {
       split_cost[i] <- cost_on_split(D, i)
     }
     feature_best_costs[[x]] <- min(split_cost)
     best_split_ind[[x]] <- which.min(split_cost)
+    best_split_val[[x]] <- D[[x]][best_split_ind[[x]]]
   }
 
   # Determine which feature gains the largest reduction in cost.
-  best_cost <- min(unlist(feature_best_costs))
   split_col <- names(which.min(feature_best_costs))
-  split_ind <- best_split_ind[[split_col]]
-  split_val <- D[[split_col]][split_ind]
   list(split_col=split_col,
-       split_ind=split_ind,
-       split_val=split_val,
-       best_cost=best_cost)
+       split_ind=best_split_ind[[split_col]],
+       split_val=best_split_val[[split_col]])
 }
 
 
-y <- D$y
-yhat <- 0
+y <- D$y[!is_test]
+dy2y <- deriv3(~ (y - yhat)^2, c("yhat"))
+yhat <- .5  # This is the initial prediction used by xgboost.
 dy <- eval(dy2y)
-D[, g:=attr(dy, "gradient")[,"yhat"]]
-D[, h:=attr(dy, "hessian")[,"yhat","yhat"]]
+D[!is_test, g:=attr(dy, "gradient")[,"yhat"]]
+D[!is_test, h:=attr(dy, "hessian")[,"yhat","yhat"]]
 
-# Feature iteration on the first layer split.
-r <- feature_iteration(D, all_features)
-DR <- D[get(r$split_col) > r$split_val]
-DL <- D[get(r$split_col) <= r$split_val]
+# Feature iteration on the root split.
+r <- feature_iteration(D[!is_test], all_features)
+print(r)
 ```
-
-
 
 ```{r xgb_tree_learner_verify}
 # Verify the result with a real xgboost implementation.
 bst3 <- xgb.train(params=list(objective="reg:squarederror", max_depth=1),
-                  data=Dx, nround=1, verbose=0)
-
-
+                  data=Dx, nround=1)
+print(xgb.model.dt.tree(model=bst3))
 ```
 
+So the optimal split at root node from our toy implementation agrees with that of `xgboost`.
+Note that the split value reported by `xgboost` does not correspond to an actual value in the feature.
+It is a virtual value just for splitting purpose.
+Indeed it is the average value between the closest two values at the split.
+To check this:
+
+```{r check_split_val}
+D2 <- D[!is_test]
+setorder(D2, x1)
+print(mean(D2[r$split_ind:(r$split_ind + 1), x1]))
+```
 
 ### Parallelization
 
+Unlike bagging trees which are embarassingly parallel,
+boosting trees are trained iteratively,
+which makes them harder to parallelize.
+We can, however, still parallelize the training process,
+not at tree-level but at feature-level.
 
-### V.S. Vanilla Gradient Boosting Trees
+Since the algorithm needs to traverse over all (or a subset of) features to find the best split,
+feature iteration is readily parallelable.
+All modern GBT libraries support this kind of parallelization.
 
-**TODO: discuss the novelty of xGB in tree split.**
+### Comparing to Vanilla GBT
 
-### With L1 Regularization
+In vanilla gradient boosting at each iteration we fit a tree to the pseudo residuals,
+i.e., negative gradient of loss function w.r.t. model output.
+The tree (or any other base learner) is learning from the pseudo residuals with its own loss.
+Such loss is local and may not reflect the global objective we want to optimize.
 
-For non-zero $\alpha$:
+XGBoost incorporates that global objective (with regularization) into each iteration,
+making the base learner more relevant to our end goal.
 
-$$
-\begin{aligned}
-w_j^* &=\frac{-\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}, \\
-&\text{or} \\
-w_j^* &=\frac{\alpha - \sum_{i \in I_j} g_i}{\sum_{i \in I_j}h_i + \lambda}.
-\end{aligned}
-$$
+The second-order approximation of global objective further reduces the computing cost by converting the loss computation into a group-by-leaf sum operation,
+with all gradients pre-computed at the beginning of each iteration.
+
+Notice that in a vanilla GBT we need to calculate the gradients to get the pseudo-residuals,
+and the base learners need to calculate the gradients of their own objective function (or calculate the impurity measure) in order to do optimization.
+XGBoost hence is much faster than vanilla GBT in training.
 
 ## Approximated Tree Split
 
-The exact split finding algorithm is not scalable in large applications.
-So instead XGBoost supports an approximated split algorithm described in the following pseudo code:
+The exact split finding algorithm may not be scalable in large applications.
+So instead `xgboost` supports an approximated split algorithm described in the following pseudo code:
 ^[Approximated split search is not particularly novel in XGBoost.
 It has been well studied in other academic works.]
 
@@ -921,7 +955,7 @@ One novelty in `xgboost` is its capability of dealing with missing values.
 It solves the missing value problem by learning a default branch (either the left or the right child node) for each node in a split.
 During training,
 in each node the missing value can go to either left or right branch.
-Qaulity score for both branches are now computed based on the assumption that missing values should go to the other branch.
+Quality score for both branches are now computed based on the assumption that missing values should go to the other branch.
 In the end the split algorithm returns not only optimal split but also optimal default branch for missing value at each node.
 
 `xgboost` is indeed not the first tree model to handle missing values in its own way.
@@ -934,18 +968,18 @@ For more details readers may refer to @rpart.
 
 Comparing to `rpart`'s surrogate variable approach,
 which increases computation cost,
-`xgboost`'s approach is more computationally efficient and seems can also result in better model accuracy.
-
-## Out-of-Core Computation
-
-`xgboost` is memory efficient.
-It is able to process data too large to fit into memory.
+`xgboost`'s approach is more computationally efficient and seems to also result in better model accuracy.
 
 
-column subsampling
-row subsampling (boostrap bagging)
-shrinkage for newly added weights
+## Random Forest via XGBoost
 
+`xgboost` is a general framework for model (especially tree) ensemblers.
+Since there is no rule stopping us from building more than one tree at each iteration,
+we can effectively grow multiple trees with only one round to train a random forest with `xgboost`.
+Even more,
+we can train a *boosting random forest* by growing multiple trees and with multiple iterations.
+That is,
+we use RF as our base learner in a gradient boosting machine.
 
 # LightGBM {#lgb}
 
@@ -953,16 +987,8 @@ shrinkage for newly added weights
 
 
 As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRAN](https://cran.r-project.org).
-And it can be tricky when installing on Windows machines without access to Visual Studio.
-To make the notebook platform friendly here we instead will demo with `lightgbm`'s Python pacakge.
 
-```python
-import lightgbm
 
-print(lightgbm.__version__)
-```
-
-**TODO: Make this nb R-only for simplicity.**
 
 ```{r import_lgb}
 library(lightgbm)
