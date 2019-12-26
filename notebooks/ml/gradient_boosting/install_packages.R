@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 
 required_pkgs <- c(
-    "reticulate",
     "rmarkdown",
     "rpart.plot",
     "xgboost"
