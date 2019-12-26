@@ -4,7 +4,7 @@ subtitle: "From Theory to Hands-On Examples"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (20 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (26 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -21,7 +21,7 @@ nocite: |
   @reticulate
   @friedman2001greedy
 abstract: |
-  TBC.
+  Modern gradient boosting trees (GBT) is undoubtedly one of the most powerful machine learning algorithms for traditional supervised learning tasks in the recent decade. In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`. We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT, which has been formally introduced nearly 20 years ago.
 ---
 
 ```{r meta, include=FALSE}
@@ -49,10 +49,17 @@ close(meta_header_file)
 
 # Motivation
 
+Modern gradient boosting trees (GBT) is undoubtedly one of the most powerful machine learning algorithms for traditional supervised learning tasks in the recent decade.
+Since the creation of [`xgboost`](https://github.com/dmlc/xgboost) there is a booming in different modern designs of GBT aiming at not only model accuracy but also computational efficiency.
+
+In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`.
+We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT,
+which has been formally introduced nearly 20 years ago.
+
 # Gradient Boosting Machines
 
 Before we step into the modern design of gradient boosting trees,
-let's have a look at the traditional gradient boosting machines.
+let's have a quick look at the traditional (vanilla) gradient boosting machines.
 
 Gradient boosting is a model ensembling technique.
 It combines multiple models into one in an *iterative and additive* manner.
@@ -466,7 +473,7 @@ We will focus especially on their novelty in bettering GBT to the extreme.
 
 # XGBoost
 
-@Chen2016 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
+@Chen2016 open source the `xgboost` package,
 probably one of the most influential GBT framework to date.
 It also comes with the most variety of langauge API support:
 Python, R, Julia, Java, ..., etc.
@@ -812,7 +819,7 @@ cost <- function(df) {
   - sum(df$g)^2 / (2*(sum(df$h) + lambd))
 }
 
-cost_on_split2 <- function(D, split_ind) {
+cost_on_split <- function(D, split_ind) {
   # Split the data into left and right child nodes.
   DL <- D[1:split_ind, .(g, h)]
   DR <- D[(split_ind + 1):nrow(D), .(g, h)]
@@ -969,7 +976,6 @@ For more details readers may refer to @rpart.
 Comparing to `rpart`'s surrogate variable approach,
 which increases computation cost,
 `xgboost`'s approach is more computationally efficient and seems to also result in better model accuracy.
-
 
 ## Random Forest via XGBoost
 
