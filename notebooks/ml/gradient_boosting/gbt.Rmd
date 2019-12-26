@@ -17,9 +17,6 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 bibliography: gbt.bib
-nocite: |
-  @reticulate
-  @friedman2001greedy
 abstract: |
   Modern gradient boosting trees (GBT) is undoubtedly one of the most powerful machine learning algorithms for traditional supervised learning tasks in the recent decade. In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`. We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT, which has been formally introduced nearly 20 years ago.
 ---
@@ -50,11 +47,11 @@ close(meta_header_file)
 # Motivation
 
 Modern gradient boosting trees (GBT) is undoubtedly one of the most powerful machine learning algorithms for traditional supervised learning tasks in the recent decade.
-Since the creation of [`xgboost`](https://github.com/dmlc/xgboost) there is a booming in different modern designs of GBT aiming at not only model accuracy but also computational efficiency.
+Ever since the creation of XGBoost there is a booming in different modern designs of GBT in the open source area aiming at not only model accuracy but also computational efficiency.
 
 In this notebook we try to unbox two such powerful GBT frameworks: `xgboost` and `lightgbm`.
 We will focus more on the methodology rather than their APIs to deeply understand how these algorithms work and why they are so effective comparing to the vanilla version of GBT,
-which has been formally introduced nearly 20 years ago.
+which has been formally introduced nearly 20 years ago (@friedman2001greedy).
 
 # Gradient Boosting Machines
 
@@ -473,7 +470,7 @@ We will focus especially on their novelty in bettering GBT to the extreme.
 
 # XGBoost
 
-@Chen2016 open source the `xgboost` package,
+@Chen2016 open source the [`xgboost`](https://github.com/dmlc/xgboost) package,
 probably one of the most influential GBT framework to date.
 It also comes with the most variety of langauge API support:
 Python, R, Julia, Java, ..., etc.
@@ -989,23 +986,328 @@ we use RF as our base learner in a gradient boosting machine.
 
 # LightGBM {#lgb}
 
-@ke2017lightgbm
-
-
-As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRAN](https://cran.r-project.org).
-
-
+@ke2017lightgbm open source the [`lightgbm`](https://github.com/microsoft/LightGBM) package,
+yet another powerful GBT framework with its own remarkable novel implementation.
+^[As of `r format(Sys.time(), '%Y-%m-%d')` `lightgbm` is not yet available on [CRAN](https://cran.r-project.org) for its R wrapper.
+Please refer to the [official instruction](https://github.com/microsoft/LightGBM/tree/master/R-package) to install it separately.]
 
 ```{r import_lgb}
 library(lightgbm)
 packageVersion("lightgbm")
 ```
 
+Here is a simple training task using `lightgbm` on our simulated data:
+
+```{r lgb_tree_learner}
+Dx2 <- lgb.Dataset(as.matrix(D[!is_test, .(x1, x2)]), label=D[!is_test, y])
+Dt2 <- lgb.Dataset(as.matrix(D[is_test, .(x1, x2)]), label=D[is_test, y])
+
+# We set the parameters such that lgb behaves like xgb's default for common parameters.
+lgbst <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_l2=1,
+                               min_sum_hessian_in_leaf=1, min_data_in_leaf=0),
+                   data=Dx2, valids=list(test=Dt2),
+                   num_iterations=100, early_stopping_rounds=5, verbose=0)
+
+yhat <- predict(lgbst, as.matrix(D[is_test, .(x1, x2)]))
+mse(D[is_test, y], yhat)
+```
+
+In general `lightgbm` runs even faster than `xgboost` in training,
+but with comparable model accuracy.
+This is achieved by a combination of different strategies (some of them novel).
+We will walk-through each of them in the following sections.
+
 ## Histogram Tree Split
 
-## Leaf-Wise Split
+`lightgbm` uses histogram-based tree split algorithm.
+Instead of splitting at raw feature values histogream-based approach bucketizes continous features into discrete bins,
+forming a limited number of feature bins (in `lightgbm` this is default `max_bin` = 255) and then split on those bins.
+This largely reduces the complexity from $O(n)$ to $O(\text{max_bin})$ during split finding for a feature.
+^[The complexity of building the histogram itself is still $O(n)$ but the operation is simple and negligible comparing to the split finding.]
+
+Histogram tree cannot be optimized for sparse data though.
+Since no matter a feature value is zero or not,
+its bin value needs to be accessed.
+As a result,
+to speed up training runtime there must be other strategies targeted at sparsity optimization.
+^[Also, histogram tree is not particularly novel in `lightgbm`.
+The approach has been proposed for quite long time in the literature and there are also GBT libraries already implemented the approach.]
+
+https://github.com/Microsoft/LightGBM/blob/7a89d0054bcf0db9f96af3c53a078b6aa3152efe/src/io/bin.cpp#L207-L401
+
+## Gradient-Based One-Side Sampling
+
+To reduce the training time one idea is to reduce number of splits in finding the best split.
+Without any approximation,
+for each feature the algorithm needs to traverse over all distinct feature values to find the best split.
+This can be prohibitively slow for large applications.
+`xgboost` tackles this with its approximated tree split using only percentiles as split value.
+`lightgbm` has several different strategies (combined together).
+One such strategy is called Gradient-Based One-Side Sampling (GOSS).
+
+When finding the best split,
+GOSS down-samples the examples with their absolute gradient sizes as sampling weights.
+It is based on the fact that examples with smaller gradients generally means they are already well-trained (and hence the error is smaller).
+Examples with larger gradients,
+instead,
+should be the focus for the model to imporve further.
+The concept is borrowed from AdaBoost,
+where examples are re-weighted at each boosting round to guide the model on learning the harder examples.
+
+GOSS keeps examples with large gradients and only do sampling on examples with small gradients.
+Since this will screw up the distribution,
+which in turn hurts the model's ability to learnl,
+GOSS compensates such affect by applying a constant factor $\frac{1 - a}{b}$ to sampled examples with small gradient to "re-weight" the data back to its original distribution.
+Here $a$ is the top percentage of examples to keep,
+sorted descendingly by gradients,
+and $b$ the sampling rate for the rest of the examples (with smaller gradients than those top ones).
+The authors in their paper provide the theoretical ground to support that GOSS can approximate well when the data size is huge.
+
+To use GOSS in `lightgbm` we need to specifiy the parameter `boosting="goss"`.
+By default `booster="gbdt"` is just the modern GBT with leaf-wise growing histogram trees.
+
+## Exclusive Feature Bundling
+
+For sparse data `lightgbm` adopts a strategy to group together features that rarely co-exist into single feature and do the split scan.
+This is referred to as EFB.
+GOSS handles long (number of examples) data while EFB handles the wide part (number of features).
+
+EFB can be enabled by parameter `enable_bundle` (and by default it is on already).
+
+## Leaf-Wise Tree Split
+
+**TODO**
+
+```{r lgb_decision_stump}
+lgbst2 <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_l2=1,
+                                num_leaves=2),
+                    data=Dx2, num_iterations=1, verbose=0)
+
+print(lgb.model.dt.tree(model=lgbst2)[])
+```
+
+# XGBoost v.s. LightGBM
+
+`xgboost` and `lightgbm` have a lot in common,
+even their APIs are highly similar.
+They use the same global loss function with 2nd-order approximation and regularization to optimize the model ensembler.
+They allow plug-and-play custom losses and evaluation metrics.
+They handle missing values in the same way.
+They both support training a random forest instead of boosting trees.
+^[While `xgboost` allows training a boosted RF (that is, RF as base learner),
+`lightgbm` only supports training a regular RF.]
+
+Still,
+there are subtle differences we should be aware of.
+In this section we discuss several important differences (out of commonality) in the two.
+
+## On Tree Type
+
+As a matter of fact,
+since histogram-based approach together with leaf-wise growth is so powerful,
+after `lightgbm`'s entering into the commuity,
+`xgboost` also quickly catched up with the same implementation.
+So in `xgboost` we can set the following parameter
+
+```
+tree_method="hist"
+grow_policy="lossguide"
+```
+
+to train a XGBoost model with leaf-wise growing histogram-based trees,
+just like LightGBM.
+
+## On Hyperparameters
+
+There are tons of hyperparameters in modern GBT models we discussed in this notebook.
+Here we only walk-through those important and non-trivial ones.
+
+### Regularization Parameters
+
+#### L1/L2 Penalties
+
+Both packages implement the same penalties on cost function.
+Only the names and default values are different.
+In `lightgbm` L1/L2 penalties are defined by:
+
+```
+lambda_l1=0
+lambda_l2=0
+```
+
+And in `xgboost` they are:
+
+```
+alpha=0
+lambda=1
+```
+
+#### Leaf Size {-}
+
+One way to regularize a tree model is to limit the size of its terminal node (leaf).
+In `lightgbm` this can be done by either limiting the minimum number of examples or limiting the minimum sum of hessian ($\sum_{i \in I_j}h_i$ for node $j$).
+Here are the default values:
+
+```
+min_data_in_leaf=20
+min_sum_hessian_in_leaf=1e-3
+```
+
+In `lightgbm` an improper value for this parameter usually results in the following warning message during training runtime:
+
+```
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+```
+
+In such case,
+try to lower down the value since the algorithm is complaining about not able to split further due to reaching the minimum limits of node size,
+given the targeted number of leaves.
+Of course another cure is to reduce tree complexity by decreasing `num_leaves`.
+
+In `xgboost` to control leaf size we can only limit on hessian but not the exact example counts:
+
+```
+min_child_weight=1
+```
+
+Remember that in the case of a squared loss the hessian is indeed unity (after normalization),
+so the hessian sum will be the same as example counts.
+
+Notice the difference in the default values between `lightgbm` and `xgboost`.
+The former has less tolerance on over-fitting (more regularized).
+
+#### Tree Size {-}
+
+A larger tree has more leaves and hence more complicated.
+More leaves also means more interaction among variables,
+which control the degree of non-linearity in the model.
+^[When a subsequent split is conditioning on a previous split on another variable,
+we consider this as variable interaction.]
+
+Since `lightgbm` grows a tree leaf-wise,
+there are two parameters to control tree size:
+
+```
+max_depth=-1
+num_leaves=31
+```
+
+`num_leaves` is the main factor,
+and `max_depth` supplements it.
 
 
+In `xgboost` one can choose to grow a tree either depth-wise (the default) or leaf-wise.
+For depth-wise tree there is only one relevant parameter:
 
-also include? DART: Dropouts meet Multiple Additive Regression Trees.
-@rashmi2015dart
+```
+max_depth=6
+```
+
+For leaf-wise growing tree to control number of leaves:
+
+```
+max_leaves=0
+```
+
+For a leaf-wise tree to grow as many leaves as a depth-wise tree,
+the former will usually get deeper than the latter.
+This is why to simultaneously control the number of leaves and tree depth is a good strategy.
+Be aware that by default `lightgbm` doesn't limit tree depth at all.
+
+#### Sub-Sampling
+
+Both libraries support column sampling and row sampling.
+In `lightgbm` we have:
+
+```
+bagging_freq=0
+bagging_fraction=1
+feature_fraction=1
+feature_fraction_bynode=1
+```
+
+Note that `bagging_freq` controls how many iterations to re-do the bagging.
+So `bagging_freq=1` will do row sampling at the start of every iteration.
+We can even subsample only positive or negative examples (for binary classification),
+by using `pos_bagging_fraction` or `neg_bagging_fraction`.
+This can be handy when dealing with imbalanced dataset.
+
+For feature sampling,
+`feature_fraction` controls the sampling at the beginning of each iteration,
+while `feature_fraction_bynode` controls the sampling at each tree node.
+The latter is in general more regularized since the model training is subject to stronger randomness.
+
+In `xgboost` we have the following relevant parameters:
+
+```
+subsample=1
+colsample_bytree=1
+colsample_bylevel=1
+colsample_bynode=1
+```
+
+It has less control over bagging,
+only one parameter `subsample` is used and the bagging is done at the beginning of each iteration.
+While it has more control over column sampling.
+Besides column sampling at iteration or node-level,
+it also supports column sampling at tree-depth-level.
+
+Note that in both libraries the bagging is done *without replacement*.
+So none of them implements boostrap bagging,
+which is proposed by the original random forest paper.
+
+## On Imbalanced Data
+
+Simply based on hyperparameters there are two ways to handle imbalanced dataset in a binary classification task.
+The first approach is to re-weight the examples.
+Both `xgboost` and `lightgbm` has the parameter for this purpose:
+
+```
+scale_pos_weight=1
+```
+
+To re-balance the distribution to 50-50 the weight should be:
+
+```
+number of negative samples / number of positive samples
+```
+
+This will help the model in its general ranking performance (so metrics such as AUC will improve a lot).
+For `lightgbm` there is also another convenient boolean parameter just to do this:
+`is_unbalance`.
+
+
+**TODO: Explain how the weighting works. In Loss function.**
+
+
+But since any non-unity weight also screws up the distribution of our training data,
+the model will not be able to estimate the class probability correctly.
+In case that estimating the correct probability is relevant,
+we have another parameter that may help,
+which is also shared by the two libraries:
+
+```
+max_delta_step=0
+```
+
+Here is a quote from `xgboost`'s official document on this parameter:
+
+> Usually this parameter is not needed,
+but it might help in logistic regression when class is extremely imbalanced.
+Set it to value of 1-10 might help control the update.
+
+Technically,
+`max_delta_step` cap the leaf weight (base model logit output or *margin*) learnt from each iteration.
+Not that this is different from learning rate which only applies a fraction of the update.
+`max_delta_step` effectively limits the absolute update amount.
+And learning rate will still apply to the capped update.
+
+## On Categorical Encoding
+
+One remaining difference is `lightgbm`'s special support for categorical features *without* one-hot-encoding.
+For training data containing categoricals the usual way to do is to one-hot encode the data into a sparse matrix.
+But for `lightgbm` such effort is saved so the data pipeline can be much cleaner.
+
+```{r}
+# TODO: DEMO categorical features.
+```
