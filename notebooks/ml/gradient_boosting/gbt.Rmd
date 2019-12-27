@@ -1017,33 +1017,126 @@ but with comparable model accuracy.
 This is achieved by a combination of different strategies (some of them novel).
 We will walk-through each of them in the following sections.
 
-## Histogram Tree Split
+## Histogram Tree (Quantization)
 
 `lightgbm` uses histogram-based tree split algorithm.
-Instead of splitting at raw feature values histogream-based approach bucketizes continous features into discrete bins,
-forming a limited number of feature bins (in `lightgbm` this is default `max_bin` = 255) and then split on those bins.
+^[Histogram tree is not particularly novel in `lightgbm`.
+The approach has been proposed for quite long time in the literature and there are also GBT libraries already implemented the approach.]
+
+Instead of splitting at raw feature values histogram-based approach bucketizes continous features into discrete bins,
+forming a limited number of feature bins (in `lightgbm` this is default `max_bin=255`) and then split on those bins.
 This largely reduces the complexity from $O(n)$ to $O(\text{max_bin})$ during split finding for a feature.
 ^[The complexity of building the histogram itself is still $O(n)$ but the operation is simple and negligible comparing to the split finding.]
 
-Histogram tree cannot be optimized for sparse data though.
+### Greedy Equal-Density Binning
+
+There are two strategies in binning:
+equal bin length [@li2008mcrank] or equal bin density.
+`lightgbm` adopts the latter.
+So number of data points will be roughly the same for most bins.
+This effectively transforms feature distribution into a uniform one when finding the best split.
+
+`lightgbm` doesn't use the entire training dataset to construct the boundaries of bins.
+Instead it use a random subset (only applicable when data size is huge enough).
+This random sample size can be controlled by parameter `bin_construct_sample_cnt=200000`.
+Additionally,
+`min_data_in_bin=3` can be used to control minimal number of data inside one bin.
+
+Note that this approach is different from the percentile splitting we've discussed for approximated tree split implemented in `xgboost`:
+
+> The existing approximate splitting method in `xgboost` also buckets continuous features into discrete bins to speed up training.
+The `approx` method generates a new set of bins for each iteration,
+whereas the `hist` method re-uses the bins over multiple iterations.
+^[https://github.com/dmlc/xgboost/issues/1950]
+
+### Histogram Subtraction Trick
+
+To calulate the information gain from a split we need to calculate the cost for the resulting two nodes.
+Remember that a cost of a single node $j$ is:
+
+$$
+\text{Cost of Node j} = - \frac{1}{2} \frac{\big(\sum_{i \in I_j} g_i\big)^2}{\sum_{i \in I_j}h_i + \lambda}.
+$$
+
+A key observation here is that what we need is simply summation of gradients inside the node.
+Since an example is assigned to either left ($I_j^L$) or right ($I_j^R$) child after a split,
+apparently we have:
+
+$$
+\begin{aligned}
+\sum_{i \in I_j} g_i &= \sum_{i \in I_j^L} g_i + \sum_{i \in I_j^R} g_i, \\
+\sum_{i \in I_j} h_i &= \sum_{i \in I_j^L} h_i + \sum_{i \in I_j^R} h_i.
+\end{aligned}
+$$
+
+This means that when calculating the total gain of a split,
+we only need to calculate the cost of one node.
+And the cost of the other node can be obtained by first substracting the gradient sums from that of the parent,
+then squaring the first-order gradient sum before pluging into the cost function to arrive at the final cost of the other node.
+To save even more resources,
+we can always choose to calculate on the smaller child node.
+This is one key factor why `lightgbm` can run even faster than `xgboost`'s default or the approximated tree method.
+
+### Speed-Accuracy Tradeoff
+
+In the original paper it is demonstrated with experiments that a total number of 255 bins (plus one bin specifically for zeroes) can perform very well.
+We can always choose more bins for potentially better accuracy,
+but at the price of slowering down the training speed.
+
+We can use a single decision stump to easily see the effect of `max_bin`.
+First let's run with the default setting:
+
+```{r lgb_decision_stump}
+lgbst2 <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_l2=1,
+                                num_leaves=2),
+                    data=Dx2, num_iterations=1, verbose=0)
+
+lgb.model.dt.tree(model=lgbst2)[]
+```
+
+The optimal root split coincide with `xgboost` and also our toy implementation.
+Note that we have far more than `max_bin=255` distinct values in our splitting variable:
+
+```{r distinct_count}
+distinct_cnt <- uniqueN(D[!is_test, x1])
+print(distinct_cnt)
+```
+
+Instead of performing `r distinct_cnt - 1` splits LightGBM only performs 255 splits to locate the same optimal split.
+
+Now let's reduce the maximal number of bins to a rather small number:
+
+```{r lgb_decision_stump_large_bin}
+# We need to re-construct the dataset since lgb caches the bins in dataset.
+Dx2 <- lgb.Dataset(as.matrix(D[!is_test, .(x1, x2)]), label=D[!is_test, y])
+lgbst3 <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_l2=1,
+                                num_leaves=2, max_bin=10),
+                    data=Dx2, num_iterations=1, verbose=0)
+
+lgb.model.dt.tree(model=lgbst3)[]
+```
+
+By lowering down `max_bin` now we end up with a sub-optimal split,
+with smaller gain for the split.
+
+### Handling Sparsity
+
+Histogram tree cannot be fully optimized for sparse data though.
 Since no matter a feature value is zero or not,
 its bin value needs to be accessed.
 As a result,
 to speed up training runtime there must be other strategies targeted at sparsity optimization.
-^[Also, histogram tree is not particularly novel in `lightgbm`.
-The approach has been proposed for quite long time in the literature and there are also GBT libraries already implemented the approach.]
-
-https://github.com/Microsoft/LightGBM/blob/7a89d0054bcf0db9f96af3c53a078b6aa3152efe/src/io/bin.cpp#L207-L401
 
 ## Gradient-Based One-Side Sampling
 
 To reduce the training time one idea is to reduce number of splits in finding the best split.
-Without any approximation,
+Without any approximation or quantization,
 for each feature the algorithm needs to traverse over all distinct feature values to find the best split.
 This can be prohibitively slow for large applications.
 `xgboost` tackles this with its approximated tree split using only percentiles as split value.
-`lightgbm` has several different strategies (combined together).
-One such strategy is called Gradient-Based One-Side Sampling (GOSS).
+`lightgbm` has several different strategies combined together.
+The histogram tree method we just discussed is one of them.
+Another such strategy is called Gradient-Based One-Side Sampling (GOSS).
 
 When finding the best split,
 GOSS down-samples the examples with their absolute gradient sizes as sampling weights.
@@ -1068,34 +1161,121 @@ By default `booster="gbdt"` is just the modern GBT with leaf-wise growing histog
 
 ## Exclusive Feature Bundling
 
-For sparse data `lightgbm` adopts a strategy to group together features that rarely co-exist into single feature and do the split scan.
-This is referred to as EFB.
-GOSS handles long (number of examples) data while EFB handles the wide part (number of features).
+GOSS deals with data in long size.
+What about very wide (high dimentionality) data?
+In such case,
+`lightgbm` adopts a strategy to group together features that rarely co-exist into single feature and do the split scan.
+This is referred to as Exclusive Feature Bundling, or EFB.
+
+`lightgbm` postulates EFB as a [graph coloring problem](https://en.wikipedia.org/wiki/Graph_coloring) by taking features as vertices and adding edges for every two features if they are not mutually exclusive.
+To speed up even more,
+it introduces a certain level of "pollution" by allowing features that are not 100% mutually exclusive to be also bundled together.
+This can be control by parameter `max_conflict_rate=0`.
+The higher the rate the more compromises for the model accuracy.
 
 EFB can be enabled by parameter `enable_bundle` (and by default it is on already).
 
 ## Leaf-Wise Tree Split
 
-**TODO**
+Leaf-wise tree split is also called best-first split. [@shi2007best]
+Classical trees will grow their nodes in a depth-first order.
+At each layer all nodes are splitted in order to construct the next layer.
+The final tree layout can be asymmetric due to post-training pruning or other regularization techniques,
+but the grow policy is to always go deeper first for each node at the same level.
 
-```{r lgb_decision_stump}
-lgbst2 <- lgb.train(params=list(objective="regression", boosting="gbdt", lambda_l2=1,
-                                num_leaves=2),
-                    data=Dx2, num_iterations=1, verbose=0)
+A leaf-wise growing tree doesn't always split every node at the same layer down to the next layer.
+Instead,
+it chooses the node that can result in the best gain for every split.
+Since one of the resulting two additional nodes at current split may result in the next best split,
+the tree may well grow horizontally (leaf-wise) instead of vertically (depth-wise).
 
-lgb.model.dt.tree(model=lgbst2)[]
+Emprically,
+a single leaf-wise growing tree tend to over-fit more than a depth-wise growing tree.
+But as a week learner (with shallower structure) in gradient boosting it can outperform the depth-wise approach.
+To further regularize the tree,
+`lightgbm` also has `max_depth` to control the depth the tree,
+even though it is growing leaf-wise.
+
+## Optimal Categorical Encoding
+
+Usually we use one-hot encoding to represent categorical variables.
+To be memory-friendly,
+such data input is usually a sparse matrix.
+But when a categorical is highly skewed (high cardinality),
+it will hurt the performance of a tree learner.
+
+Here is a direct quote from `lightgbm` 's official doc:
+
+>Instead of one-hot encoding,
+the optimal solution is to split on a categorical feature by partitioning its categories into 2 subsets.
+If the feature has k categories,
+there are `2^(k-1) - 1` possible partitions.
+But there is an efficient solution for regression trees.
+It needs about `O(k * log(k))` to find the optimal partition.
+The basic idea is to sort the categories according to the training objective at each split. More specifically,
+LightGBM sorts the histogram (for a categorical feature) according to its accumulated values (`sum_gradient` / `sum_hessian`) and then finds the best split on the sorted histogram.
+
+Readers interested can refer to @fisher1958grouping for the details of the solution to optimal partition in a categorical variable.
+
+## Parallel Learning
+
+We've mentioned that GBT is a iterative training algorithm so theoretically the parallelization must be done at a level other than the base learner.
+In `lightgbm` parallelization is seriously implemented into different such levels,
+with support of both multi-threading or multi-machine runtime.
+
+(By default `tree_learner=serial` so there is no parallelization at learning.)
+
+### Feature Parallel
+
 ```
+tree_learner=feature
+```
+
+This is the most straightforward parallelization we can think of.
+Data is partitioned vertically so each thread will only inspect a subset of features.
+Best split is found simultaneously among those features to get the local best splits,
+then a comminucation overhead is required to arrive at the global best.
+The speedup is limited if our data is not wide but instead very long.
+
+### Data Parallel
+
+```
+tree_learner=data
+```
+
+Instead of vertically parallelization,
+`lightgbm` also supports horinzontally parallelization.
+Local gradient histograms will be constructed for each partition and then merged to a global histogram for finding the best split.
+
+### Voting Parallel
+
+```
+tree_learner=voting
+```
+
+@NIPS2016_6381 propose the idea of parallel voting tree.
+The general idea can be summarized into the following flow:
+
+1. Partition data according to multiple threads/machines
+2. Each partition a local voting is done to propose top-k features for the best split
+3. Top-2k features are collectd based on all local votes
+4. Full data for the top-2k is collected and a global best split is searched within them
+
+Such parallel voting strategy has limited communication overhead but can approximate very good in accuracy.
+In `lightgbm`,
+by default when doing parallel voting we have `top_k=20`.
+
+In general,
+since `lightgbm` is already lightning fast,
+only very huge data will we need to resort to parallel voting.
 
 # XGBoost v.s. LightGBM
 
 `xgboost` and `lightgbm` have a lot in common,
-even their APIs are highly similar.
+even their APIs (in both Python and R) are highly similar to each other.
 They use the same global loss function with 2nd-order approximation and regularization to optimize the model ensembler.
 They allow plug-and-play custom losses and evaluation metrics.
-They handle missing values in the same way.
-They both support training a random forest instead of boosting trees.
-^[While `xgboost` allows training a boosted RF (that is, RF as base learner),
-`lightgbm` only supports training a regular RF.]
+They handle missing values in the same way by learning a default branch at each split, ...
 
 Still,
 there are subtle differences we should be aware of.
@@ -1116,6 +1296,21 @@ grow_policy="lossguide"
 
 to train a XGBoost model with leaf-wise growing histogram-based trees,
 just like LightGBM.
+
+## On Base Learner
+
+`lightgbm` only supports tree learner (using the `boosting` parameter) while `xgboost` also supports linear learners (using the `booster` parameter).
+
+In `xgboost` two linear learners are supported:
+A simple linear regressor and a generalized linear model with [tweedie distribution](https://en.wikipedia.org/wiki/Tweedie_distribution).
+
+For tree learner other than the regression tree they both supports two additional tree models:
+
+1. Random Forest
+2. DART [@rashmi2015dart]
+
+One notable difference in RF is that while `xgboost` allows training a boosted RF,
+`lightgbm` only supports training a regular RF (there is no boosting involved).
 
 ## On Hyperparameters
 
@@ -1304,12 +1499,131 @@ And learning rate will still apply to the capped update.
 
 ## On Categorical Encoding
 
-One remaining difference is `lightgbm`'s special support for categorical features *without* one-hot-encoding.
-For training data containing categoricals the usual way to do is to one-hot encode the data into a sparse matrix.
-But for `lightgbm` such effort is saved so the data pipeline can be much cleaner.
+One important user-facing difference is `lightgbm`'s special support for categorical features *without* one-hot-encoding.
+This is probably one of the most handy function in modern machine learning libraries.
+It not only improves the model accuracy but also simplifies data pipeline and hence reduces engineering efforts.
 
-```r
-# TODO: DEMO categorical features.
+For `xgboost` categoricals must be either one-hot encoded or converted to integers with an ordinal assumption.
+EMpirically,
+even though the feature is not ordinal,
+sometimes converting it into integers still work pretty well in terms of accuracy,
+adding that the training runtime can be reduced a lot and data pipeline simplified.
+
+To demonstrate the performance gain of the optimal categorical encoding in LightGBM,
+let's simulate some data.
+Here we use the same data generating process previously setup,
+but with one more categorical variable that enter linearly into the model.
+
+```{r sim_data_for_categorical_exp}
+# Create simulated data for categorical experiment.
+library(Matrix)
+
+n <- 10000
+z1 <- rnorm(n, 2, 4)
+z2 <- runif(n)
+e <- rnorm(n)
+
+# Create one categorical with moderate cardinality and skewed distribution.
+categorical <- sample(1:20, size=n, replace=TRUE, prob=1.3^(seq(2, 21)))
+table(categorical)
+
+sparse_cat <- t(fac2sparse(factor(categorical)))  # One-hot encode.
+stopifnot(all.equal(as.numeric(table(categorical)), 
+                    colSums(sparse_cat), check.attributes=FALSE))
+
+# Random effects on categories.
+cat_beta <- rnorm(ncol(sparse_cat))
+
+# DGP: g = 3 z_1 + 6 z_2 -1.5 z_1z_2 + categorical dummy effects + e
+g <- 3 * z1 + 6 * z2 - 1.5 * z1 * z2 + sparse_cat %*% cat_beta + e
+g <- g[,1]  # Strip redundant dim.
+
+# Prepare model design matrix.
+in_mat <- cbind(z1, z2, sparse_cat)
+head(in_mat)  # Training data in sparse matrix format.
+
+in_dt <- data.table(z1=z1, z2=z2, cat=categorical)
+head(in_dt)  # Training data in tabular format.
+
+# Train-test split.
+is_test_g <- runif(n) < .2
 ```
+
+Now train a XGBoost model with one-hot-encoded sparse matrix as input.
+To be fair,
+we setup the parameters such that `xgboost` will also grow a leaf-wise histogram tree as its beas learner.
+
+```{r categorical_exp_xgb}
+xgb_dtrain <- xgb.DMatrix(in_mat[!is_test_g,], label=g[!is_test_g])
+xgb_dtest <- xgb.DMatrix(in_mat[is_test_g,], label=g[is_test_g])
+
+run_xgb <- function(v=1) {
+  # We set the parameters such that xgb use lgb-style leaf-wise histogram tree.
+  xgb.train(params=list(objective="reg:squarederror", booster="gbtree",
+                        eta=.3, max_leaves=7, max_depth=3,
+                        tree_method="hist", grow_policy="lossguide"),
+            data=xgb_dtrain, watchlist=list(test=xgb_dtest),
+            nround=50, early_stopping_rounds=5, verbose=v, print_every_n=10)
+}
+
+invisible(run_xgb())
+```
+
+Now it's LightGBM's turn:
+
+```{r categorical_exp_lgb}
+lgb_dtrain <- lgb.Dataset(as.matrix(in_dt[!is_test_g]), label=g[!is_test_g],
+                          colnames=names(in_dt), categorical_feature="cat")
+lgb_dtest <- lgb.Dataset(as.matrix(in_dt[is_test_g]), label=g[is_test_g],
+                         colnames=names(in_dt), categorical_feature="cat")
+
+run_lgb <- function(v=1) {
+  # We set the parameters such that lgb behaves like xgb's default for common parameters.
+  lgb.train(params=list(objective="regression", boosting="gbdt",
+                        lambda_l2=1, learning_rate=.3, metric="rmse",
+                        num_leaves=7, max_depth=3,
+                        min_sum_hessian_in_leaf=1, min_data_in_leaf=0),
+            data=lgb_dtrain, valids=list(test=lgb_dtest),
+            num_iterations=50, early_stopping_rounds=5, verbose=v, eval_freq=10)
+}
+
+invisible(run_lgb())
+```
+
+In our specific parameter setup LightGBM outperforms XGBoost.
+But it is minor since we didn't tune any of the models seriously.
+There are already lots of benchmarks on the internet with different experiments and dataset,
+the results are in general a mixture.
+We consider two models comparable in terms of accuracy.
+Here we only care about the performance gap resulted from a different treatment of categorical variables.
+
+Now we benchmark the model training runtime:
+
+```{r benchmark_cat}
+library(microbenchmark)
+
+print(microbenchmark(
+  xgb=run_xgb(v=0),
+  lgb=run_lgb(v=0),
+  times=10
+))
+```
+
+Clearly LightGBM is much faster than XGBoost with its optimal categorical encoding scheme.
+Not to mention it also saves our ass in preparing a one-hot encoder for our data.
+
+# Concluding Remarks
+
+Modern gradient boosting trees are powerful machine learning models for lots of real world applications.
+In this notebook we review thoroughly two of such frameworks in the open source community:
+`xgboost` and `lightgbm`.
+We choose them not only because they are both implemented with very high engineering quality,
+but also because they are both extremely popular and wdiely adopted among data science practioners.
+
+For such a tool that is so widely spread,
+we feel there is a need to demystify why it is so effective by understanding how they are different from traditional or vanilla gradient boosting machines.
+We focus more on the technical details and their novelties in bettering the GBT family.
+We hope the notebook can help practitioners better understand their tool at hand.
+So they can utilize it with its maximum potential.
 
 # References

@@ -3,6 +3,7 @@
 required_pkgs <- c(
     "rmarkdown",
     "rpart.plot",
-    "xgboost"
+    "xgboost",
+    "microbenchmark"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")
