@@ -4,7 +4,7 @@ subtitle: "From Theory to Hands-On Examples"
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (26 Dec 2019 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (27 Dec 2019 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -1453,6 +1453,8 @@ which is proposed by the original random forest paper.
 
 ## On Imbalanced Data
 
+### Class Re-Weighting
+
 Simply based on hyperparameters there are two ways to handle imbalanced dataset in a binary classification task.
 The first approach is to re-weight the examples.
 Both `xgboost` and `lightgbm` has the parameter for this purpose:
@@ -1471,9 +1473,35 @@ This will help the model in its general ranking performance (so metrics such as 
 For `lightgbm` there is also another convenient boolean parameter just to do this:
 `is_unbalance`.
 
+How does the weighting factor affect our model training?
+It is directly through the gradients.
+The scale factor will simply be used as a multiplier on *both* gradient $g_i$ and hessian $h_i$ for that example,
+provided that the example $i$ is a positive example.
 
-**TODO: Explain how the weighting works. In Loss function.**
+In `xgboost`' source code it is:
 
+```cpp
+_out_gpair[_idx] = GradientPair(Loss::FirstOrderGradient(p, label) * w,
+                                Loss::SecondOrderGradient(p, label) * w);
+```
+
+where `w` is the scale factor (after considering also user-supplied custom weights for each example).
+
+And in `lightgbm`'s source code it is:
+
+```cpp
+const double response = -label * sigmoid_ / (1.0f + std::exp(label * sigmoid_ * score[i]));
+const double abs_response = fabs(response);
+gradients[i] = static_cast<score_t>(response * label_weight  * weights_[i]);
+hessians[i] = static_cast<score_t>(abs_response * (sigmoid_ - abs_response) * label_weight * weights_[i]);
+```
+
+where `label` is 1 for positive and -1 for negative,
+`label_weight` is the scale factor,
+`sigmoid_` is the scale factor for sigmoid function (default at 1),
+and  `weights_` is user-supplied custom weights.
+
+### Margin Clipping
 
 But since any non-unity weight also screws up the distribution of our training data,
 the model will not be able to estimate the class probability correctly.
@@ -1496,6 +1524,9 @@ Technically,
 Not that this is different from learning rate which only applies a fraction of the update.
 `max_delta_step` effectively limits the absolute update amount.
 And learning rate will still apply to the capped update.
+
+This is a bit similar to *gradient clipping* in gradient descent,
+where we cap the gradient update to a hard limit to avoid aggressive update.
 
 ## On Categorical Encoding
 
