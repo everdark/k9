@@ -1554,13 +1554,13 @@ To be fair,
 we setup the parameters such that `xgboost` will also grow a leaf-wise histogram tree as its beas learner.
 
 ```{r categorical_exp_xgb}
-xgb_dtrain <- xgb.DMatrix(in_mat[!is_test_g,], label=g[!is_test_g])
-xgb_dtest <- xgb.DMatrix(in_mat[is_test_g,], label=g[is_test_g])
-
 run_xgb <- function(v=1) {
+  xgb_dtrain <- xgb.DMatrix(in_mat[!is_test_g,], label=g[!is_test_g])
+  xgb_dtest <- xgb.DMatrix(in_mat[is_test_g,], label=g[is_test_g])
+
   # We set the parameters such that xgb use lgb-style leaf-wise histogram tree.
   xgb.train(params=list(objective="reg:squarederror", booster="gbtree",
-                        eta=.3, max_leaves=7, max_depth=3,
+                        eta=.3, max_leaves=7, max_depth=3, nthreads=1,
                         tree_method="hist", grow_policy="lossguide"),
             data=xgb_dtrain, watchlist=list(test=xgb_dtest),
             nround=50, early_stopping_rounds=5, verbose=v, print_every_n=10)
@@ -1572,16 +1572,16 @@ invisible(run_xgb())
 Now it's LightGBM's turn:
 
 ```{r categorical_exp_lgb}
-lgb_dtrain <- lgb.Dataset(as.matrix(in_dt[!is_test_g]), label=g[!is_test_g],
-                          colnames=names(in_dt), categorical_feature="cat")
-lgb_dtest <- lgb.Dataset(as.matrix(in_dt[is_test_g]), label=g[is_test_g],
-                         colnames=names(in_dt), categorical_feature="cat")
-
 run_lgb <- function(v=1) {
+  lgb_dtrain <- lgb.Dataset(as.matrix(in_dt[!is_test_g]), label=g[!is_test_g],
+                            colnames=names(in_dt), categorical_feature="cat")
+  lgb_dtest <- lgb.Dataset(as.matrix(in_dt[is_test_g]), label=g[is_test_g],
+                           colnames=names(in_dt), categorical_feature="cat")
+
   # We set the parameters such that lgb behaves like xgb's default for common parameters.
   lgb.train(params=list(objective="regression", boosting="gbdt",
                         lambda_l2=1, learning_rate=.3, metric="rmse",
-                        num_leaves=7, max_depth=3,
+                        num_leaves=7, max_depth=3, num_threads=1,
                         min_sum_hessian_in_leaf=1, min_data_in_leaf=0),
             data=lgb_dtrain, valids=list(test=lgb_dtest),
             num_iterations=50, early_stopping_rounds=5, verbose=v, eval_freq=10)
