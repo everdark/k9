@@ -146,7 +146,7 @@ Not all weak learners can gain equally from such ensemble.
 In this section we demonstrate a model ensemble using a weak linear learner.
 It turns out that gradient boosting with a linear model may do no good at all.
 
-Let's create some simulated data baseed on a simple ground-truth (non-linear) data generating process:
+Let's create some simulated data based on a simple ground-truth (non-linear) data generating process:
 
 ```{r sim_data}
 library(data.table)
@@ -173,7 +173,6 @@ We fit a linear model with all features (consdier it as a "strong" learner):
 f <- lm(y ~ x1 + x2, data=D[!is_test])
 D <- D[, yhat:=predict(f, D)]
 
-
 # MSE as our loss function.
 mse <- function(y, yhat) {
   mean((y - yhat)^2)
@@ -183,7 +182,7 @@ mse <- function(y, yhat) {
 with(D[is_test], mse(y, yhat))
 ```
 
-Now let's ensemble a weak learner which only take one feature.
+Now let's ensemble a weak learner which only takes one feature.
 We train the model based on gradient boosting framework.
 Since our loss is squared error,
 we can simply fit the model residual of the previous ensemble:
@@ -323,7 +322,7 @@ The more values a feature can take the more computing resources are needed to fi
 
 #### Quality of Split Measure {-}
 
-This is probably the most imnportant part of a split algorithm.
+This is probably the most important part of a tree algorithm.
 It directly affects the accuracy of the resulting tree.
 The quality score measures how good a node is splitting the examples.
 In the literature this is often refered to as *impurity*.
@@ -437,7 +436,7 @@ The most well-known bagging tree model is Random Forest (RF hereafter).
 In each single tree in RF the split algorithm is modified to only iterate over a subsample of all features.
 This reduces the ability of any single tree to over-fit the training data and create diversity among different trees.
 RF also use boostrap sampling on the training dataset when doing feature value iteration.
-Rather than search split on full training set it only search on a set of boostrap samples.
+Rather than searching split on full training set it only searches on a set of boostrapped samples.
 Some model variants even perform only a small number of random splits (instead of finding the best split with a full scan) on the feature value iteration phase.
 
 Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and boostrap (row) sampling,
@@ -446,7 +445,7 @@ in reality RF can still easily over-fit without proper tunning.
 One obvious advantage of RF,
 in terms of computational efficiency,
 is that it is [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel).
-Most modern implementation of RF supports single-machine cpu parallel or even distributed computing.
+Most modern implementations of RF supports single-machine cpu parallel or even distributed computing.
 
 ### Boosting Ensembles
 
@@ -467,7 +466,7 @@ Even though GBT has been introduced in the literature for almost 20 years alread
 it is the recent 5 years that several very powerful open source implementations have emerged to really shape the practitioners' choice of toolbox.
 In the following sections we'd like to deep-dive into two of them:
 `xgboost` and `lightgbm`.
-We will focus especially on their novelty in bettering GBT to the extreme.
+We will focus especially on their novelties in bettering GBT to the extreme.
 
 # XGBoost
 
@@ -937,10 +936,10 @@ do split using j* at x_pj* associated with maximum s
 
 The idea is to split only at percentile value,
 introducing one additional parameter called `sketch_eps` (default at 0.03 in `xgboost`) to control the granularity of the buckets.
-So the number of search for each continous variable will be capped roughly at 1/`sketch_eps` instead of the number of distinct values,
+So the number of search for each continous variable will be capped roughly at `1/sketch_eps` instead of the number of distinct values,
 which can be huge.
 
-By default in `xgboost` the bucketization is done only once at the model initialization phase.
+By default in `xgboost` the bucketization is done only once at the model initialization phase in each iteration.
 All subsequent splits are performed on the same set of buckets for each feature.
 It is also possible to re-propose new buckets after each optimal split,
 as pointed out in the original paper,
@@ -971,7 +970,7 @@ A surrogate variable is a feature other than the best split feature but used to 
 For more details readers may refer to @rpart.
 
 Comparing to `rpart`'s surrogate variable approach,
-which increases computation cost,
+which increases computing cost,
 `xgboost`'s approach is more computationally efficient and seems to also result in better model accuracy.
 
 ## Random Forest via XGBoost
@@ -1149,8 +1148,8 @@ where examples are re-weighted at each boosting round to guide the model on lear
 
 GOSS keeps examples with large gradients and only do sampling on examples with small gradients.
 Since this will screw up the distribution,
-which in turn hurts the model's ability to learnl,
-GOSS compensates such affect by applying a constant factor $\frac{1 - a}{b}$ to sampled examples with small gradient to "re-weight" the data back to its original distribution.
+which in turn hurts the model's ability to learn,
+GOSS compensates such effect by applying a constant factor $\frac{1 - a}{b}$ to sampled examples with small gradient to "re-weight" the data back to its original distribution.
 Here $a$ is the top percentage of examples to keep,
 sorted descendingly by gradients,
 and $b$ the sampling rate for the rest of the examples (with smaller gradients than those top ones).
@@ -1170,14 +1169,14 @@ This is referred to as Exclusive Feature Bundling, or EFB.
 `lightgbm` postulates EFB as a [graph coloring problem](https://en.wikipedia.org/wiki/Graph_coloring) by taking features as vertices and adding edges for every two features if they are not mutually exclusive.
 To speed up even more,
 it introduces a certain level of "pollution" by allowing features that are not 100% mutually exclusive to be also bundled together.
-This can be control by parameter `max_conflict_rate=0`.
+This can be controlled by parameter `max_conflict_rate=0`.
 The higher the rate the more compromises for the model accuracy.
 
 EFB can be enabled by parameter `enable_bundle` (and by default it is on already).
 
 ## Leaf-Wise Tree Split
 
-Leaf-wise tree split is also called best-first split. [@shi2007best]
+Leaf-wise tree split is also called best-first split [@shi2007best].
 Classical trees will grow their nodes in a depth-first order.
 At each layer all nodes are splitted in order to construct the next layer.
 The final tree layout can be asymmetric due to post-training pruning or other regularization techniques,
@@ -1193,7 +1192,7 @@ Emprically,
 a single leaf-wise growing tree tend to over-fit more than a depth-wise growing tree.
 But as a week learner (with shallower structure) in gradient boosting it can outperform the depth-wise approach.
 To further regularize the tree,
-`lightgbm` also has `max_depth` to control the depth the tree,
+`lightgbm` also has `max_depth` to control the depth of the tree,
 even though it is growing leaf-wise.
 
 ## Optimal Categorical Encoding
@@ -1244,7 +1243,7 @@ tree_learner=data
 ```
 
 Instead of vertically parallelization,
-`lightgbm` also supports horinzontally parallelization.
+`lightgbm` also supports horizontal parallelization.
 Local gradient histograms will be constructed for each partition and then merged to a global histogram for finding the best split.
 
 ### Voting Parallel
@@ -1257,7 +1256,7 @@ tree_learner=voting
 The general idea can be summarized into the following flow:
 
 1. Partition data according to multiple threads/machines
-2. Each partition a local voting is done to propose top-k features for the best split
+2. In each partition a local voting is done to propose top-k features for the best split
 3. Top-2k features are collectd based on all local votes
 4. Full data for the top-2k is collected and a global best split is searched within them
 
@@ -1375,7 +1374,7 @@ The former has less tolerance on over-fitting (more regularized).
 
 A larger tree has more leaves and hence more complicated.
 More leaves also means more interaction among variables,
-which control the degree of non-linearity in the model.
+which in turn controls the degree of non-linearity in the model.
 ^[When a subsequent split is conditioning on a previous split on another variable,
 we consider this as variable interaction.]
 
@@ -1535,7 +1534,7 @@ This is probably one of the most handy function in modern machine learning libra
 It not only improves the model accuracy but also simplifies data pipeline and hence reduces engineering efforts.
 
 For `xgboost` categoricals must be either one-hot encoded or converted to integers with an ordinal assumption.
-EMpirically,
+Empirically,
 even though the feature is not ordinal,
 sometimes converting it into integers still work pretty well in terms of accuracy,
 adding that the training runtime can be reduced a lot and data pipeline simplified.
@@ -1582,7 +1581,7 @@ is_test_g <- runif(n) < .2
 
 Now train a XGBoost model with one-hot-encoded sparse matrix as input.
 To be fair,
-we setup the parameters such that `xgboost` will also grow a leaf-wise histogram tree as its beas learner.
+we setup the parameters such that `xgboost` will also grow a leaf-wise histogram tree as its base learner.
 
 ```{r categorical_exp_xgb}
 run_xgb <- function(v=1) {
@@ -1600,7 +1599,10 @@ run_xgb <- function(v=1) {
 invisible(run_xgb())
 ```
 
-Now it's LightGBM's turn:
+Now it's LightGBM's turn.
+We directly feed a data matrix with only 3 columns,
+one of it being categorical but represented in integer,
+without the ordinal assumption by specifying explicitly in `categorical_feature` argument to the model training call.
 
 ```{r categorical_exp_lgb}
 run_lgb <- function(v=1) {
@@ -1641,7 +1643,7 @@ print(microbenchmark(
 ```
 
 Clearly LightGBM is much faster than XGBoost with its optimal categorical encoding scheme.
-Not to mention it also saves our ass in preparing a one-hot encoder for our data.
+Not to mention it also saves our ass from preparing a one-hot encoder for our data.
 
 # Concluding Remarks
 
@@ -1649,12 +1651,12 @@ Modern gradient boosting trees are powerful machine learning models for lots of 
 In this notebook we review thoroughly two of such frameworks in the open source community:
 `xgboost` and `lightgbm`.
 We choose them not only because they are both implemented with very high engineering quality,
-but also because they are both extremely popular and wdiely adopted among data science practioners.
+but also because they are both extremely popular and wdiely adopted among data science practitioners.
 
 For such a tool that is so widely spread,
 we feel there is a need to demystify why it is so effective by understanding how they are different from traditional or vanilla gradient boosting machines.
 We focus more on the technical details and their novelties in bettering the GBT family.
-We hope the notebook can help practitioners better understand their tool at hand.
-So they can utilize it with its maximum potential.
+We hope the notebook can help practitioners better understand their tool at hand,
+so they can utilize it with its maximum potential.
 
 # References
