@@ -435,11 +435,11 @@ It turns out that the variability in many simple/weak and especially non-linear 
 The most well-known bagging tree model is Random Forest (RF hereafter).
 In each single tree in RF the split algorithm is modified to only iterate over a subsample of all features.
 This reduces the ability of any single tree to over-fit the training data and create diversity among different trees.
-RF also use boostrap sampling on the training dataset when doing feature value iteration.
-Rather than searching split on full training set it only searches on a set of boostrapped samples.
+RF also use bootstrap sampling on the training dataset when doing feature value iteration.
+Rather than searching split on full training set it only searches on a set of bootstrapped samples.
 Some model variants even perform only a small number of random splits (instead of finding the best split with a full scan) on the feature value iteration phase.
 
-Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and boostrap (row) sampling,
+Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and bootstrap (row) sampling,
 in reality RF can still easily over-fit without proper tunning.
 
 One obvious advantage of RF,
@@ -1447,7 +1447,7 @@ Besides column sampling at iteration or node-level,
 it also supports column sampling at tree-depth-level.
 
 Note that in both libraries the bagging is done *without replacement*.
-So none of them implements boostrap bagging,
+So none of them implements bootstrap bagging,
 which is proposed by the original random forest paper.
 
 ## On Imbalanced Data

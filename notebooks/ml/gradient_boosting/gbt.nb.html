@@ -3352,8 +3352,8 @@ y_true       setosa versicolor virginica
 <p>To overcome the shortfall of a single tree, ensembling technique is used to combine multiple trees into one single model. There are two very successful ensembling techniques used for tree models: bagging and boosting. The general idea is to combine many simple (hence weak) trees as a tree committee for final prediction. It turns out that the variability in many simple/weak and especially non-linear learners can jointly outperform a single (and usually over-fitting) complicated/strong learner.</p>
 <div id="bagging-ensembles" class="section level3">
 <h3 number="3.2.1"><span class="header-section-number">3.2.1</span> Bagging Ensembles</h3>
-<p>The most well-known bagging tree model is Random Forest (RF hereafter). In each single tree in RF the split algorithm is modified to only iterate over a subsample of all features. This reduces the ability of any single tree to over-fit the training data and create diversity among different trees. RF also use boostrap sampling on the training dataset when doing feature value iteration. Rather than searching split on full training set it only searches on a set of boostrapped samples. Some model variants even perform only a small number of random splits (instead of finding the best split with a full scan) on the feature value iteration phase.</p>
-<p>Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and boostrap (row) sampling, in reality RF can still easily over-fit without proper tunning.</p>
+<p>The most well-known bagging tree model is Random Forest (RF hereafter). In each single tree in RF the split algorithm is modified to only iterate over a subsample of all features. This reduces the ability of any single tree to over-fit the training data and create diversity among different trees. RF also use bootstrap sampling on the training dataset when doing feature value iteration. Rather than searching split on full training set it only searches on a set of bootstrapped samples. Some model variants even perform only a small number of random splits (instead of finding the best split with a full scan) on the feature value iteration phase.</p>
+<p>Although it is claimed in theory that RF is strong against over-fitting due to both feature (column) subsampling and bootstrap (row) sampling, in reality RF can still easily over-fit without proper tunning.</p>
 <p>One obvious advantage of RF, in terms of computational efficiency, is that it is <a href="https://en.wikipedia.org/wiki/Embarrassingly_parallel">embarrassingly parallel</a>. Most modern implementations of RF supports single-machine cpu parallel or even distributed computing.</p>
 </div>
 <div id="boosting-ensembles" class="section level3">
@@ -4068,7 +4068,7 @@ colsample_bytree=1
 colsample_bylevel=1
 colsample_bynode=1</code></pre>
 <p>It has less control over bagging, only one parameter <code>subsample</code> is used and the bagging is done at the beginning of each iteration. While it has more control over column sampling. Besides column sampling at iteration or node-level, it also supports column sampling at tree-depth-level.</p>
-<p>Note that in both libraries the bagging is done <em>without replacement</em>. So none of them implements boostrap bagging, which is proposed by the original random forest paper.</p>
+<p>Note that in both libraries the bagging is done <em>without replacement</em>. So none of them implements bootstrap bagging, which is proposed by the original random forest paper.</p>
 </div>
 </div>
 </div>
