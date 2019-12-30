@@ -1,0 +1,300 @@
+---
+title: "Bootstrap Sampling 101"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (10 Jan 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: bootstrap.bib
+nocite: |
+  @boot2
+link-citations: yes
+abstract: |
+  TBC.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Bootstrap Sampling">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
+  '<meta property="og:description" content="A data science notebook about bootstrap sampling.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/bootstrap")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+# Statistical Inference
+
+At the core of statistical inference is about to use an estimator $\hat{\theta}(\cdot)$ to guess the unknown value of $\theta$ a population parameter of interest.
+The most common case of $\theta$ will be the population mean $\mu = E(x)$ where $x$ denotes the population folowing an unknown distribution $x \sim F$.
+Other popular parameters can be a median,
+a confidence interval of the mean,
+or a regression model coefficient,
+a confidence interval of the regression coefficient, ..., etc.
+
+How do we know our guess is a good one?
+How do we measure the error of our estimator in statistical inference,
+without knowing the ground truth of the population?
+The probability distribution function (PDF) of population $F$ is in general unknown.
+As a result,
+to make our statistical inference from a sample dataset we rely on the [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem).
+In its vanilla version CLT only requires the population to have finite second moment and our sample dataset is identically and independently distributed (i.i.d.).
+It allows us to derive the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) of a sample mean,
+which in turn can be used to measure the error of our guess $\hat{\theta}$ to the unknown population parameter $\theta$.
+
+Different versions of CLT can be formulated based on the estimator we are using.
+So we also have CLT applicable to, say, a regression model coefficient.
+The problem is that,
+we may not have analytical solution for every possible estimators.
+The more complicated the estimator the harder it can be analyzed in a trackable way.
+And some estimators can be harder to deal with even if they are simple in their own.
+One such example is the median,
+which requires order statistics come to play.
+
+This is where bootstrap sampling starts to shine.
+
+## Empirical Distribution
+
+From [Wikipedia](https://en.wikipedia.org/wiki/Empirical_distribution_function):
+
+>In statistics,
+an empirical distribution function is the distribution function associated with the empirical measure of a sample.
+This cumulative distribution function is a step function that jumps up by 1/n at each of the n data points.
+Its value at any specified value of the measured variable is the fraction of observations of the measured variable that are less than or equal to the specified value.
+
+Specifically,
+the empirical distribution function (EDF) and PDF of a sample $x \sim F$ of size $n$ can be written as:
+
+$$
+\begin{aligned}
+\hat{F}(x) &= \frac{1}{n} \sum_{i=1}^nI(x_i \leq x), \\
+\hat{p}(x) &= \frac{d\hat{F}}{dx} = \frac{1}{n},
+\end{aligned}
+$$
+
+where $I$ is an indicator.
+
+Intuitively and loosely speaking,
+$\hat{F}$ is just an estimator for $F$ the true population distribution.
+But here we are not guesing a single population parameter but the entire distribution.
+That is,
+we are not guesing a scalar but a function.
+^[Here our wording is a bit *Fisherian*.
+Because in a Baysian point of view even a population parameter is a function (a random variable),
+not a constant scalar.]
+
+
+
+## Parameters as Functions of CDF
+
+Why introducing the notion of EDF?
+To see the value,
+it's better to step back and examine our best-friend parameter:
+population mean $E(x)$.
+
+By definition the derivative of a CDF $F$ is a PDF $p$:
+
+$$
+\frac{dF(x)}{dx} = p(x).
+$$
+
+Now we observe that the population mean can be re-written as:
+
+$$
+E(x) = \int xp(x)dx = \int xdF(x).
+$$
+
+That is to say,
+population mean is indeed *a function of CDF*.
+We can easily extend this to the variance as a function of CDF as well.
+
+Of course we don't know CDF of the population.
+But we do know the EDF from our observed sample dataset,
+which itself is an estimator for CDF.
+This immediately gives us one estimator of the form:
+
+$$
+\begin{aligned}
+E(x) \approx \int xd\hat{F}(x)
+&= \int x\hat{p}(x)dx \\
+&= \sum_{i=1}^n x \cdot \frac{1}{n} \\
+&= \frac{1}{n}\sum_{i=1}^nx_i,
+\end{aligned}
+$$
+
+to guess the population mean.
+
+To no surprise,
+this estimator is exactly what we call the *sample mean*.
+But the idea generalizes to *any* estimator,
+as long as the estimator can be expressed as a function of CDF,
+which in turn will be approximated by EDF.
+In the literature such estimators are also referred to as *statistical functionals*.
+
+Up to now we've roughly reviewed all we need to initiate the journey of bootstrap sampling,
+or simply bootstrapping.
+
+# Bootstrapping
+
+@efron1992bootstrap propose the idea of bootstrapping as a solution to estimate the variance (or the confidence interval) of a given estimator,
+such that we can draw conclusion about the quaility of our inference,
+especially when there is no analytical solution to derive the variance of that estimator.
+
+Bootstrapping can be simply defined as drawing i.i.d. sample of the same size $n$ from a given empirical distribution.
+In some literatures this is also called the *resample*.
+To strictly follow i.i.d. the sampling must be done *with replacement*.
+
+## Monte Carlo Bootstrapping
+
+Given a particular estimator $\hat{\theta}$ as a random variable,
+we are conceerning about its expectation and variance.
+The expectation tells us whether the estimator is *unbiased* or not.
+The variance tells us how volatile our guess is,
+and also if it can be *consistent*--converge to the true metric of interest.
+
+By definition,
+the variance of a random variable $\hat{\theta}$ is:
+
+$$
+\begin{aligned}
+Var(\hat{\theta})
+&= E\big[(\hat{\theta} - E(\hat{\theta}))^2\big] \\
+&= E(\hat{\theta}^2) - E(\hat{\theta})^2.
+\end{aligned}
+$$
+
+Now to approximate the above result with Monte Carlo of $M$ repetitions,
+we can simply do:
+
+$$
+Var(\hat{\theta}) \approx
+\frac{1}{M}\sum_m \hat{\theta}_m^2 -
+\bigg(\frac{1}{M}\sum_m \hat{\theta}_m\bigg)^2 ,
+$$
+
+where each $\hat{\theta}_m$ is derived from a bootstrapped sample at the $m$-th repetition.
+
+The above approximation holds thanks to the [Law of Large Numbers](https://en.wikipedia.org/wiki/Law_of_large_numbers) (as $M \rightarrow \infty$):
+
+$$
+\begin{aligned}
+\frac{1}{M}\sum_m \hat{\theta}_m
+&\overset{p}\rightarrow E(\hat{\theta}), \\
+\frac{1}{M}\sum_m \hat{\theta}_m^2
+&\overset{p}\rightarrow E(\hat{\theta}^2).
+\end{aligned}
+$$
+
+
+
+
+simulation error and estimation error (due to approximating $F$ with $\hat{F}$.
+
+
+
+
+## Hands-On: The Sample Mean
+
+```{r beta_population_pdf}
+beta_a <- 2
+beta_b <- 10
+
+beta_pdf <- function(x) dbeta(x, beta_a, beta_b)
+curve(beta_pdf, from=0, to=1, ylab="Density",
+      main=sprintf("(Unknown) Population Beta(%s, %s) PDF", beta_a, beta_b))
+```
+
+```{r beta_population_cdf}
+beta_cdf <- function(x) pbeta(x, beta_a, beta_b)
+curve(beta_cdf, from=0, to=1, ylab="Density",
+      main=sprintf("(Unknown) Population Beta(%s, %s) CDF", beta_a, beta_b))
+```
+
+```{r beta_sample_pmf}
+set.seed(666)
+n <- 5000
+x <- rbeta(n, beta_a, beta_b)
+hist(x, main="Sample X")
+```
+
+```{r beta_sample_edf}
+plot(ecdf(x), main="Empirical Distribution Function of X", xlim=c(0, 1))
+```
+
+## Analytical Solution
+
+```{r}
+# Assume knowing population s.d. (the groud truth).
+var_beta <- (beta_a * beta_b) / ((beta_a + beta_b)^2*(beta_a + beta_b + 1))
+sqrt(var_beta / n)
+```
+
+```{r}
+# Plugin sample standard deviation since population s.d. is unknown.
+sd(x) / sqrt(n)
+```
+
+## Monte Carlo with Multiple Samples
+
+```{r}
+M <- 10000
+
+mc_xbar <- rep(NA_real_, M)
+for ( i in seq_len(M) ) {
+  xm <- rbeta(n, beta_a, beta_b)
+  mc_xbar[i] <- mean(xm)
+}
+sqrt(sum(mc_xbar^2) / M - (sum(mc_xbar) / M)^2)  # Or simply sd(mc_xbar).
+```
+
+## Monte Carlo Bootstrapping
+
+```{r bootstrap_from_scratch}
+M <- 10000
+
+bs_xbar <- rep(NA_real_, M)
+for ( i in seq_len(M) ) {
+  bs <- sample(x, size=length(x), replace=TRUE)
+  bs_xbar[i] <- mean(bs)
+}
+sqrt(sum(bs_xbar^2) / M - (sum(bs_xbar) / M)^2)  # Or simply sd(bs_xbar).
+```
+
+Or we can take advantage of the built-in package `boot` [@boot] in R to simplify our code:
+
+```{r bootstrap_package}
+library(boot)  # This is a built-in package.
+
+bs_r <- boot(x, function(x, i) mean(x[i]), R=M, parallel="multicore")
+print(bs_r)
+```
+
+# Bootstrapping for Regression Models
+
+residual bootstrapping
+
+# References
