@@ -324,10 +324,31 @@ for ( i in seq_len(M) ) {
 sqrt(sum(mc_xbar^2) / M - (sum(mc_xbar) / M)^2)  # Or simply sd(mc_xbar).
 ```
 
-In reality we don't have access to multiple random samples,
-so this approach only exists hypothetically.
+The simulated distribution is the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of our estimator.
+CLT tells us that the sampling distribution of sample mean is asymptotically Normal.
+Here without even knowing that,
+we can just use Monte Carlo to approximate the sampling distribution.
+But this is hypothetical only.
+In reality we don't have access to multiple random samples since we don't have access to the population,
+so this approach only exists in theory.
 
+Here we can plot the simulated estimates.
+It is a finite sample approximation to the sampling distribution.
+We also plot the theoretical limiting distribution given by CLT in blue curve.
+
+```{r sample_mean_mc_dist}
+x_ <- seq(min(mc_xbar), max(mc_xbar), length=100) 
+y_ <- dnorm(x_, beta_a / (beta_a + beta_b), sqrt(var_beta/n))
+hist(mc_xbar, main="Sampling Distribution (Sample Mean)", xlab="X", probability=TRUE)
+lines(x_, y_, col="blue", lwd=2)
+```
+
+When CLT applies,
+we can bypass the need to use multiple sample datasets and instead use only one to derive our statistical inference.
+(See how closely the simulated sampling distribution in histogram follow the theoretical limiting distribution in blue curve.)
+Bootstrapping is yet another route to the solution.
 Even though we only have one sample dataset,
+and without applying CLT,
 we can use bootstrapping to generate as many *resamples* as we want.
 And this is totally feasible given enough computing power.
 
@@ -350,7 +371,19 @@ sqrt(sum(bs_xbar^2) / M - (sum(bs_xbar) / M)^2)  # Or simply sd(bs_xbar).
 As one can see,
 the approximation is as good as if we hypothetically created multiple samples from the original population.
 
-We can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
+Below we plot all bootstrapped sample means.
+We also plot a green curve as the sampling distribution as if the original sample is the population.
+(That is, the distribution will center at the original sample mean since now it is the population mean.)
+
+```{r sample_mean_bs_dist}
+x_ <- seq(min(bs_xbar), max(bs_xbar), length=100) 
+y_ <- dnorm(x_, mean(x), sqrt(var_beta/n))
+hist(bs_xbar, probability=TRUE, main="Distribution of Bootstrapped Sample Mean", xlab="X")
+lines(x_, y_, col="green", lwd=2)
+```
+
+Rather than implement from scratch,
+we can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
 
 ```{r sample_mean_boot_2}
 library(boot)  # This is a built-in package.
@@ -377,6 +410,21 @@ quantile(bs_r$t, probs=c(.025, .975))
 Of course for simple estimator such as sample mean,
 we do have the analytical solution for its confidence interval.
 But bootstrapping is able to do the approximation without knowing the solution.
+
+Another possible (though higly similar to variance) metric we may want to look at is the mean squared error (MSE).
+We can approximate MSE of our estimator using bootstrapping:
+
+$$
+\text{MSE}(\hat{\theta}) = \frac{1}{M}\sum_m(\hat{\theta}_m - \hat{\theta})^2.
+$$
+
+So for the sample mean example,
+we can do:
+
+```{r sample_mean_mse}
+# We use root mean squared error instead since the number is small.
+sqrt(mean((bs_r$t - mean(x))^2))
+```
 
 # Bootstrapping for Regression Models
 
