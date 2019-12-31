@@ -21,7 +21,7 @@ nocite: |
   @boot2
 link-citations: yes
 abstract: |
-  We review Monte Carlo bootstrap sampling approach, a powerful technique to measure error of a statistical inference task when the variance of our estimator is not analytically trackable. We explain why bootstrapping works with minimum amount of theoretical derivation with demonstration of hands-on examples.
+  We review Monte Carlo bootstrap sampling approach, a powerful technique to measure error of a statistical inference task when the variance of our estimator is not analytically trackable. We explain why bootstrapping works with minimum amount of theoretical derivation and demonstration of hands-on examples.
 ---
 
 ```{r meta, include=FALSE}
@@ -172,7 +172,7 @@ E\big[\hat{F}_n(a)\big]
 $$
 
 Hence EDF is *unbiased* in every value $a$.
-This means that any statistical functionals which can be expressed as a linear function of EDF $G(\hat{F}_n)$,
+This means that any statistical functional which can be expressed as a linear function of EDF $G(\hat{F}_n)$,
 will be unbiased as well:
 
 $$
@@ -306,7 +306,7 @@ We plot the resulting histogram (probability mass function, or PMF):
 set.seed(666)
 n <- 5000
 x <- rbeta(n, beta_a, beta_b)
-hist(x, main="Sample X", probability=TRUE)
+hist(x, main="Probability Mass Function of X", probability=TRUE)
 ```
 
 and the EDF:
@@ -340,7 +340,7 @@ Hence sample mean as an estimator is *consistent*.
 We can readily calculate the standard error of sample mean given our sample:
 
 ```{r sample_mean_analytical}
-# Assume knowing population s.d. (the groud truth).
+# Assume knowing population s.d. (the ground truth).
 var_beta <- (beta_a * beta_b) / ((beta_a + beta_b)^2*(beta_a + beta_b + 1))
 sqrt(var_beta / n)
 ```
@@ -454,7 +454,7 @@ Clearly the bootstrapped estimates does NOT magically approximate the sampling d
 There is a bias introduced by the original sample mean which is statistically deviated from the true mean.
 But they do share the same variance (shape).
 And since we are asking for the variance of our estimator,
-such bias does not affect our estimation at all!
+such bias does not affect our estimation of variance at all!
 ^[In reality we don't have access to the population so we will never be able to use either Monte Carlo or CLT to derive the true mean.
 This is where we further use [hypothesis testing](https://en.wikipedia.org/wiki/Statistical_hypothesis_testing) to draw statistical insight about the population based on our sample.]
 
@@ -484,7 +484,7 @@ lines(x_mc2, y_mc2, col="blue", lwd=2)
 lines(x_bs2, y_bs2, col="green", lwd=2)
 ```
 
-Now the two distributionS are getting closer to each other.
+Now the two distributions are getting closer to each other.
 We also observe that the requirement on sample size for bootstrap to approximate (both shape and location) the limiting distribution is much stricter than that for CLT to be applicable.
 
 To show this clearly,
@@ -510,7 +510,7 @@ But it can serve as a very good educational case study.
 
 ### Using Package `boot`
 
-Rather than implement from scratch,
+Rather than implementing the sampling procedure from scratch,
 we can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
 
 ```{r sample_mean_boot_2}
