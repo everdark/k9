@@ -1,8 +1,10 @@
 # Self-Taught Data Science Playground
 
 The repository is a collection of my self-taught notebooks for data science theories and practices.
+A huge effort is made to strike a balance between methodology derivation (with math) and hands-on coding.
+The target audience is data science practitioners (including myself) with hands-on experiences who are seeking for more in-depth understandings of machine learning algorithms and relevant statistics.
 
-Here to visit my web site [Hello, Data Science!](https://everdark.github.io/k9/) hosting all the notebooks in nicely rendered HTML.
+Here to visit the web site [Hello, Data Science!](https://everdark.github.io/k9/) hosting all the notebooks in nicely rendered HTML.
 
 ## Notebooks Summary
 
@@ -81,6 +83,7 @@ pip install -r requirements.txt
     + Reinforcement Learning Basics
     + Approximated Nearest Neighbor
 + Statistics
+    + Law of Large Numbers and Central Limit Theorem
     + Linear and Logistic Models: Econometrics v.s. Machine Learning
     + Naive Bayes
     + Bayesian Model Diagnostic
