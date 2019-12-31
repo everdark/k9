@@ -2651,10 +2651,10 @@ color: rgb(3, 106, 7);
 <meta name="author" content="Kyle Chung">
 <meta property="og:title" content="Bayesian Modeling Explained">
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/bayesian/bayesian_modeling_explained.nb.html">
+<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html">
 <meta property="og:image" content="https://everdark.github.io/k9/assets/avatar.jpg">
 <meta property="og:description" content="A data science notebook about Bayesian modeling with examples using R and Stan.">
-<a href="https://github.com/everdark/k9/tree/master/notebooks/ml/bayesian" class="github-corner" aria-label="View source on GitHub"><svg width="60" height="60" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+<a href="https://github.com/everdark/k9/tree/master/notebooks/stats/bayesian" class="github-corner" aria-label="View source on GitHub"><svg width="60" height="60" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
 
 <style type="text/css">code{white-space: pre;}</style>
 <style type="text/css">
@@ -3069,7 +3069,7 @@ hist(X1, main=sprintf(&quot;(Known) Distribution of Sample from X ~ Beta(%s, %s)
 <!-- rnb-source-begin eyJkYXRhIjpbInBsb3Rfc2FtcGxpbmdfZGlzdCA8LSBmdW5jdGlvbihYLCB0cnVlX21lYW4sIHRydWVfc2Q9TlVMTCkge1xuICBzYW1wbGVfbWVhbiA8LSBtZWFuKFgpXG4gIHNlIDwtIFxuICAgIGlmICggaXMubnVsbCh0cnVlX3NkKSApIHtcbiAgICAgICMgSWYgdHJ1ZSBwb3B1bGF0aW9uIHNkIGlzIHVua25vd24gKHByYWN0aWNhbGx5IGFsd2F5cyB0aGUgY2FzZSksXG4gICAgICAjIHdlIGNhbiBwbHVnIGluIHRoZSBzYW1wbGUgc2QgaW5zdGVhZCBhcyBhbiBhcHByb3hpbWF0aW9uLlxuICAgICAgc2FtcGxlX3NkIDwtIHNkKFgpXG4gICAgICBzYW1wbGVfc2QgLyBzcXJ0KGxlbmd0aChYKSlcbiAgICB9IGVsc2Uge1xuICAgICAgdHJ1ZV9zZCAvIHNxcnQobGVuZ3RoKFgpKVxuICAgIH1cbiAgeCA8LSBzZXEodHJ1ZV9tZWFuIC0gMypzZSwgdHJ1ZV9tZWFuICsgMypzZSwgbGVuZ3RoPTEwMDApXG4gIGRlbnNpdHkgPC0gZG5vcm0oeCwgbWVhbj10cnVlX21lYW4sIHNkPXNlKVxuICBwbG90KHgsIGRlbnNpdHksIHR5cGU9XCJsXCIsIHlheHM9XCJpXCIsXG4gICAgICAgbWFpbj1icXVvdGUoYmFyKFgpIH4gXCJTYW1wbGluZyBEaXN0cmlidXRpb24gfCBOdWxsIEh5cG90aGVzaXNcIiB+IEhbMF0pLFxuICAgICAgIHhsYWI9YnF1b3RlKGJhcihYKSkpXG4gIGFibGluZSh2PXRydWVfbWVhbiwgbHR5PTIpXG4gIHRleHQodHJ1ZV9tZWFuLCBtZWFuKGRlbnNpdHkpLCBwb3M9NCwgYnF1b3RlKFwiSFswXSBtZWFuID0gXCIgfiAuKHRydWVfbWVhbikpKVxuICBhYmxpbmUodj1zYW1wbGVfbWVhbiwgY29sPVwicmVkXCIpXG4gIHRleHQoc2FtcGxlX21lYW4sIG1lYW4oZGVuc2l0eSkgLyAyLCBwb3M9NCwgY29sPVwicmVkXCIsXG4gICAgICAgc3ByaW50ZihcIk9ic2VydmVkIHNhbXBsZSBtZWFuID0gJXNcIiwgcm91bmQoc2FtcGxlX21lYW4sIDQpKSlcbiAgcG9seWdvbihjKG1pbih4KSwgeFt4IDw9IHNhbXBsZV9tZWFuXSwgc2FtcGxlX21lYW4pLFxuICAgICAgICAgIGMoMCwgZGVuc2l0eVt3aGljaCh4IDw9IHNhbXBsZV9tZWFuKV0sIDApLFxuICAgICAgICAgIGNvbD1yZ2IoMSwgMCwgMCwgMC41KSwgYm9yZGVyPU5BKVxufSIsIiIsIiMgQ2FsY3VsYXRlIHRoZSBwb3B1bGF0aW9uIHNkIG9mIGEgQmV0YShhLCBiKS4iLCJzZF9iZXRhIDwtIGZ1bmN0aW9uKGEsIGIpIHtcbiAgc3FydCgoYSpiKSAvICgoYSArIGIpXjIqKGEgKyBiICsgMSkpKVxufSIsInRydWVfc2QgPC0gc2RfYmV0YShiZXRhX2EsIGJldGFfYikiLCIiLCJwbG90X3NhbXBsaW5nX2Rpc3QoWDEsIHRydWVfbWVhbj1oMF9tZWFuLCB0cnVlX3NkPXRydWVfc2QpIl19 -->
 <pre class="r"><code>plot_sampling_dist &lt;- function(X, true_mean, true_sd=NULL) {
   sample_mean &lt;- mean(X)
-  se &lt;- 
+  se &lt;-
     if ( is.null(true_sd) ) {
       # If true population sd is unknown (practically always the case),
       # we can plug in the sample sd instead as an approximation.
@@ -3127,7 +3127,7 @@ alternative hypothesis: true mean is not equal to 0.175
 95 percent confidence interval:
  0.1632547 0.1761123
 sample estimates:
-mean of x 
+mean of x
 0.1696835 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -3184,10 +3184,10 @@ c(t_lb, t_hb)  # Check if it is consistent with the result of a t.test.</code></
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
 <!-- rnb-source-begin eyJkYXRhIjpbInBsb3RfY2kgPC0gZnVuY3Rpb24oWCwgdHJ1ZV9tZWFuLCBjb21wYXJlX21lYW49TlVMTCwgdHJ1ZV9zZD1OVUxMLCBcbiAgICAgICAgICAgICAgICAgICAgYW5ub3RhdGVfc2FtcGxlX21lYW49VFJVRSwgeGxpbV9hZGo9YygzLCA2KSwgLi4uKSB7XG4gIHNhbXBsZV9tZWFuIDwtIG1lYW4oWCkgICMgTm90IHVzZWQuXG4gIHNlIDwtIFxuICAgIGlmICggaXMubnVsbCh0cnVlX3NkKSApIHtcbiAgICAgICMgSWYgdHJ1ZSBwb3B1bGF0aW9uIHNkIGlzIHVua25vd24gKHByYWN0aWNhbGx5IGFsd2F5cyB0aGUgY2FzZSksXG4gICAgICAjIHdlIGNhbiBwbHVnIGluIHRoZSBzYW1wbGUgc2QgaW5zdGVhZCBhcyBhbiBhcHByb3hpbWF0aW9uLlxuICAgICAgc2FtcGxlX3NkIDwtIHNkKFgpXG4gICAgICBzYW1wbGVfc2QgLyBzcXJ0KGxlbmd0aChYKSlcbiAgICB9IGVsc2Uge1xuICAgICAgdHJ1ZV9zZCAvIHNxcnQobGVuZ3RoKFgpKVxuICAgIH1cbiAgZXJyIDwtIHFub3JtKC45NzUsIG1lYW49MCwgc2Q9c2UpXG4gIGlmICggaXMubnVsbChjb21wYXJlX21lYW4pICkge1xuICAgIGNvbXBhcmVfbWVhbiA8LSB0cnVlX21lYW4gKyBlcnJcbiAgfVxuICB6X2hiIDwtIGNvbXBhcmVfbWVhbiArIGVyclxuICB6X2xiIDwtIGNvbXBhcmVfbWVhbiAtIGVyclxuICB4IDwtIHNlcSh0cnVlX21lYW4gLSB4bGltX2FkalsxXSpzZSwgdHJ1ZV9tZWFuICsgeGxpbV9hZGpbMl0qc2UsIGxlbmd0aD0xMDAwKVxuICBkZW5zaXR5X3RydWUgPC0gZG5vcm0oeCwgbWVhbj10cnVlX21lYW4sIHNkPXNlKVxuICBkZW5zaXR5X2NvbXBhcmUgPC0gZG5vcm0oeCwgbWVhbj1jb21wYXJlX21lYW4sIHNkPXNlKVxuICBwbG90KHgsIGRlbnNpdHlfdHJ1ZSwgdHlwZT1cImxcIiwgeWF4cz1cImlcIiwgeWxhYj1cIkRlbnNpdHlcIiwgLi4uKVxuICBsaW5lcyh4LCBkZW5zaXR5X2NvbXBhcmUsIHR5cGU9XCJsXCIsIGNvbD1cImJsdWVcIilcbiAgYWJsaW5lKHY9Y29tcGFyZV9tZWFuLCBjb2w9XCJibHVlXCIsIGx0eT0yKVxuICBhYmxpbmUodj1jKHpfbGIsIHpfaGIpLCBjb2w9XCJyZWRcIiwgbHR5PTIpXG4gIGlmICggYW5ub3RhdGVfc2FtcGxlX21lYW4gKSB7XG4gICAgdGV4dChjb21wYXJlX21lYW4sIG1lYW4oZGVuc2l0eV9jb21wYXJlKSAvIDIsIHBvcz00LCBjb2w9XCJibHVlXCIsIGx0eT0yLFxuICAgICAgICAgc3ByaW50ZihcIkV4dHJlbWUgU2FtcGxlIE1lYW4gPSAlc1wiLCByb3VuZChzYW1wbGVfbWVhbiwgNCkpKVxuICB9XG4gIGFycm93cyh4MD16X2xiLCB5MD1kaWZmKHJhbmdlKGRlbnNpdHlfdHJ1ZSkpLzIsIFxuICAgICAgICAgeDE9el9oYiwgeTE9ZGlmZihyYW5nZShkZW5zaXR5X3RydWUpKS8yLFxuICAgICAgICAgY29kZT0zLCBsdHk9MiwgY29sPVwicmVkXCIpXG4gIHRleHQoY29tcGFyZV9tZWFuLCBkaWZmKHJhbmdlKGRlbnNpdHlfdHJ1ZSkpLzIsXG4gICAgICAgXCI5NSUgQ29uZmlkZW5jZSBJbnRlcnZhbFwiLCBwb3M9MSwgY29sPVwicmVkXCIpXG4gIFxuICAjIFR3by10YWlsZWQgcC12YWx1ZSBhcmVhIHVuZGVyIHRoZSB0cnV0aC4gKFBsb3Qgb25lIHNpZGUgb25seS4pXG4gIGFyZWFfY29sIDwtIHJnYigxLCAwLCAwLCAwLjUpXG4gIGlmICggY29tcGFyZV9tZWFuID49IHRydWVfbWVhbiApIHsgIFxuICAgIHBvbHlnb24oYyhjb21wYXJlX21lYW4sIHhbeCA+PSBjb21wYXJlX21lYW5dLCBtYXgoeCkpLFxuICAgICAgICAgICAgYygwLCBkZW5zaXR5X3RydWVbd2hpY2goeCA+PSBjb21wYXJlX21lYW4pXSwgMCksXG4gICAgICAgICAgICBjb2w9YXJlYV9jb2wsIGJvcmRlcj1OQSlcbiAgfSBlbHNlIHtcbiAgICBwb2x5Z29uKGMobWluKHgpLCB4W3ggPD0gY29tcGFyZV9tZWFuXSwgY29tcGFyZV9tZWFuKSxcbiAgICAgICAgICAgIGMoMCwgZGVuc2l0eV90cnVlW3doaWNoKHggPD0gY29tcGFyZV9tZWFuKV0sIDApLFxuICAgICAgICAgICAgY29sPWFyZWFfY29sLCBib3JkZXI9TkEpXG4gIH1cbn0iLCIiLCJwbG90X2NpKFgxLCB0cnVlX21lYW49dHJ1ZV9tZWFuLFxuICAgICAgICBtYWluPWJxdW90ZShiYXIoWCkgfiBcIlNhbXBsaW5nIERpc3RyaWJ1dGlvbiB1bmRlciBUcnVlIE1lYW5cIiksXG4gICAgICAgIHN1Yj1cIkV4dHJlbWUgQy5JLiB0byBDb250YWluIFRydWUgTWVhblwiLFxuICAgICAgICB4bGFiPWJxdW90ZShiYXIoWCkpKSJdfQ== -->
-<pre class="r"><code>plot_ci &lt;- function(X, true_mean, compare_mean=NULL, true_sd=NULL, 
+<pre class="r"><code>plot_ci &lt;- function(X, true_mean, compare_mean=NULL, true_sd=NULL,
                     annotate_sample_mean=TRUE, xlim_adj=c(3, 6), ...) {
   sample_mean &lt;- mean(X)  # Not used.
-  se &lt;- 
+  se &lt;-
     if ( is.null(true_sd) ) {
       # If true population sd is unknown (practically always the case),
       # we can plug in the sample sd instead as an approximation.
@@ -3213,15 +3213,15 @@ c(t_lb, t_hb)  # Check if it is consistent with the result of a t.test.</code></
     text(compare_mean, mean(density_compare) / 2, pos=4, col=&quot;blue&quot;, lty=2,
          sprintf(&quot;Extreme Sample Mean = %s&quot;, round(sample_mean, 4)))
   }
-  arrows(x0=z_lb, y0=diff(range(density_true))/2, 
+  arrows(x0=z_lb, y0=diff(range(density_true))/2,
          x1=z_hb, y1=diff(range(density_true))/2,
          code=3, lty=2, col=&quot;red&quot;)
   text(compare_mean, diff(range(density_true))/2,
        &quot;95% Confidence Interval&quot;, pos=1, col=&quot;red&quot;)
-  
+
   # Two-tailed p-value area under the truth. (Plot one side only.)
   area_col &lt;- rgb(1, 0, 0, 0.5)
-  if ( compare_mean &gt;= true_mean ) {  
+  if ( compare_mean &gt;= true_mean ) {
     polygon(c(compare_mean, x[x &gt;= compare_mean], max(x)),
             c(0, density_true[which(x &gt;= compare_mean)], 0),
             col=area_col, border=NA)
@@ -3424,7 +3424,7 @@ H_1 &amp;: \mbox{The coin is biased}.
 <!-- rnb-source-begin eyJkYXRhIjpbIiMgQ2FsY3VsYXRlIHRoZSBhcmVhIHVuZGVyIHRoZSBQREYgb2YgdGhlIHNhbXBsaW5nIGRpc3RyaWJ1dGlvbiwiLCIjIHByb3ZpZGVkIHRoYXQgdGhlIG51bGwgaHlwb3RoZXNpcyBpcyB0cnVlLiIsInByb3BfcCA8LSBcbiAgaWYgKCB5L04gPiBwICkge1xuICAgICgxIC0gcG5vcm0oeS9OLCBwLCBzcXJ0KHAqKDEtcCkvTikpKSoyXG4gIH0gZWxzZSB7XG4gICAgcG5vcm0oeS9OLCBwLCBzcXJ0KHAqKDEtcCkvTikpKjJcbiAgfSIsInByb3BfcCJdfQ== -->
 <pre class="r"><code># Calculate the area under the PDF of the sampling distribution,
 # provided that the null hypothesis is true.
-prop_p &lt;- 
+prop_p &lt;-
   if ( y/N &gt; p ) {
     (1 - pnorm(y/N, p, sqrt(p*(1-p)/N)))*2
   } else {
@@ -3442,7 +3442,7 @@ prop_p</code></pre>
 <!-- rnb-chunk-begin -->
 <!-- rnb-source-begin eyJkYXRhIjpbIiMgV2UgcHVycG9zZWx5IHR1cm4gb2ZmIHRoZSBjb250aW51aXR5IGNvcnJlY3Rpb24gZmFjdG9yIGZvciBjb21wYXJpc29uLiIsIiMgQnV0IHRoZSBjb3JyZWN0aW9uIGNhbiBiZSBzaXphYmxlIGlmIHNhbXBsZSBzaXplIGlzIHNtYWxsIHNpbmNlICIsIiMgd2hlbiBzYW1wbGUgc2l6ZSBpcyBzbWFsbCB0aGUgTm9ybWFsIGFwcHJveGltYXRpb24gaXMgbm90IHZlcnkgZ29vZC4iLCIjIEFub3RoZXIgd2F5IGlzIHRvIGRvIHRoZSBleGFjdCBCaW5vbWlhbCB0ZXN0OiBzZWUgP2Jpbm9tLnRlc3QgZm9yIGRldGFpbHMuIiwicHJvcC50ZXN0KHksIE4sIHAsIGNvcnJlY3Q9RkFMU0UpIl19 -->
 <pre class="r"><code># We purposely turn off the continuity correction factor for comparison.
-# But the correction can be sizable if sample size is small since 
+# But the correction can be sizable if sample size is small since
 # when sample size is small the Normal approximation is not very good.
 # Another way is to do the exact Binomial test: see ?binom.test for details.
 prop.test(y, N, p, correct=FALSE)</code></pre>
@@ -3457,7 +3457,7 @@ alternative hypothesis: true p is not equal to 0.5
 95 percent confidence interval:
  0.3126738 0.8318197
 sample estimates:
-  p 
+  p
 0.6 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -3511,7 +3511,7 @@ P(y) = \sum_nP(y|\theta_n)P(\theta_n).
 <pre class="r"><code># P(y|theta) for all theta. The data likelihood.
 p_y_theta &lt;- choose(N, y)*theta^y*(1 - theta)^(N-y)
 
-# P(y). Marginal probability of y. This is based on the law of total probability. 
+# P(y). Marginal probability of y. This is based on the law of total probability.
 p_y &lt;- sum(theta_prior * p_y_theta)
 
 # P(theta|y). Derived by the Bayes' Law.
@@ -3565,7 +3565,7 @@ sum(p_theta_y * theta)</code></pre>
   p_y_theta &lt;- choose(N, y)*theta^y*(1 - theta)^(N-y)
   p_y &lt;- sum(p_theta * p_y_theta)
   p_theta_y &lt;- (p_y_theta * p_theta) / p_y
-  
+
   plot(x=theta, y=p_theta_y, type=&quot;l&quot;, col=&quot;red&quot;,
        main=sprintf(&quot;Bayesian Update on Binomial(%s, %s)&quot;, N, p),
        xlab=expression(theta), ylab=&quot;Mass (Probability)&quot;)
@@ -3597,7 +3597,7 @@ H_1 &amp;: Y \sim \mbox{Binomial}(N=10, p=\theta); \mbox{ } \theta \sim \mbox{Un
 <p>Our marginal probability of the observed data given the alternative hypothesis becomes:<a href="#fn4" class="footnote-ref" id="fnref4"><sup>4</sup></a></p>
 <p><span class="math display">\[
 \begin{aligned}
-P(y|H_1) 
+P(y|H_1)
 &amp;= \int_0^1C_6^{10}\theta^6(1 - \theta)^{4}d\theta \\
 &amp;= C_6^{10} \times \frac{6!\cdot4!}{(10+1)!} \\
 &amp;= 0.09\overline{09}.
@@ -3633,7 +3633,7 @@ d &lt;- data.frame(y=yl)
 coef(glm(y ~ 1, data=d, family=binomial))</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiKEludGVyY2VwdCkgXG4gIDAuNDA1NDY1MSBcbiJ9 -->
-<pre><code>(Intercept) 
+<pre><code>(Intercept)
   0.4054651 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -3678,7 +3678,7 @@ P(H_1 | y) = \frac{P(y|H_1) \cdot P(H_1)}{P(y)}.
 <p>Based on the above formula, we can calculate the <em>posterior odds</em> of two competing beliefs (or models) as:</p>
 <p><span class="math display">\[
 \begin{equation}
-\underbrace{\frac{P(H_0|y)}{P(H_1|y)}}_\text{posterior odds} = 
+\underbrace{\frac{P(H_0|y)}{P(H_1|y)}}_\text{posterior odds} =
 \underbrace{\frac{P(y|H_0)}{P(y|H_1)}}_\text{Bayes factor} \cdot
 \underbrace{\frac{P(H_0)}{P(H_1)}}_\text{prior odds}.
 \end{equation}
@@ -3690,7 +3690,7 @@ P(H_1 | y) = \frac{P(y|H_1) \cdot P(H_1)}{P(y)}.
 \begin{equation} \label{eq:marginal_lik_h0}
 P(y|H_0)
 = \int P(y|\theta, H_0)P(\theta|H_0)d\theta
-= E_{prior}\big[ P(y|\theta, H_0) \big], 
+= E_{prior}\big[ P(y|\theta, H_0) \big],
 \end{equation}
 \]</span></p>
 <p>where <span class="math inline">\(\theta\)</span> is the parameter under hypothesis <span class="math inline">\(H_0\)</span>. This is exactly the marginal probability of data under <span class="math inline">\(H_0\)</span>, we are essentially rewriting equation <span class="math inline">\(\eqref{eq:marginal_lik}\)</span> to be conditioned on the given hypothesis.</p>
@@ -3786,7 +3786,7 @@ Type BFManual() to open the manual.
 [1] Alt., p0=0.5, r=0.5 : 0.6908793 ±0%
 
 Against denominator:
-  Null, p = 0.5 
+  Null, p = 0.5
 ---
 Bayes factor type: BFproportion, logistic</code></pre>
 <!-- rnb-output-end -->
@@ -3844,7 +3844,7 @@ H_1 &amp;: \delta \sim r \cdot \mbox{Cauchy},
 [1] Alt., r=1 : 0.09376657 ±0%
 
 Against denominator:
-  Null, mu = 0.175 
+  Null, mu = 0.175
 ---
 Bayes factor type: BFoneSample, JZS</code></pre>
 <!-- rnb-output-end -->
@@ -3872,16 +3872,16 @@ exp(bftest_01@bayesFactor$bf)  # Take expotential since the raw number is in log
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
 <!-- rnb-source-begin eyJkYXRhIjpbImJmdGVzdF9tY21jX3NhbXBsZXMgPC0gQmF5ZXNGYWN0b3I6OnR0ZXN0QkYoWDEsIG11PWgwX21lYW4sIHJzY2FsZT0xLCBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcG9zdGVyaW9yPVRSVUUsIGl0ZXJhdGlvbnM9MTAwMCxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJvZ3Jlc3M9RkFMU0UpIiwiaGVhZChiZnRlc3RfbWNtY19zYW1wbGVzKSJdfQ== -->
-<pre class="r"><code>bftest_mcmc_samples &lt;- BayesFactor::ttestBF(X1, mu=h0_mean, rscale=1, 
+<pre class="r"><code>bftest_mcmc_samples &lt;- BayesFactor::ttestBF(X1, mu=h0_mean, rscale=1,
                                             posterior=TRUE, iterations=1000,
                                             progress=FALSE)
 head(bftest_mcmc_samples)</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiTWFya292IENoYWluIE1vbnRlIENhcmxvIChNQ01DKSBvdXRwdXQ6XG5TdGFydCA9IDEgXG5FbmQgPSA3IFxuVGhpbm5pbmcgaW50ZXJ2YWwgPSAxIFxuICAgICAgICAgICAgbXUgICAgICAgc2lnMiAgICBkZWx0YSAgICAgICAgZ1xuWzEsXSAwLjE3MDAyNDcgMC4wMTA1ODI4NiAxLjY1Mjc2MiAxLjM5NjA1MlxuWzIsXSAwLjE3MDAyMzEgMC4wMTA1NTQ0NiAxLjY1NDk3MCAxLjI1NjgyOVxuWzMsXSAwLjE2NDM0NjggMC4wMTA3NDE0NSAxLjU4NTczMyA0LjYwNDc2NVxuWzQsXSAwLjE2NzQ3ODMgMC4wMTE3MjA2NyAxLjU0Njk3MSAxLjM3OTk0OVxuWzUsXSAwLjE2NzAzMjUgMC4wMTA4NjY4MiAxLjYwMjMyMiA1LjgyNTcxNFxuWzYsXSAwLjE3MjUwNDcgMC4wMTAwOTgxMSAxLjcxNjY0NiA1LjM5NjYzMFxuWzcsXSAwLjE2NzMxNTggMC4wMTAwNTQ5NyAxLjY2ODU3OCAyLjIwNzQ0MFxuIn0= -->
 <pre><code>Markov Chain Monte Carlo (MCMC) output:
-Start = 1 
-End = 7 
-Thinning interval = 1 
+Start = 1
+End = 7
+Thinning interval = 1
             mu       sig2    delta        g
 [1,] 0.1700247 0.01058286 1.652762 1.396052
 [2,] 0.1700231 0.01055446 1.654970 1.256829
@@ -3929,9 +3929,9 @@ Thinning interval = 1
   for ( r in 1:n_rep ) {
     x_bar[r] &lt;- mean(sample_func(N))
   }
-  # Plot.  
+  # Plot.
   title &lt;-bquote(&quot;Sampling Distribution of &quot; ~ bar(X) ~ &quot; at N = &quot; ~ .(N))
-  x &lt;- seq(min(x_bar), max(x_bar), length=100) 
+  x &lt;- seq(min(x_bar), max(x_bar), length=100)
   y &lt;- dnorm(x, .5, sqrt(1/12)/sqrt(N))  # Based on true mean and sd of a standard Uniform.
   hist(x_bar, probability=TRUE, main=title, xlab=NULL, ylim=c(0, max(y)*1.1), ...)
   lines(x, y, col=&quot;blue&quot;, lwd=2)
@@ -4001,7 +4001,7 @@ plot_mc_sample_mean_clt(N=50, sample_func=non_random_sampler, n_rep=1000,
 <!-- rnb-source-begin eyJkYXRhIjpbInBsb3RfbWNfc2FtcGxlX21lYW5fbGxuIDwtIGZ1bmN0aW9uKE5fbGlzdCwgbl9yZXA9NTAwKSB7XG4gIHJlcXVpcmUobGF0dGljZSwgcXVpZXRseT1UUlVFKVxuICBcbiAgbWNfbWVhbiA8LSBmdW5jdGlvbihOLCBuX3JlcCkge1xuICAgIHhfYmFyIDwtIG51bWVyaWMobl9yZXApXG4gICAgZm9yICggciBpbiAxOm5fcmVwICkge1xuICAgICAgeF9iYXJbcl0gPC0gbWVhbihydW5pZihOKSlcbiAgICB9XG4gICAgeF9iYXJcbiAgfVxuICBcbiAgcmVzIDwtIG1hdHJpeChOQV9yZWFsXywgbnJvdz1uX3JlcCwgbmNvbD1sZW5ndGgoTl9saXN0KSlcbiAgZm9yICggaSBpbiAxOmxlbmd0aChOX2xpc3QpKSB7XG4gICAgcmVzWyxpXSA8LSBtY19tZWFuKE5fbGlzdFtpXSwgbl9yZXApIC0gLjVcbiAgfVxuICByZXMgPC0gYXMuZGF0YS5mcmFtZShyZXMpXG4gIGNvbG5hbWVzKHJlcykgPC0gcGFzdGUwKFwiTiA9IFwiLCBOX2xpc3QpXG4gIHJlcyA8LSBzdGFjayhyZXMpXG4gIHRpdGxlIDwtYnF1b3RlKFwiU2FtcGxpbmcgRGlzdHJpYnV0aW9uIG9mIFwiIH4gYmFyKFgpIC0gbXUpXG4gIGxhdHRpY2U6OmRlbnNpdHlwbG90KH4gdmFsdWVzLCBncm91cD1pbmQsIGRhdGE9cmVzLCBhdXRvLmtleT1UUlVFLFxuICAgICAgICAgICAgICAgICAgICAgICBtYWluPXRpdGxlLCB4bGFiPVwiU2FtcGxlIE1lYW4gRXJyb3JcIilcbn0iLCIiLCJwbG90X21jX3NhbXBsZV9tZWFuX2xsbihjKDUwLCAxMDAsIDUwMCwgMTAwMCwgMTAwMDApKSJdfQ== -->
 <pre class="r"><code>plot_mc_sample_mean_lln &lt;- function(N_list, n_rep=500) {
   require(lattice, quietly=TRUE)
-  
+
   mc_mean &lt;- function(N, n_rep) {
     x_bar &lt;- numeric(n_rep)
     for ( r in 1:n_rep ) {
@@ -4009,7 +4009,7 @@ plot_mc_sample_mean_clt(N=50, sample_func=non_random_sampler, n_rep=1000,
     }
     x_bar
   }
-  
+
   res &lt;- matrix(NA_real_, nrow=n_rep, ncol=length(N_list))
   for ( i in 1:length(N_list)) {
     res[,i] &lt;- mc_mean(N_list[i], n_rep) - .5
@@ -4096,12 +4096,12 @@ mean(mc_ci_result)</code></pre>
 metro_sample &lt;- function(likelihood, init_val, niter, seed=777) {
   # The function is not optimized at all. It is for illustration purpose only.
   set.seed(seed)
-  
+
   current_val &lt;- init_val
   current_val_lik &lt;- likelihood(current_val)
   accepted_samples &lt;- init_val
   n_accepted &lt;- 0
-  
+
   # Iteration.
   # No obvious way to vectorize this operation since it is serially dependent.
   for ( i in 1:niter ) {
@@ -4117,7 +4117,7 @@ metro_sample &lt;- function(likelihood, init_val, niter, seed=777) {
     # the current sample is duplicated.
     accepted_samples &lt;- c(accepted_samples, current_val)
   }
-  
+
   list(accept_rate=n_accepted / niter, sample=accepted_samples)
 }</code></pre>
 <!-- rnb-source-end -->
@@ -4130,7 +4130,7 @@ metro_sample &lt;- function(likelihood, init_val, niter, seed=777) {
 <pre class="r"><code>init_val_1 &lt;- 9
 mcmc_res &lt;- metro_sample(calc_lik_norm, init_val_1, niter=5000)
 
-plot(mcmc_res$sample, type=&quot;l&quot;, 
+plot(mcmc_res$sample, type=&quot;l&quot;,
      main=&quot;Metropolis Sampling Trace&quot;,
      xlab=&quot;Iteration&quot;, ylab=&quot;MCMC Sample Value&quot;)</code></pre>
 <!-- rnb-source-end -->
@@ -4156,7 +4156,7 @@ plot(mcmc_res$sample, type=&quot;l&quot;,
 <!-- rnb-source-begin eyJkYXRhIjpbInBsb3RfbWNfc2FtcGxlIDwtIGZ1bmN0aW9uKHgsIGluaXRfdmFsLCAuLi4pIHtcbiAgaGlzdCh4LCBwcm9iPVRSVUUsIHhheHM9XCJpXCIsIHlheHM9XCJpXCIsIC4uLilcbiAgZGVuc2l0eSA8LSBjdXJ2ZShjYWxjX2xpa19ub3JtLCBmcm9tPW1pbih4KSwgdG89bWF4KHgpLCBcbiAgICAgICAgICAgICAgICAgICBjb2w9XCJibHVlXCIsIGFkZD1UUlVFKVxuICBhYmxpbmUodj1pbml0X3ZhbCwgY29sPVwicmVkXCIpXG4gIHRleHQoaW5pdF92YWwsIG1lYW4oZGVuc2l0eSR5KSouNSwgcG9zPTIsIFwiSW5pdGlhbCBWYWx1ZVwiLCBjb2w9XCJyZWRcIilcbn0iLCIiLCJwbG90X21jX3NhbXBsZShtY21jX3JlcyRzYW1wbGUsIGluaXRfdmFsXzEpIl19 -->
 <pre class="r"><code>plot_mc_sample &lt;- function(x, init_val, ...) {
   hist(x, prob=TRUE, xaxs=&quot;i&quot;, yaxs=&quot;i&quot;, ...)
-  density &lt;- curve(calc_lik_norm, from=min(x), to=max(x), 
+  density &lt;- curve(calc_lik_norm, from=min(x), to=max(x),
                    col=&quot;blue&quot;, add=TRUE)
   abline(v=init_val, col=&quot;red&quot;)
   text(init_val, mean(density$y)*.5, pos=2, &quot;Initial Value&quot;, col=&quot;red&quot;)
@@ -4179,7 +4179,7 @@ plot_mc_sample(mcmc_res$sample, init_val_1)</code></pre>
 <pre class="r"><code>init_val_2 &lt;- 50
 mcmc_res_2 &lt;- metro_sample(calc_lik_norm, init_val_2, niter=5000)
 
-plot(mcmc_res_2$sample, type=&quot;l&quot;, 
+plot(mcmc_res_2$sample, type=&quot;l&quot;,
      main=&quot;Metropolis Sampling Trace&quot;,
      xlab=&quot;Iteration&quot;, ylab=&quot;MCMC Sample Value&quot;)</code></pre>
 <!-- rnb-source-end -->
@@ -4269,7 +4269,7 @@ mcmc_res_beta &lt;- metro_sample(calc_lik_beta, 0, niter=5000)
 par(mfrow=c(1, 2))
 hist(mcmc_res_beta$sample, main=&quot;Metropolis Samples&quot;, xlab=&quot;X ~ Beta(2, 5)&quot;,
      sub=&quot;Does it look like a Beta distribution?&quot;)
-plot(mcmc_res_beta$sample, type=&quot;l&quot;, 
+plot(mcmc_res_beta$sample, type=&quot;l&quot;,
      main=&quot;Trace&quot;,
      xlab=&quot;Iteration&quot;, ylab=&quot;MCMC Sample Value&quot;)</code></pre>
 <!-- rnb-source-end -->
@@ -4306,7 +4306,7 @@ mcmc_res_3 &lt;- metro_sample(calc_lik_unif, .01, niter=5000)
 par(mfrow=c(1, 2))
 hist(mcmc_res_3$sample, main=&quot;Metropolis Samples&quot;, xlab=&quot;X ~ Uniform(0, 1)&quot;,
      sub=&quot;Does it look like a Uniform distribution?&quot;)
-plot(mcmc_res_3$sample, type=&quot;l&quot;, 
+plot(mcmc_res_3$sample, type=&quot;l&quot;,
      main=&quot;Trace&quot;,
      xlab=&quot;Iteration&quot;, ylab=&quot;MCMC Sample Value&quot;)</code></pre>
 <!-- rnb-source-end -->
@@ -4409,7 +4409,7 @@ lup_betabinom &lt;- function(theta, data) {
   log(choose(10, data)*theta^data*(1-theta)^(10-data))
 }
 
-mlh &lt;- bridge_sampler(post_samples, log_posterior=lup_betabinom, data=y, 
+mlh &lt;- bridge_sampler(post_samples, log_posterior=lup_betabinom, data=y,
                       lb=setNames(-Inf, &quot;theta&quot;), ub=setNames(Inf, &quot;theta&quot;), silent=TRUE)
 exp(mlh$logml)</code></pre>
 <!-- rnb-source-end -->
@@ -4467,20 +4467,20 @@ summary(fitted_model)</code></pre>
 <!-- rnb-output-begin eyJkYXRhIjoiXG5DYWxsOlxuZ2xtKGZvcm11bGEgPSB5IH4geDEgKyB4MiArIHgzICsgeDQsIGZhbWlseSA9IGJpbm9taWFsLCBkYXRhID0gbG9naXQsIFxuICAgIHggPSBUUlVFKVxuXG5EZXZpYW5jZSBSZXNpZHVhbHM6IFxuICAgIE1pbiAgICAgICAxUSAgIE1lZGlhbiAgICAgICAzUSAgICAgIE1heCAgXG4tMS43NDYxICAtMC42OTA3ICAgMC4xNTQwICAgMC43MDQxICAgMi4xOTQzICBcblxuQ29lZmZpY2llbnRzOlxuICAgICAgICAgICAgRXN0aW1hdGUgU3RkLiBFcnJvciB6IHZhbHVlIFByKD58enwpICAgXG4oSW50ZXJjZXB0KSAgIDAuNjMyOCAgICAgMC4zMDA3ICAgMi4xMDQgIDAuMDM1MzYgKiBcbngxICAgICAgICAgICAgMC43MzkwICAgICAwLjM2MTYgICAyLjA0MyAgMC4wNDEwMCAqIFxueDIgICAgICAgICAgICAxLjExMzcgICAgIDAuMzYyNyAgIDMuMDcxICAwLjAwMjEzICoqXG54MyAgICAgICAgICAgIDAuNDc4MSAgICAgMC4zNTM4ICAgMS4zNTEgIDAuMTc2NjMgICBcbng0ICAgICAgICAgICAgMC42OTQ0ICAgICAwLjM5ODkgICAxLjc0MSAgMC4wODE3MiAuIFxuLS0tXG5TaWduaWYuIGNvZGVzOiAgMCAnKioqJyAwLjAwMSAnKionIDAuMDEgJyonIDAuMDUgJy4nIDAuMSAnICcgMVxuXG4oRGlzcGVyc2lvbiBwYXJhbWV0ZXIgZm9yIGJpbm9taWFsIGZhbWlseSB0YWtlbiB0byBiZSAxKVxuXG4gICAgTnVsbCBkZXZpYW5jZTogMTM3LjYyOCAgb24gOTkgIGRlZ3JlZXMgb2YgZnJlZWRvbVxuUmVzaWR1YWwgZGV2aWFuY2U6ICA4Ny42NjggIG9uIDk1ICBkZWdyZWVzIG9mIGZyZWVkb21cbkFJQzogOTcuNjY4XG5cbk51bWJlciBvZiBGaXNoZXIgU2NvcmluZyBpdGVyYXRpb25zOiA2XG4ifQ== -->
 <pre><code>
 Call:
-glm(formula = y ~ x1 + x2 + x3 + x4, family = binomial, data = logit, 
+glm(formula = y ~ x1 + x2 + x3 + x4, family = binomial, data = logit,
     x = TRUE)
 
-Deviance Residuals: 
-    Min       1Q   Median       3Q      Max  
--1.7461  -0.6907   0.1540   0.7041   2.1943  
+Deviance Residuals:
+    Min       1Q   Median       3Q      Max
+-1.7461  -0.6907   0.1540   0.7041   2.1943
 
 Coefficients:
-            Estimate Std. Error z value Pr(&gt;|z|)   
-(Intercept)   0.6328     0.3007   2.104  0.03536 * 
-x1            0.7390     0.3616   2.043  0.04100 * 
+            Estimate Std. Error z value Pr(&gt;|z|)
+(Intercept)   0.6328     0.3007   2.104  0.03536 *
+x1            0.7390     0.3616   2.043  0.04100 *
 x2            1.1137     0.3627   3.071  0.00213 **
-x3            0.4781     0.3538   1.351  0.17663   
-x4            0.6944     0.3989   1.741  0.08172 . 
+x3            0.4781     0.3538   1.351  0.17663
+x4            0.6944     0.3989   1.741  0.08172 .
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -4501,21 +4501,21 @@ Number of Fisher Scoring iterations: 6</code></pre>
 <p>Now move on to the Bayesian approach of exactly the same model. To use <code>mcmc::metrop</code> the Metropolis sampling function we first need to implement our own function for calculating the unnormalized posterior density given the data and parameters.</p>
 <p>In practice, in order to maintain numerical stability, we always use <a href="https://en.wikipedia.org/wiki/Log_probability">log-likelihood</a> instead of the likelihood in raw scale. So instead of calculating</p>
 <p><span class="math display">\[
-\underbrace{P(\beta|y)}_\text{posterior density} \propto 
+\underbrace{P(\beta|y)}_\text{posterior density} \propto
 \underbrace{P(y|\beta)}_\text{data likelihood} \times
 \underbrace{P(\beta)}_\text{prior density},
 \]</span></p>
 <p>we end up with</p>
 <p><span class="math display">\[
-\underbrace{\ln P(\beta|y)}_\text{posterior log-likelihood} \propto 
-\underbrace{\ln P(y|\beta)}_\text{data log-likelihood} + 
+\underbrace{\ln P(\beta|y)}_\text{posterior log-likelihood} \propto
+\underbrace{\ln P(y|\beta)}_\text{data log-likelihood} +
 \underbrace{\ln P(\beta)}_\text{prior log-likelihood}.
 \]</span></p>
 <p>Hence the posterior will be the sum of all log-likelihood of each observed data point and the log-likelihood of our parameter prior.</p>
 <p>The data likelihood is very straightforward since the model is already expressed in probability:</p>
 <p><span class="math display">\[
 \begin{aligned}
-\mbox{data log-likelihood} \equiv 
+\mbox{data log-likelihood} \equiv
 \ln P(y = 1) &amp;= - \ln (1 + e^{-X\beta})  \\
 &amp;= X\beta - \ln (1 + e^{X\beta}).
 \end{aligned}
@@ -4523,7 +4523,7 @@ Number of Fisher Scoring iterations: 6</code></pre>
 <p>The case of <span class="math inline">\(P(y = 0)\)</span> can be derived similarly:<a href="#fn8" class="footnote-ref" id="fnref8"><sup>8</sup></a></p>
 <p><span class="math display">\[
 \begin{aligned}
-\mbox{data log-likelihood} \equiv \ln P(y = 0) 
+\mbox{data log-likelihood} \equiv \ln P(y = 0)
 &amp;= \ln \big[1 - P(y=1)\big] \\
 &amp;= - X\beta - \ln (1 + e^{-X\beta})  \\
 &amp;= - \ln (1 + e^{X\beta}) .
@@ -4535,8 +4535,8 @@ f(x) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{(x - \mu)^2}{2\sigma^2}}.
 \]</span></p>
 <p>Then the natural log of the pdf will be:</p>
 <p><span class="math display">\[
-\ln f(x) = 
-\underbrace{-\frac{1}{2}\ln(2\pi\sigma^2)}_\text{a constant} - 
+\ln f(x) =
+\underbrace{-\frac{1}{2}\ln(2\pi\sigma^2)}_\text{a constant} -
 \frac{(x - \mu)^2}{2\sigma^2},
 \]</span></p>
 <p>where the first term is a constant that can be safely ignored in the actual computation.</p>
@@ -4552,7 +4552,7 @@ f(x) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{(x - \mu)^2}{2\sigma^2}}.
   logp &lt;- ifelse(v &lt; 0, v - log1p(exp(v)), - log1p(exp(-v)))
   logq &lt;- ifelse(v &lt; 0, - log1p(exp(v)), - v - log1p(exp(-v)))
   logl &lt;- sum(logp[y == 1]) + sum(logq[y == 0])
-  # Assume beta ~ N(mu_beta, sigma_beta), 
+  # Assume beta ~ N(mu_beta, sigma_beta),
   # calculate only the data-dependent part of the log likelihood.
   logl - sum((beta - mu_beta)^2) / (2*sigma_beta^2)
 }
@@ -4587,9 +4587,9 @@ str(mcmc_result)</code></pre>
  $ final.seed  : int [1:626] 403 378 493546101 -66585069 -648867965 1681197907 1228103382 -2070035409 2008945713 -403356099 ...
  $ time        : 'proc_time' Named num [1:5] 0.015 0.047 0.057 0 0
   ..- attr(*, &quot;names&quot;)= chr [1:5] &quot;user.self&quot; &quot;sys.self&quot; &quot;elapsed&quot; &quot;user.child&quot; ...
- $ lud         :function (beta, mu_beta = 0, sigma_beta = 2)  
+ $ lud         :function (beta, mu_beta = 0, sigma_beta = 2)
   ..- attr(*, &quot;srcref&quot;)= 'srcref' int [1:8] 1 43 12 1 43 1 1 12
-  .. ..- attr(*, &quot;srcfile&quot;)=Classes 'srcfilecopy', 'srcfile' &lt;environment: 0xd87cda0&gt; 
+  .. ..- attr(*, &quot;srcfile&quot;)=Classes 'srcfilecopy', 'srcfile' &lt;environment: 0xd87cda0&gt;
  $ nbatch      : num 1000
  $ blen        : num 1
  $ nspac       : num 1
@@ -4721,7 +4721,7 @@ mcse_mean</code></pre>
 <pre class="r"><code>calc_var_mcse &lt;- function(u, v, n) {
   # u: batch mean of first moment
   # v: batch mean of second moment
-  # ubar: grand mean of batch mean u 
+  # ubar: grand mean of batch mean u
   # vbar: grand mean of batch mean v
   ubar &lt;- colMeans(u)
   vbar &lt;- colMeans(v)
@@ -4731,7 +4731,7 @@ mcse_mean</code></pre>
   sqrt(colMeans((deltav - 2 * foo)^2) / n)
 }
 
-mcse_var &lt;- calc_var_mcse(u=mcmc_result_mb$batch[,1:5], 
+mcse_var &lt;- calc_var_mcse(u=mcmc_result_mb$batch[,1:5],
                           v=mcmc_result_mb$batch[,6:10],
                           n=mcmc_result_mb$nbatch)
 mcse_var</code></pre>
@@ -5064,7 +5064,7 @@ str(log_lik_h0)</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiSW5mZXJlbmNlIGZvciBTdGFuIG1vZGVsOiAwMmJhODQ3MjE1YzQwNmFjZDE5M2YxYjQyODdmOGRkMC5cbjQgY2hhaW5zLCBlYWNoIHdpdGggaXRlcj0xMDAwMDsgd2FybXVwPTUwMDA7IHRoaW49MTsgXG5wb3N0LXdhcm11cCBkcmF3cyBwZXIgY2hhaW49NTAwMCwgdG90YWwgcG9zdC13YXJtdXAgZHJhd3M9MjAwMDAuXG5cbiAgICAgICAgIG1lYW4gc2VfbWVhbiAgIHNkICAgMi41JSAgICAyNSUgICAgNTAlICAgIDc1JSAgOTcuNSUgbl9lZmYgUmhhdFxuZGVsdGEgICAtMC4wNSAgICAwLjAwIDAuMDMgIC0wLjExICAtMC4wNyAgLTAuMDUgIC0wLjAzICAgMC4wMSAxOTI1MyAgICAxXG5zaWdtYTIgICAwLjAxICAgIDAuMDAgMC4wMCAgIDAuMDEgICAwLjAxICAgMC4wMSAgIDAuMDEgICAwLjAxIDE3MDQyICAgIDFcbmxwX18gICA4NDYuNjMgICAgMC4wMSAxLjAxIDg0My45MSA4NDYuMjMgODQ2Ljk0IDg0Ny4zNSA4NDcuNjIgIDg5NzEgICAgMVxuXG5TYW1wbGVzIHdlcmUgZHJhd24gdXNpbmcgTlVUUyhkaWFnX2UpIGF0IFRodSBOb3YgMjEgMDA6MTE6NTkgMjAxOS5cbkZvciBlYWNoIHBhcmFtZXRlciwgbl9lZmYgaXMgYSBjcnVkZSBtZWFzdXJlIG9mIGVmZmVjdGl2ZSBzYW1wbGUgc2l6ZSxcbmFuZCBSaGF0IGlzIHRoZSBwb3RlbnRpYWwgc2NhbGUgcmVkdWN0aW9uIGZhY3RvciBvbiBzcGxpdCBjaGFpbnMgKGF0IFxuY29udmVyZ2VuY2UsIFJoYXQ9MSkuXG4ifQ== -->
 <pre><code>Inference for Stan model: 02ba847215c406acd193f1b4287f8dd0.
-4 chains, each with iter=10000; warmup=5000; thin=1; 
+4 chains, each with iter=10000; warmup=5000; thin=1;
 post-warmup draws per chain=5000, total post-warmup draws=20000.
 
          mean se_mean   sd   2.5%    25%    50%    75%  97.5% n_eff Rhat
@@ -5074,7 +5074,7 @@ lp__   846.63    0.01 1.01 843.91 846.23 846.94 847.35 847.62  8971    1
 
 Samples were drawn using NUTS(diag_e) at Thu Nov 21 00:11:59 2019.
 For each parameter, n_eff is a crude measure of effective sample size,
-and Rhat is the potential scale reduction factor on split chains (at 
+and Rhat is the potential scale reduction factor on split chains (at
 convergence, Rhat=1).</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5142,7 +5142,7 @@ bf(h1_marginal_lik, h0_marginal_lik)</code></pre>
 [1] Alt., r=1 : 0.09376657 ±0%
 
 Against denominator:
-  Null, mu = 0 
+  Null, mu = 0
 ---
 Bayes factor type: BFoneSample, JZS</code></pre>
 <!-- rnb-output-end -->
@@ -5195,7 +5195,7 @@ fitted_blogit</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiSW5mZXJlbmNlIGZvciBTdGFuIG1vZGVsOiBhZWY1MTg2MzhjNmRkOThhMmI0YTQ2Y2I0NDI2N2RjMy5cbjQgY2hhaW5zLCBlYWNoIHdpdGggaXRlcj0xMDAwMDsgd2FybXVwPTUwMDA7IHRoaW49MTsgXG5wb3N0LXdhcm11cCBkcmF3cyBwZXIgY2hhaW49NTAwMCwgdG90YWwgcG9zdC13YXJtdXAgZHJhd3M9MjAwMDAuXG5cbiAgICAgICAgICBtZWFuIHNlX21lYW4gICBzZCAgIDIuNSUgICAgMjUlICAgIDUwJSAgICA3NSUgIDk3LjUlIG5fZWZmIFJoYXRcbmJldGFbMV0gICAwLjU3ICAgIDAuMDAgMC4yOCAgIDAuMDQgICAwLjM4ICAgMC41NyAgIDAuNzUgICAxLjEzIDIzNzY4ICAgIDFcbmJldGFbMl0gICAwLjc1ICAgIDAuMDAgMC4zNCAgIDAuMTEgICAwLjUyICAgMC43NCAgIDAuOTcgICAxLjQ0IDIzNTQ0ICAgIDFcbmJldGFbM10gICAxLjA1ICAgIDAuMDAgMC4zMiAgIDAuNDUgICAwLjgzICAgMS4wNCAgIDEuMjcgICAxLjcyIDIyMTk1ICAgIDFcbmJldGFbNF0gICAwLjQ2ICAgIDAuMDAgMC4zMyAgLTAuMTcgICAwLjIzICAgMC40NSAgIDAuNjcgICAxLjEyIDIxNTk5ICAgIDFcbmJldGFbNV0gICAwLjY2ICAgIDAuMDAgMC4zNiAgLTAuMDQgICAwLjQxICAgMC42NSAgIDAuOTAgICAxLjM5IDIzMjkwICAgIDFcbmxwX18gICAgLTQ3LjY2ICAgIDAuMDIgMS42MSAtNTEuNjYgLTQ4LjUwIC00Ny4zMyAtNDYuNDggLTQ1LjUzICA5NDg3ICAgIDFcblxuU2FtcGxlcyB3ZXJlIGRyYXduIHVzaW5nIE5VVFMoZGlhZ19lKSBhdCBUaHUgTm92IDIxIDAwOjEzOjE1IDIwMTkuXG5Gb3IgZWFjaCBwYXJhbWV0ZXIsIG5fZWZmIGlzIGEgY3J1ZGUgbWVhc3VyZSBvZiBlZmZlY3RpdmUgc2FtcGxlIHNpemUsXG5hbmQgUmhhdCBpcyB0aGUgcG90ZW50aWFsIHNjYWxlIHJlZHVjdGlvbiBmYWN0b3Igb24gc3BsaXQgY2hhaW5zIChhdCBcbmNvbnZlcmdlbmNlLCBSaGF0PTEpLlxuIn0= -->
 <pre><code>Inference for Stan model: aef518638c6dd98a2b4a46cb44267dc3.
-4 chains, each with iter=10000; warmup=5000; thin=1; 
+4 chains, each with iter=10000; warmup=5000; thin=1;
 post-warmup draws per chain=5000, total post-warmup draws=20000.
 
           mean se_mean   sd   2.5%    25%    50%    75%  97.5% n_eff Rhat
@@ -5208,7 +5208,7 @@ lp__    -47.66    0.02 1.61 -51.66 -48.50 -47.33 -46.48 -45.53  9487    1
 
 Samples were drawn using NUTS(diag_e) at Thu Nov 21 00:13:15 2019.
 For each parameter, n_eff is a crude measure of effective sample size,
-and Rhat is the potential scale reduction factor on split chains (at 
+and Rhat is the potential scale reduction factor on split chains (at
 convergence, Rhat=1).</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5298,7 +5298,7 @@ head(Xy)</code></pre>
 beta</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgICAgICAgzrIxICAgICAgICAgIM6yMiAgICAgICAgICDOsjMgICAgICAgICAgzrI0ICAgICAgICAgIM6yNSBcbiAwLjcwMzk4MDI4IC0wLjkwODc1MzQyICAwLjA4ODQ3NDc5ICAwLjcxOTM4Mzc1IC0xLjUwMTAzMDk3IFxuIn0= -->
-<pre><code>         β1          β2          β3          β4          β5 
+<pre><code>         β1          β2          β3          β4          β5
  0.70398028 -0.90875342  0.08847479  0.71938375 -1.50103097 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5316,21 +5316,21 @@ Call:
 lm(formula = outcome ~ . - 1, data = as.data.frame(Xy))
 
 Residuals:
-    Min      1Q  Median      3Q     Max 
--37.737  -3.581  -0.023   3.692  26.395 
+    Min      1Q  Median      3Q     Max
+-37.737  -3.581  -0.023   3.692  26.395
 
 Coefficients:
-   Estimate Std. Error t value Pr(&gt;|t|)    
+   Estimate Std. Error t value Pr(&gt;|t|)
 β1   1.1031     0.2070   5.329 1.22e-07 ***
-β2  -0.3896     0.2074  -1.879   0.0606 .  
-β3   0.2026     0.2127   0.953   0.3410    
+β2  -0.3896     0.2074  -1.879   0.0606 .
+β3   0.2026     0.2127   0.953   0.3410
 β4   0.8543     0.2105   4.058 5.34e-05 ***
 β5  -1.6474     0.2007  -8.206 7.02e-16 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Residual standard error: 6.528 on 995 degrees of freedom
-Multiple R-squared:  0.1014,    Adjusted R-squared:  0.09691 
+Multiple R-squared:  0.1014,    Adjusted R-squared:  0.09691
 F-statistic: 22.46 on 5 and 995 DF,  p-value: &lt; 2.2e-16</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5387,7 +5387,7 @@ print(blm_fitted, pars=c(&quot;beta&quot;, &quot;sigma&quot;, &quot;nu&quot;))</
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiSW5mZXJlbmNlIGZvciBTdGFuIG1vZGVsOiA2OTAxOTIyMzEzNmE5ZWYzYjUwNTA4ODgwZGQ4YTcwNC5cbjQgY2hhaW5zLCBlYWNoIHdpdGggaXRlcj0xMDAwMDsgd2FybXVwPTUwMDA7IHRoaW49MTsgXG5wb3N0LXdhcm11cCBkcmF3cyBwZXIgY2hhaW49NTAwMCwgdG90YWwgcG9zdC13YXJtdXAgZHJhd3M9MjAwMDAuXG5cbiAgICAgICAgIG1lYW4gc2VfbWVhbiAgIHNkICAyLjUlICAgMjUlICAgNTAlICAgNzUlIDk3LjUlIG5fZWZmIFJoYXRcbmJldGFbMV0gIDEuMTQgICAgMC4wMCAwLjE5ICAwLjc3ICAxLjAxICAxLjE0ICAxLjI2ICAxLjUxIDI3NjI3ICAgIDFcbmJldGFbMl0gLTAuNDkgICAgMC4wMCAwLjE5IC0wLjg1IC0wLjYxIC0wLjQ5IC0wLjM2IC0wLjEyIDM1NDI2ICAgIDFcbmJldGFbM10gIDAuMzIgICAgMC4wMCAwLjIwIC0wLjA3ICAwLjE4ICAwLjMyICAwLjQ1ICAwLjcwIDMyNTc5ICAgIDFcbmJldGFbNF0gIDAuNjYgICAgMC4wMCAwLjE5ICAwLjMwICAwLjU0ICAwLjY2ICAwLjc5ICAxLjAzIDI5ODcxICAgIDFcbmJldGFbNV0gLTEuNTcgICAgMC4wMCAwLjE4IC0xLjkyIC0xLjY5IC0xLjU3IC0xLjQ1IC0xLjIyIDMyMDgxICAgIDFcbnNpZ21hICAgIDUuMDkgICAgMC4wMCAwLjIwICA0LjcxICA0Ljk2ICA1LjA5ICA1LjIyICA1LjQ5IDIwMzEwICAgIDFcbm51ICAgICAgIDUuMTUgICAgMC4wMSAwLjg2ICAzLjc5ICA0LjU0ICA1LjA1ICA1LjY0ICA3LjEwIDE5NzkxICAgIDFcblxuU2FtcGxlcyB3ZXJlIGRyYXduIHVzaW5nIE5VVFMoZGlhZ19lKSBhdCBUaHUgTm92IDIxIDAwOjE0OjQwIDIwMTkuXG5Gb3IgZWFjaCBwYXJhbWV0ZXIsIG5fZWZmIGlzIGEgY3J1ZGUgbWVhc3VyZSBvZiBlZmZlY3RpdmUgc2FtcGxlIHNpemUsXG5hbmQgUmhhdCBpcyB0aGUgcG90ZW50aWFsIHNjYWxlIHJlZHVjdGlvbiBmYWN0b3Igb24gc3BsaXQgY2hhaW5zIChhdCBcbmNvbnZlcmdlbmNlLCBSaGF0PTEpLlxuIn0= -->
 <pre><code>Inference for Stan model: 69019223136a9ef3b50508880dd8a704.
-4 chains, each with iter=10000; warmup=5000; thin=1; 
+4 chains, each with iter=10000; warmup=5000; thin=1;
 post-warmup draws per chain=5000, total post-warmup draws=20000.
 
          mean se_mean   sd  2.5%   25%   50%   75% 97.5% n_eff Rhat
@@ -5401,7 +5401,7 @@ nu       5.15    0.01 0.86  3.79  4.54  5.05  5.64  7.10 19791    1
 
 Samples were drawn using NUTS(diag_e) at Thu Nov 21 00:14:40 2019.
 For each parameter, n_eff is a crude measure of effective sample size,
-and Rhat is the potential scale reduction factor on split chains (at 
+and Rhat is the potential scale reduction factor on split chains (at
 convergence, Rhat=1).</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
