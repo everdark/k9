@@ -456,6 +456,9 @@ lines(x_mc3, y_mc3, col="blue", lwd=2)
 
 This suggests that whenver we do have analytical solution for the limiting distribution of our estimator based on the corresponding CLT,
 we should just use that for our inference task instead of trying bootstrapping.
+So, yes, for a classical statistic like sample mean,
+there is not much value added using bootstrap.
+But it can serve as a very good educational case study.
 
 ### Using Package `boot`
 
