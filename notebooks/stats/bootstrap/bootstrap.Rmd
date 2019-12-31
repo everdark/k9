@@ -373,14 +373,25 @@ the approximation is as good as if we hypothetically created multiple samples fr
 
 Below we plot all bootstrapped sample means.
 We also plot a green curve as the sampling distribution as if the original sample is the population.
-(That is, the distribution will center at the original sample mean since now it is the population mean.)
+(And the original sample mean becomes the "population mean".)
 
 ```{r sample_mean_bs_dist}
-x_ <- seq(min(bs_xbar), max(bs_xbar), length=100) 
-y_ <- dnorm(x_, mean(x), sqrt(var_beta/n))
+x_2 <- seq(min(bs_xbar), max(bs_xbar), length=100)
+y_2 <- dnorm(x_2, mean(x), sqrt(var_beta/n))
 hist(bs_xbar, probability=TRUE, main="Distribution of Bootstrapped Sample Mean", xlab="X")
-lines(x_, y_, col="green", lwd=2)
+lines(x_, y_, col="blue", lwd=2)
+lines(x_2, y_2, col="green", lwd=2)
 ```
+
+Notice that we also plot the blue curve as the limiting distribution of sample mean.
+Our previous Monte Carlo exercise has already confirmed this is the sampling distribution based on CLT.
+Clearly the bootstrapped estimates does NOT magically approximate the sampling distribution.
+There is a bias introduced by the original sample mean which is statistically deviated from the true mean.
+But they do share the same variance.
+And since we are asking for the variance of our estimator,
+such bias does not affect our estimation at all!
+^[In reality we don't have access to the population so we will never be able to use either Monte Carlo or CLT to derive the true mean.
+This is where we further use [hypothesis testing](https://en.wikipedia.org/wiki/Statistical_hypothesis_testing) to draw statistical insight about the population based on our sample.]
 
 Rather than implement from scratch,
 we can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
