@@ -50,7 +50,7 @@ close(meta_header_file)
 # Statistical Inference
 
 At the core of statistical inference is about to use an estimator $\hat{\theta}(\cdot)$ to guess the unknown value of $\theta$ a population parameter of interest.
-The most common case of $\theta$ will be the population mean $\mu = E(x)$ where $x$ denotes the population folowing an unknown distribution $x \sim F$.
+The most common case of $\theta$ will be the population mean $\mu = E(x)$ where $x$ denotes the population following an unknown distribution $x \sim F$.
 Other popular parameters can be a median,
 a confidence interval of the mean,
 or a regression model coefficient,
@@ -87,7 +87,7 @@ This cumulative distribution function is a step function that jumps up by 1/n at
 Its value at any specified value of the measured variable is the fraction of observations of the measured variable that are less than or equal to the specified value.
 
 Specifically,
-the empirical distribution function (EDF) and PDF of a sample $x \sim F$ of size $n$ can be written as:
+the empirical distribution function (EDF) and empirical PDF of a sample $x \sim F$ of size $n$ can be written as:
 
 $$
 \begin{aligned}
@@ -96,7 +96,7 @@ $$
 \end{aligned}
 $$
 
-where $I$ is an indicator.
+where $I$ is an indicator function.
 
 Intuitively and loosely speaking,
 $\hat{F}$ is just an estimator for $F$ the true population distribution.
@@ -107,15 +107,12 @@ we are not guesing a scalar but a function.
 Because in a Baysian point of view even a population parameter is a function (a random variable),
 not a constant scalar.]
 
-
-
 ## Parameters as Functions of CDF
 
 Why introducing the notion of EDF?
 To see the value,
 it's better to step back and examine our best-friend parameter:
 population mean $E(x)$.
-
 By definition the derivative of a CDF $F$ is a PDF $p$:
 
 $$
@@ -130,7 +127,8 @@ $$
 
 That is to say,
 population mean is indeed *a function of CDF*.
-We can easily extend this to the variance as a function of CDF as well.
+We can easily extend this to the variance as a function of CDF as well,
+and to many other statistics.
 
 Of course we don't know CDF of the population.
 But we do know the EDF from our observed sample dataset,
@@ -147,9 +145,11 @@ E(x) \approx \int xd\hat{F}(x)
 $$
 
 to guess the population mean.
+^[This is based on the [plug-in principle](https://en.wikipedia.org/wiki/Plug-in_principle).]
 
 To no surprise,
-this estimator is exactly what we call the *sample mean*.
+this estimator is exactly what we call the *sample mean*,
+proven to be a very good estimator for the population mean.
 But the idea generalizes to *any* estimator,
 as long as the estimator can be expressed as a function of CDF,
 which in turn will be approximated by EDF.
@@ -168,13 +168,18 @@ Bootstrapping can be simply defined as drawing i.i.d. sample of the same size $n
 In some literatures this is also called the *resample*.
 To strictly follow i.i.d. the sampling must be done *with replacement*.
 
+To do bootstrap we essentially take the random sample $X$ from the original population $F$,
+and do the i.i.d. sampling from that sample *as if* the sample itself is another population $\hat{F}$.
+Only in this time the population is finite and has a discrete distribution function,
+which is the EDF of $X$.
+
 ## Monte Carlo Bootstrapping
 
-Given a particular estimator $\hat{\theta}$ as a random variable,
-we are conceerning about its expectation and variance.
+Now given a particular estimator $\hat{\theta}$ as a random variable,
+we are concerning about its expectation and variance.
 The expectation tells us whether the estimator is *unbiased* or not.
 The variance tells us how volatile our guess is,
-and also if it can be *consistent*--converge to the true metric of interest.
+and also if it can be *consistent*--converge to the true parameter of interest.
 
 By definition,
 the variance of a random variable $\hat{\theta}$ is:
@@ -209,15 +214,22 @@ $$
 \end{aligned}
 $$
 
+## The Error of Measuring Error
 
+There are two sources of error that can arise from this approach:
+simulation error and estimation error.
 
+Simulation error occurred because we are using Monte Carlo finite repetitions.
+Increasing the number of repetitions can effectively decrease such error.
+Thanks to the wide-spread computing power nowadays,
+this is not a big issue.
 
-simulation error and estimation error (due to approximating $F$ with $\hat{F}$.
-
-
-
+Estimation error is the error due to statistical noise when we use  $\hat{F}$ to approximate $F$ and by nature cannot be eliminated.
 
 ## Hands-On: The Sample Mean
+
+Let's demonstrate the use of bootstrapping with our best friend sample mean.
+Assume a Beta distribution as our unknown population with the PDF:
 
 ```{r beta_population_pdf}
 beta_a <- 2
@@ -228,39 +240,80 @@ curve(beta_pdf, from=0, to=1, ylab="Density",
       main=sprintf("(Unknown) Population Beta(%s, %s) PDF", beta_a, beta_b))
 ```
 
+and the CDF:
+
 ```{r beta_population_cdf}
 beta_cdf <- function(x) pbeta(x, beta_a, beta_b)
 curve(beta_cdf, from=0, to=1, ylab="Density",
       main=sprintf("(Unknown) Population Beta(%s, %s) CDF", beta_a, beta_b))
 ```
 
+Now we draw a random sample with fair size from the population.
+We plot the resulting histogram (probability mass function, or PMF):
+
 ```{r beta_sample_pmf}
 set.seed(666)
 n <- 5000
 x <- rbeta(n, beta_a, beta_b)
-hist(x, main="Sample X")
+hist(x, main="Sample X", probability=TRUE)
 ```
+
+and the EDF:
 
 ```{r beta_sample_edf}
 plot(ecdf(x), main="Empirical Distribution Function of X", xlim=c(0, 1))
 ```
 
-## Analytical Solution
+### Analytical Solution
 
-```{r}
+The variance of sample mean is analytically trackable,
+so indeed we don't really need bootstrap to tackle this problem.
+But we can use it to verify if bootstrap can result in the correct approximation to our analytical solution.
+
+Here is the derivation of the variance of sample mean,
+provided that the sample is i.i.d.:
+
+$$
+\begin{aligned}
+Var(\frac{1}{n}\sum_ix_i)
+&= \frac{1}{n^2}Var(\sum_ix_i) \\
+&= \frac{1}{n^2}\sum_iVar(x_i) &\text{(due to independently distributed)} \\
+&= \frac{1}{n^2}\cdot n Var(x) &\text{(due to identically distributed)} \\
+&= \frac{Var(x)}{n}.
+\end{aligned}
+$$
+
+Obviously the variance goes to zero as sample size goes to infinity.
+Hence sample mean as an estimator is *consistent*.
+
+We can readily calculate the standard error of sample mean given our sample:
+
+```{r sample_mean_analytical}
 # Assume knowing population s.d. (the groud truth).
 var_beta <- (beta_a * beta_b) / ((beta_a + beta_b)^2*(beta_a + beta_b + 1))
 sqrt(var_beta / n)
 ```
 
-```{r}
+But remember that we don't know our population so there is no way we have access to the variance of population (the numerator).
+So instead we will almost always use sample variance to approximate the solution:
+
+```{r sample_mean_analytical_2}
 # Plugin sample standard deviation since population s.d. is unknown.
 sd(x) / sqrt(n)
 ```
 
-## Monte Carlo with Multiple Samples
+### Monte Carlo with Multiple Samples
 
-```{r}
+Now let's say we don't know the analytical solution.
+If we can draw more than just one sample dataset,
+we are able to use Monte Carlo to approximate the error of our estimator:
+^[Here we didn't adjust the denominator to $n-1$ in the formula we used.
+using function `sd` will do that by default.
+Theoretically the adjustment make the estimation unbiased.
+The effect is negligible though since we control the number of repetitions,
+which is usually a big enough number.]
+
+```{r sample_mean_mc}
 M <- 10000
 
 mc_xbar <- rep(NA_real_, M)
@@ -271,30 +324,62 @@ for ( i in seq_len(M) ) {
 sqrt(sum(mc_xbar^2) / M - (sum(mc_xbar) / M)^2)  # Or simply sd(mc_xbar).
 ```
 
-## Monte Carlo Bootstrapping
+In reality we don't have access to multiple random samples,
+so this approach only exists hypothetically.
 
-```{r bootstrap_from_scratch}
+Even though we only have one sample dataset,
+we can use bootstrapping to generate as many *resamples* as we want.
+And this is totally feasible given enough computing power.
+
+### Monte Carlo Bootstrapping
+
+The same Monte Carlo setup,
+but now each sample is generated by bootstrapping from the only sample we have at hand:
+
+```{r sample_mean_boot}
 M <- 10000
 
 bs_xbar <- rep(NA_real_, M)
 for ( i in seq_len(M) ) {
-  bs <- sample(x, size=length(x), replace=TRUE)
+  bs <- sample(x, size=length(x), replace=TRUE)  # The bootstrap.
   bs_xbar[i] <- mean(bs)
 }
 sqrt(sum(bs_xbar^2) / M - (sum(bs_xbar) / M)^2)  # Or simply sd(bs_xbar).
 ```
 
-Or we can take advantage of the built-in package `boot` [@boot] in R to simplify our code:
+As one can see,
+the approximation is as good as if we hypothetically created multiple samples from the original population.
 
-```{r bootstrap_package}
+We can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
+
+```{r sample_mean_boot_2}
 library(boot)  # This is a built-in package.
 
 bs_r <- boot(x, function(x, i) mean(x[i]), R=M, parallel="multicore")
 print(bs_r)
 ```
 
+The bias reported by `boot` is simply the difference between the average of our simulated estimates and the original estimate:
+
+```{r verify_bias}
+mean(bs_r$t) - mean(x)
+```
+
+It should be very close to zero if nothing went wrong.
+
+Since we now have access to all simulated estimates,
+we can easily construct the confidence interval as well:
+
+```{r sample_mean_boot_ci}
+quantile(bs_r$t, probs=c(.025, .975))
+```
+
+Of course for simple estimator such as sample mean,
+we do have the analytical solution for its confidence interval.
+But bootstrapping is able to do the approximation without knowing the solution.
+
 # Bootstrapping for Regression Models
 
-residual bootstrapping
+**TODO: residual bootstrapping**
 
 # References
