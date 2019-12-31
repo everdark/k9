@@ -21,7 +21,7 @@ nocite: |
   @boot2
 link-citations: yes
 abstract: |
-  TBC.
+  We review Monte Carlo bootstrap sampling approach, a powerful technique to measure error of a statistical inference task when the variance of our estimator is not analytically trackable. We explain why bootstrapping works with minimum amount of theoretical derivation with demonstration of hands-on examples.
 ---
 
 ```{r meta, include=FALSE}
@@ -94,8 +94,8 @@ the empirical distribution function (EDF) and empirical PDF of a sample $x \sim 
 
 $$
 \begin{aligned}
-\hat{F}(x) &= \frac{1}{n} \sum_{i=1}^nI(x_i \leq x), \\
-\hat{p}(x) &= \frac{d\hat{F}}{dx} = \frac{1}{n},
+\hat{F}_n(x) &= \frac{1}{n} \sum_{i=1}^nI(x_i \leq x), \\
+\hat{p}_n(x) &= \frac{d\hat{F}_n}{dx} = \frac{1}{n},
 \end{aligned}
 $$
 
@@ -140,8 +140,8 @@ This immediately gives us one estimator of the form:
 
 $$
 \begin{aligned}
-E(x) \approx \int xd\hat{F}(x)
-&= \int x\hat{p}(x)dx \\
+E(x) \approx \int xd\hat{F}_n(x)
+&= \int x\hat{p}_n(x)dx \\
 &= \sum_{i=1}^n x \cdot \frac{1}{n} \\
 &= \frac{1}{n}\sum_{i=1}^nx_i,
 \end{aligned}
@@ -158,8 +158,46 @@ as long as the estimator can be expressed as a function of CDF,
 which in turn will be approximated by EDF.
 In the literature such estimators are also referred to as *statistical functionals*.
 
-Up to now we've roughly reviewed all we need to initiate the journey of bootstrap sampling,
-or simply bootstrapping.
+More formally,
+under i.i.d. sample we have:
+
+$$
+\begin{aligned}
+E\big[\hat{F}_n(a)\big]
+&= \frac{1}{n}E\big[\sum_iI(x_i \leq a)\big] \\
+&= \frac{1}{n}\sum_iE\big[I(x_i \leq a)\big] \\
+&= \frac{1}{n} \cdot n \cdot \Pr(x \leq a) \\
+&= F(a).
+\end{aligned}
+$$
+
+Hence EDF is *unbiased* in every value $a$.
+This means that any statistical functionals which can be expressed as a linear function of EDF $G(\hat{F}_n)$,
+will be unbiased as well:
+
+$$
+E\big[G(\hat{F}_n)\big] = G(F).
+$$
+
+## DKW Inequality
+
+One thing remains unclear for those who are skeptical:
+How good does $\hat{F}_n$ approximate $F$?
+
+The good news is,
+we do have a sound theoretical ground describing the bounds how close EDF will be to CDF.
+This is referred to as the [Dvoretzky–Kiefer–Wolfowitz inequality](https://en.wikipedia.org/wiki/Dvoretzky%E2%80%93Kiefer%E2%80%93Wolfowitz_inequality):
+
+$$
+\Pr\big(
+\sup_{x \in R}\vert \hat{F}_n(x) - F(x) \vert > \epsilon
+\big) \leq 2e^{-2n\epsilon^2},\forall\epsilon > 0.
+$$
+
+In plain words,
+EDF converges uniformly to CDF in $n$ with exponential speed.
+^[Notation $\sup$ denotes the [supremum](https://en.wikipedia.org/wiki/Infimum_and_supremum):
+The smallest number that is greater than or equal to every number in the set.]
 
 # Bootstrapping
 
@@ -174,12 +212,12 @@ To strictly follow i.i.d. the sampling must be done *with replacement*.
 To do bootstrap we essentially take the random sample $X$ from the original population $F$,
 and do the i.i.d. sampling from that sample *as if* the sample itself is another population $\hat{F}$.
 Only in this time the population is finite and has a discrete distribution function,
-which is the EDF of $X$.
+which is the EDF $\hat{F}_n(x)$.
 
 ## Monte Carlo Bootstrapping
 
 Now given a particular estimator $\hat{\theta}$ as a random variable,
-we are concerning about its expectation and variance.
+we are concerning about its expectation and (especially) variance.
 The expectation tells us whether the estimator is *unbiased* or not.
 The variance tells us how volatile our guess is,
 and also if it can be *consistent*--converge to the true parameter of interest.
@@ -217,6 +255,14 @@ $$
 \end{aligned}
 $$
 
+Remember that now we express the estimator $\hat{\theta}(x)$ as function of EDF: $\hat{\theta}(\hat{F}_n(x))$,
+i.e.,
+a statistical functional.
+Now to draw random sample from this function we do i.i.d. sampling with replacement against $\hat{F}_n$.
+Once the sample is constructed,
+we calculate the corresponding estimate value,
+and we do this for many many times to derive the entire distribution of the resulting estimates.
+
 ## The Error of Measuring Error
 
 There are two sources of error that can arise from this approach:
@@ -225,9 +271,11 @@ simulation error and estimation error.
 Simulation error occurred because we are using Monte Carlo finite repetitions.
 Increasing the number of repetitions can effectively decrease such error.
 Thanks to the wide-spread computing power nowadays,
-this is not a big issue.
+this is not a big issue at all.
 
-Estimation error is the error due to statistical noise when we use  $\hat{F}$ to approximate $F$ and by nature cannot be eliminated.
+Estimation error is the error due to statistical noise when we use  $\hat{F}_n$ to approximate $F$ and by nature cannot be fully eliminated.
+To reduce this error we will need a larger $n$.
+Remember that the DKW inequality tells us that the convergence is at exponential speed in $n$.
 
 ## Hands-On: The Sample Mean
 
@@ -480,6 +528,8 @@ mean(bs_r$t) - mean(x)
 
 It should be very close to zero if nothing went wrong.
 
+#### Confidence Interval {-}
+
 Since we now have access to all simulated estimates,
 we can easily construct the confidence interval as well:
 
@@ -490,6 +540,13 @@ quantile(bs_r$t, probs=c(.025, .975))
 Of course for simple estimator such as sample mean,
 we do have the analytical solution for its confidence interval.
 But bootstrapping is able to do the approximation without knowing the solution.
+
+Be aware that when sample size is small,
+as what we have shown above,
+it can be the case that only the variance of the sampling distribution is approximated well but the location is not.
+So the confidence interval may well be biased.
+
+#### Mean Squared Error {-}
 
 Another possible (though higly similar to variance) metric we may want to look at is the mean squared error (MSE).
 We can approximate MSE of our estimator using bootstrapping:
