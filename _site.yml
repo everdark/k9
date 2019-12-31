@@ -10,6 +10,9 @@ navbar:
       menu:
         - text: "Bayesian Modeling Explained"
           href: notebooks/stats/bayesian/bayesian_modeling_explained.nb.html
+        - text: "---"
+        - text: "Bootstrap Sampling 101"
+          href: notebooks/stats/bootstrap/bootstrap.nb.html
     - text: "Machine Learning"
       menu:
         - text: "Neural Networks Fundamentals"
