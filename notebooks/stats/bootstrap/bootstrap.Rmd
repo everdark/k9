@@ -692,6 +692,16 @@ To keep the scope manageable we will skip the proof here.
 
 # Bootstrapping for Regression Models
 
-**TODO: residual bootstrapping**
+## Paired Bootstrap
+
+## Residual Bootstrap
+
+**TODO: block bootstrap for time series.**
+
+# Cases where Bootstrap Fails
+
+min and max statistic. (end-point estimator)
+infinite variance population (CLT fails so CLT for bootstrap fails too)
+
 
 # References
