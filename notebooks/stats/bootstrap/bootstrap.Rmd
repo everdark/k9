@@ -63,10 +63,11 @@ The probability distribution function (PDF) of population $F$ is in general unkn
 As a result,
 to make our statistical inference from a sample dataset we rely on the [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem).
 In its vanilla version CLT only requires the population to have finite second moment and our sample dataset is identically and independently distributed (i.i.d.).
-It allows us to derive the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) of a sample mean,
+It allows us to derive the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) of the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of a sample mean,
 which in turn can be used to measure the error of our guess $\hat{\theta}$ (formally termed as a *statistic*) to the unknown population parameter $\theta$.
 
-Different versions of CLT can be formulated based on the estimator we are using.
+Different versions of CLT can be formulated based on the estimator we are using,
+in order to derive the sampling distribution of that estimator.
 So we also have CLT applicable to, say, a regression model coefficient.
 The problem is that,
 we may not have analytical solution for every possible estimators.
@@ -76,6 +77,8 @@ One such well-known example is the median,
 which requires order statistics come to play.
 
 This is where bootstrap sampling starts to shine.
+The idea of boostrap sampling is to use the sample and the only sample as a surrogate population,
+to approximate the underlying sampling distribution which otherwise is untrackable.
 
 Before we dive into boostrap sampling,
 there are a couple of topics we need to review to prepare ourselves.
@@ -199,6 +202,19 @@ EDF converges uniformly to CDF in $n$ with exponential speed.
 ^[Notation $\sup$ denotes the [supremum](https://en.wikipedia.org/wiki/Infimum_and_supremum):
 The smallest number that is greater than or equal to every number in the set.]
 
+## Sampling Distribution Approximation
+
+The sampling distribution of our estimator is the ground to measure the quality of that estimator.
+As we already mentioned the classical way of deriving sampling distribution is through CLT whenver applicable.
+Now based on the fact that the empirical distribution is a good estimator for the population distribution,
+another solution comes to play: Bootstrapping.
+
+In short,
+bootstrapping is a sampling technique to draw estimates that,
+under certain conditions,
+will approximate the sampling distribution of that estimator,
+without knowing the closed form solution to that distribution.
+
 # Bootstrapping
 
 @efron1992bootstrap propose the idea of bootstrapping as a solution to estimate the variance (or the confidence interval) of a given estimator,
@@ -213,6 +229,32 @@ To do bootstrap we essentially take the random sample $X$ from the original popu
 and do the i.i.d. sampling from that sample *as if* the sample itself is another population $\hat{F}$.
 Only in this time the population is finite and has a discrete distribution function,
 which is the EDF $\hat{F}_n(x)$.
+
+## Bootstrap Distribution
+
+The resulting distribution from a sample is sometimes referred to as the bootstrap distribution.
+It has been proven that the limiting distribution (as $n \rightarrow \infty$) of a bootstrap distribution is the same as that of the sampling distribution,
+for a variety of statistics widely used for inference. [@singh1981asymptotic]
+
+To be clear let's put it in notation:
+
+$$
+\underbrace{(\hat{\theta}_b - \hat{\theta})}_\text{Bootstrap Distribution}
+\overset{d}\rightarrow
+\underbrace{(\hat{\theta} - \theta)}_\text{Sampling Distribution},
+$$
+
+where $\hat{\theta}$ is the estimate derived from our only sample to infer the parameter $\theta$,
+and $\hat{\theta}_b$ is the estimate derived from the bootstrap sample out of the sample.
+^[Though we didn't discuss the technical details,
+the proof of this convergence is indeed based on CLT.]
+
+Due to realistic reason we only have one sample to derive $\hat{\theta}$,
+but we can do as many as bootstrap samples from that sample to derive many $\hat{\theta}_b$.
+Knowing that under large sample size (of the original sample) the bootstrap distribution will approximate the sampling distribution,
+we can estimate the variance of our estimator without knowing its closed form solution.
+We've already discussed the intuition why this is the case.
+It can be mostly attributed to the fact that sample EDF is a good estimator of population CDF.
 
 ## Monte Carlo Bootstrapping
 
@@ -285,6 +327,8 @@ Assume a Beta distribution as our unknown population with the PDF:
 ```{r beta_population_pdf}
 beta_a <- 2
 beta_b <- 10
+mu_beta <- beta_a / (beta_a + beta_b)
+var_beta <- (beta_a * beta_b) / ((beta_a + beta_b)^2*(beta_a + beta_b + 1))
 
 beta_pdf <- function(x) dbeta(x, beta_a, beta_b)
 curve(beta_pdf, from=0, to=1, ylab="Density",
@@ -341,7 +385,6 @@ We can readily calculate the standard error of sample mean given our sample:
 
 ```{r sample_mean_analytical}
 # Assume knowing population s.d. (the ground truth).
-var_beta <- (beta_a * beta_b) / ((beta_a + beta_b)^2*(beta_a + beta_b + 1))
 sqrt(var_beta / n)
 ```
 
@@ -381,7 +424,7 @@ mc_sampling <- function(M, n, print=TRUE) {
 mc_xbar <- mc_sampling(M, n)
 ```
 
-The simulated distribution is the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of our estimator.
+The simulated distribution is the sampling distribution of our estimator.
 CLT tells us that the sampling distribution of sample mean is asymptotically Normal.
 Here without even knowing that,
 we can just use Monte Carlo to approximate the sampling distribution.
@@ -395,7 +438,7 @@ We also plot the theoretical limiting distribution given by CLT in blue curve.
 
 ```{r sample_mean_mc_dist}
 x_mc <- seq(min(mc_xbar), max(mc_xbar), length=100) 
-y_mc <- dnorm(x_mc, beta_a / (beta_a + beta_b), sqrt(var_beta/n))
+y_mc <- dnorm(x_mc, mu_beta, sqrt(var_beta / n))
 hist(mc_xbar, main="Sampling Distribution (Sample Mean)", xlab="X", probability=TRUE)
 lines(x_mc, y_mc, col="blue", lwd=2)
 ```
@@ -440,7 +483,7 @@ We also plot a green curve as the sampling distribution as if the original sampl
 
 ```{r sample_mean_bs_dist}
 x_bs <- seq(min(bs_xbar), max(bs_xbar), length=100)
-y_bs <- dnorm(x_bs, mean(x), sqrt(var_beta/n))
+y_bs <- dnorm(x_bs, mean(x), sqrt(var_beta / n))
 hist(bs_xbar, probability=TRUE,
      main="Distribution of Bootstrapped Sample Mean",
      sub=sprintf("Sample Size = %i", n), xlab="X")
@@ -474,9 +517,9 @@ mc_xbar2 <- mc_sampling(M, n2, print=FALSE)
 bs_xbar2 <- bs_sampling(x2, M, print=FALSE)
 
 x_mc2 <- seq(min(mc_xbar2), max(mc_xbar2), length=100)
-y_mc2 <- dnorm(x_mc2, beta_a / (beta_a + beta_b), sqrt(var_beta/n2))
+y_mc2 <- dnorm(x_mc2, mu_beta, sqrt(var_beta / n2))
 x_bs2 <- seq(min(bs_xbar2), max(bs_xbar2), length=100)
-y_bs2 <- dnorm(x_bs2, mean(x2), sqrt(var_beta/n2))
+y_bs2 <- dnorm(x_bs2, mean(x2), sqrt(var_beta / n2))
 hist(bs_xbar2, probability=TRUE,
      main="Distribution of Bootstrapped Sample Mean",
      sub=sprintf("Sample Size = %i", n2), xlab="X")
@@ -486,6 +529,8 @@ lines(x_bs2, y_bs2, col="green", lwd=2)
 
 Now the two distributions are getting closer to each other.
 We also observe that the requirement on sample size for bootstrap to approximate (both shape and location) the limiting distribution is much stricter than that for CLT to be applicable.
+^[Some researchers recommend $n^2$ repetitions where $n$ is the original sample size.
+Or $n\ln n$ if $n^2$ is prohibitive.]
 
 To show this clearly,
 we run another Monte Carlo simulation with only sample size of 100,
@@ -496,7 +541,7 @@ n3 <- 100
 x3 <- rbeta(n3, beta_a, beta_b)
 mc_xbar3 <- mc_sampling(M, n3, print=FALSE)
 x_mc3 <- seq(min(mc_xbar3), max(mc_xbar3), length=100) 
-y_mc3 <- dnorm(x_mc3, beta_a / (beta_a + beta_b), sqrt(var_beta/n3))
+y_mc3 <- dnorm(x_mc3, mu_beta, sqrt(var_beta / n3))
 hist(mc_xbar3, main="Sampling Distribution (Sample Mean)",
      sub=sprintf("Sample Size = %i", n3), xlab="X", probability=TRUE)
 lines(x_mc3, y_mc3, col="blue", lwd=2)
@@ -504,6 +549,13 @@ lines(x_mc3, y_mc3, col="blue", lwd=2)
 
 This suggests that whenver we do have analytical solution for the limiting distribution of our estimator based on the corresponding CLT,
 we should just use that for our inference task instead of trying bootstrapping.
+^[Any old-school textbooks may mention the rule-of-thumb sample size of 30 as a generally accepted large enough number.
+This is over-simplification and can be dangerous in practice.
+Whether a sample size is big enough for CLT to have good approximation really depends on the nature of the population distribution,
+which unfortunately is unknown in the first place.
+There are some heuristics, though.
+For example the more symetric the population the less sample size required to have a good approximation.]
+
 So, yes, for a classical statistic like sample mean,
 there is not much value added using bootstrap.
 But it can serve as a very good educational case study.
@@ -562,6 +614,81 @@ we can do:
 # We use root mean squared error instead since the number is small.
 sqrt(mean((bs_r$t - mean(x))^2))
 ```
+
+## Hands-On: T-Statistic
+
+The [t-statistic](https://en.wikipedia.org/wiki/T-statistic) is:
+
+$$
+t = \frac{\bar{X} - \mu}{s / \sqrt{n}},
+$$
+
+where $s$ is the standard deviation of sample $X$.
+
+For our demo example the groud truth of t-statistic is:
+
+```{r t_stat_true}
+(mean(x) - mu_beta) / (sd(x) / sqrt(n))  # T-stat.
+```
+
+Or we can use the built-in test function to also compute the confidence interval conveniently:
+
+```{r t_stat_ci}
+t.test(x, mu=mu_beta)
+```
+
+But in reality of course we don't know $\mu$,
+so the above information is not available.
+Instead we can use the bootstrap t-statistic to approximate the unknown true t-statistic:
+
+$$
+t_b = \frac{\bar{X}_b - \bar{X}}{s_b / \sqrt{n}},
+$$
+
+The original t-statistic gives the following interval:
+
+$$
+\mu = \bar{X}\pm t\times \frac{s}{\sqrt{n}}.
+$$
+
+It is possible to derive the approximated confidence interval of t-statistic using bootstrap without knowing the parameter $mu$.
+All we need to do is to replace $t$ with $t_b$ in the above equation:
+
+$$
+\mu \approx \bar{X}\pm t_b\times \frac{s}{\sqrt{n}}.
+$$
+
+The exact exercise follows.
+
+```{r t_stat_bs}
+# Re-define the bootstrapper since this time we need access to sd(x_b) as well.
+t_bs_sampling <- function(x, M) {
+  bs_xbar <- rep(NA_real_, M)
+  bs_sd <- rep(NA_real_, M)
+  for ( i in seq_len(M) ) {
+    bs <- sample(x, size=length(x), replace=TRUE)  # The bootstrap.
+    bs_xbar[i] <- mean(bs)
+    bs_sd[i] <- sd(bs)  # Compute also standard deiviation for each resample.
+  }
+  list(xbar=bs_xbar, sd=bs_sd)
+}
+
+res <- t_bs_sampling(x, M)
+bs_t <- (res$xbar - mean(x)) / (res$sd/sqrt(n))  # Bootstrap t-statistics.
+
+# Bootstrapped confidence interval of mu using t-statistic.
+mean(x) + (sd(x) / sqrt(n)) * quantile(bs_t, c(.025, .975))
+```
+
+Remember that in this simulated dataset our bootstrap distribution is a bit biased to the right in absolute term.
+But that seems not affect our approximation of confidence interval using t-statistic.
+Why?
+This is referred to as second-order correction of bootstrap in the literature.
+It is the result of the de-mean in numerator and the division by standard error.
+In the previous visualization what we plot is the distribution $\hat{\theta}$ v.s. $\hat{\theta}_b$.
+But the approximation is better for $(\hat{\theta}_b - \hat{\theta})$ v.s. $(\hat{\theta} - \theta)$,
+and even better for $\frac{(\hat{\theta}_b - \hat{\theta})}{se_b}$ v.s. $\frac{(\hat{\theta} - \theta)}{se}$.
+To keep the scope manageable we will skip the proof here.
 
 # Bootstrapping for Regression Models
 
