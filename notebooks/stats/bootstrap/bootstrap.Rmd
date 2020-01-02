@@ -33,7 +33,7 @@ meta <- c(
   '<meta property="og:title" content="Bootstrap Sampling">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html">',
-  '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.jpg">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
   '<meta property="og:description" content="A data science notebook about bootstrap sampling.">'
 )
 contents <- meta
