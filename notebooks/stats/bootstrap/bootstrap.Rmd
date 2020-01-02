@@ -596,7 +596,7 @@ In our above comparison between bootstrap distribution and sampling distribution
 what we actually plotted is $\hat{\theta}$ v.s. $\hat{\theta}_b$.
 But the approximation is better for $(\hat{\theta}_b - \hat{\theta})$ v.s. $(\hat{\theta} - \theta)$,
 and even better for $\frac{(\hat{\theta}_b - \hat{\theta})}{se_b}$ v.s. $\frac{(\hat{\theta} - \theta)}{se}$.
-This is referred to as *second-order correction* of bootstrap in the literature.
+The last one is referred to as *second-order correction* of bootstrap in the literature.
 
 For our previous example if we plot instead the de-meaned version:
 
