@@ -590,6 +590,31 @@ So, yes, for a classical statistic like sample mean,
 there is not much value added using bootstrap.
 But it can always serve as a good educational case study.
 
+#### Second-Order Correction {-}
+
+In our above comparison between bootstrap distribution and sampling distribution,
+what we actually plotted is $\hat{\theta}$ v.s. $\hat{\theta}_b$.
+But the approximation is better for $(\hat{\theta}_b - \hat{\theta})$ v.s. $(\hat{\theta} - \theta)$,
+and even better for $\frac{(\hat{\theta}_b - \hat{\theta})}{se_b}$ v.s. $\frac{(\hat{\theta} - \theta)}{se}$.
+This is referred to as *second-order correction* of bootstrap in the literature.
+
+For our previous example if we plot instead the de-meaned version:
+
+```{r bs_convergence}
+# Plot smooth density instead of histogram to make it easier to see the overlapping.
+plot(density(bs_xbar - mean(x)), col="green",
+     main="Monte Carlo Sampling Distribution v.s. Bootstrap Distribution",
+     sub=sprintf("Sample Size = %i", n),
+     xlab="X (De-Meaned)")
+lines(density(mc_xbar - mu_beta), col="blue")
+legend("topright",
+       c(expression(hat(theta)[b] - hat(theta)),
+         expression(hat(theta) - theta)),
+       col=c("green", "blue"), pch=c(1, 1))
+```
+
+We see that the convergence is indeed quite good already.
+
 ### Using Package `boot`
 
 Rather than implementing the sampling procedure from scratch,
@@ -623,15 +648,6 @@ Of course for simple estimator such as sample mean,
 we do have the analytical solution for its confidence interval.
 But bootstrapping is able to do the approximation without knowing the solution.
 
-Be aware that when sample size is small,
-as what we have shown above,
-it can be the case that only the variance of the sampling distribution is approximated well but the location is not.
-So the confidence interval may well be biased.
-To avoid such bias,
-increasing sample size is one solution,
-but another solution which is more feasible is to use the t-statistic,
-which we will discuss latter in the next hands-on example.
-
 ### Mean Squared Error
 
 Another possible (though higly similar to variance) metric we may want to look at is the mean squared error (MSE).
@@ -659,6 +675,12 @@ $$
 
 where $s$ is the standard deviation of sample $X$.
 
+The confidence interval for $\mu$ is:
+
+$$
+\mu = \bar{X}\pm t\times \frac{s}{\sqrt{n}}.
+$$
+
 For our demo example the groud truth of t-statistic is:
 
 ```{r t_stat_true}
@@ -671,22 +693,23 @@ Or we can use the built-in test function to also compute the confidence interval
 t.test(x, mu=mu_beta)
 ```
 
-But in reality of course we don't know $\mu$,
-so the above information is not available.
-Instead we can use the bootstrap t-statistic to approximate the unknown true t-statistic:
+Note that the above interval is not derived by pluging the unknown parameter $\mu$,
+but based on the limiting distribution of t-statistic,
+the [Student's t-distribution](https://en.wikipedia.org/wiki/Student%27s_t-distribution).
+To verify this:
+
+```{r verify_ci}
+# Use qt to look up the value.
+mean(x) + qt(c(.025, .975), df=n - 1) * (sd(x) / sqrt(n))
+```
+
+Instead we can use the bootstrapped t-statistic to approximate the unknown true t-statistic:
 
 $$
-t_b = \frac{\bar{X}_b - \bar{X}}{s_b / \sqrt{n}},
+t_b = \frac{\bar{X}_b - \bar{X}}{s_b / \sqrt{n}}.
 $$
 
-The original t-statistic gives the following interval:
-
-$$
-\mu = \bar{X}\pm t\times \frac{s}{\sqrt{n}}.
-$$
-
-It is possible to derive the approximated confidence interval of t-statistic using bootstrap without knowing the parameter $\mu$.
-All we need to do is to replace $t$ with $t_b$ in the above equation:
+Then all we need to do is to replace $t$ with $t_b$ in the equation:
 
 $$
 \mu \approx \bar{X}\pm t_b\times \frac{s}{\sqrt{n}}.
@@ -714,15 +737,7 @@ bs_t <- (res$xbar - mean(x)) / (res$sd/sqrt(n))  # Bootstrap t-statistics.
 mean(x) + (sd(x) / sqrt(n)) * quantile(bs_t, c(.025, .975))
 ```
 
-Remember that in this simulated dataset our bootstrap distribution is a bit biased to the right in absolute term.
-But that seems not affect our approximation of confidence interval using t-statistic.
-Why?
-This is referred to as *second-order correction* of bootstrap in the literature.
-It is the result of the de-mean in numerator and the division by standard error.
-In the previous visualization what we plot is the distribution $\hat{\theta}$ v.s. $\hat{\theta}_b$.
-But the approximation is better for $(\hat{\theta}_b - \hat{\theta})$ v.s. $(\hat{\theta} - \theta)$,
-and even better for $\frac{(\hat{\theta}_b - \hat{\theta})}{se_b}$ v.s. $\frac{(\hat{\theta} - \theta)}{se}$.
-To keep the scope manageable we will skip the proof here.
+What we demonsatrate here is that the bootstrap distribution of t-statistic is also converging to the sampling distribution of t-statistic.
 
 # Bootstrapping for Regression Models
 
