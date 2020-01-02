@@ -47,41 +47,112 @@ writeLines(contents, meta_header_file)
 close(meta_header_file)
 ```
 
-# Statistical Inference
+# Statistical Inference: A Quick Overview
 
-At the core of statistical inference is about to use an estimator $\hat{\theta}(\cdot)$ to guess the unknown value of $\theta$ a population parameter of interest.
-The most common case of $\theta$ will be the population mean $\mu = E(x)$ where $x$ denotes the population following an unknown distribution $x \sim F$.
+At the core of statistical inference is about to use an estimator $\hat{\theta}(X)$ to guess the unknown value of $\theta$ a population parameter of interest based on a random sample dataset $X$ drawn from that population.
+The most common case of $\theta$ will be the population mean $\mu = E(x)$ where $x$ denotes the population following an unknown distribution $x \overset{d}\sim F$.
 Other popular parameters can be a median,
+a variance,
 a confidence interval of the mean,
 or a regression model coefficient,
 a confidence interval of the regression coefficient, ..., etc.
 
-How do we know our guess is a good one?
-How do we measure the error of our estimator in statistical inference,
+## Sampling Distribution
+
+How do we know our guess (our estimator) is a good one?
+That is,
+how do we measure the error of our estimator in statistical inference,
 without knowing the ground truth of the population?
-The probability distribution function (PDF) of population $F$ is in general unknown.
+The distribution function of population $F$ is unknown.
 As a result,
 to make our statistical inference from a sample dataset we rely on the [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem).
 In its vanilla version CLT only requires the population to have finite second moment and our sample dataset is identically and independently distributed (i.i.d.).
-It allows us to derive the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) of the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of a sample mean,
-which in turn can be used to measure the error of our guess $\hat{\theta}$ (formally termed as a *statistic*) to the unknown population parameter $\theta$.
+It allows us to derive the [limiting distribution](https://en.wikipedia.org/wiki/Asymptotic_distribution) (as $n \rightarrow \infty$) of the [*sampling distribution*](https://en.wikipedia.org/wiki/Sampling_distribution) of a sample mean,
+which in turn can be used to measure the error of our guess $\hat{\theta} = \frac{1}{n}\sum_ix_i$ to the unknown population parameter $\theta = \mu$.
+
+To be concrete,
+the vanilla CLT indicates that the sampling distribution of sample mean $\bar{X} = \frac{1}{n}\sum_ix_i$ has the following limiting distribution:
+
+$$
+\bar{X}_n \overset{d}\rightarrow \text{Normal}(\mu, \frac{\sigma}{\sqrt{n}}),
+$$
+
+where $\mu$ is the population mean and $\sigma$ the population standard deviation.
+This is elegant since Normal distribution is mathematically very friendly to deal with.
+
+Ideally we'd like to create multiple (as many as possible) random sample datasets to measure our guess against the population.
+In reality due to resource constraint we usually end up with one and only such sample dataset.
+But based on CLT we have a solid theoretical ground to measure our guess (with its asymptotic sampling distribution) even from only one sample of size $n$,
+provided that $n$ is large enough.
 
 Different versions of CLT can be formulated based on the estimator we are using,
-in order to derive the sampling distribution of that estimator.
+in order to derive the aysmptotic sampling distribution of that estimator.
 So we also have CLT applicable to, say, a regression model coefficient.
-The problem is that,
-we may not have analytical solution for every possible estimators.
+Let's exactly how we test the null effect of a regressor on the regressand.
+In general,
+any estimator in a form of weighted averaging can be adapted to CLT.
+
+The usual workflow of statistical inference will be to use CLT to derive the analytical solution of the asymptotic sampling distribution of the estimator.
+But this is not always achievable.
 The more complicated the estimator the harder it can be analyzed in a trackable way.
 And some estimators can be harder to deal with even if they are simple in their own.
-One such well-known example is the median,
+One such well-known example is the sample median (to guess the population median of course),
 which requires order statistics come to play.
+Indeed there is no closed form solution for the variance of sample median unless we assume the population distribution to be a certain kind.
+^[To emphasis one more time,
+for CLT to apply to sample mean,
+no assumption about population distribution is made except the finite second moment requirement,
+which is a fairly weak assumption.]
 
-This is where bootstrap sampling starts to shine.
-The idea of boostrap sampling is to use the sample and the only sample as a surrogate population,
-to approximate the underlying sampling distribution which otherwise is untrackable.
+This is where bootstrap sampling comes to shine.
+The idea of boostrap sampling is to use the sample and the only sample as a *surrogate population*,
+to approximate the underlying sampling distribution of our estimator which otherwise is untrackable.
 
-Before we dive into boostrap sampling,
-there are a couple of topics we need to review to prepare ourselves.
+## Bootstrap Distribution
+
+@efron1992bootstrap propose the bootstrapping technique as a solution to estimate the variance (or the confidence interval) of a given estimator,
+such that we can draw conclusion about the quaility of our inference,
+especially when there is no analytical solution to derive the variance of that estimator.
+
+Bootstrapping can be simply defined as drawing i.i.d. sample of the same size $n$ from a given sample.
+In some literatures this is also called the *resample*.
+To strictly follow i.i.d. the sampling must be done *with replacement*.
+
+With enough computing power,
+we can generate as many resamples $X_b$ as we want and for each resample we calculate the value of our estimator $\hat{\theta}_b = \hat{\theta}(X_b)$ (termed as the *estimate*).
+The resulting distribution of bootstrapped estimates from a given sample $X$ is referred to as the *bootstrap distribution*.
+
+It has been proven that the limiting distribution of a bootstrap distribution is actually the same as that of the sampling distribution,
+for a variety of estimators widely used for inference. [@singh1981asymptotic]
+
+To be clear let's put it in notation:
+
+$$
+\underbrace{(\hat{\theta}_b - \hat{\theta})}_\text{Bootstrap Distribution}
+\overset{d}\rightarrow
+\underbrace{(\hat{\theta} - \theta)}_\text{Sampling Distribution},
+$$
+
+where $\hat{\theta}$ is the estimate derived from our only sample to infer the parameter $\theta$,
+and $\hat{\theta}_b$ is the estimate derived from the bootstrap sample out of the original sample.
+^[Though we didn't discuss the technical details here,
+the proof of this convergence is indeed based on CLT.]
+
+Due to practical reason we only have one sample to derive $\hat{\theta}$,
+but we can do as many as bootstrap samples from that sample to derive lots of $\hat{\theta}_b$.
+Knowing that under large sample (the original sample) the bootstrap distribution will approximate the sampling distribution,
+we can estimate the variance of our estimator without knowing its closed form solution.
+
+To sum up,
+bootstrapping is just another route to arrive at the sampling distribution of our estimator in order to measure how good our guess is against the population unknown.
+In the following section we are going to discuss the heuristics as why bootstrapping works.
+
+# Justification of Bootstrapping
+
+To do bootstrap we essentially take the random sample $X$ from the original population $F$,
+and do the i.i.d. sampling from that sample *as if* the sample itself is another population with a distribution function $\hat{F}$.
+Only in this time the population is finite and has a discrete distribution function,
+which is the *empirical distribution function* $\hat{F}_n(X)$.
 
 ## Empirical Distribution
 
@@ -93,7 +164,7 @@ This cumulative distribution function is a step function that jumps up by 1/n at
 Its value at any specified value of the measured variable is the fraction of observations of the measured variable that are less than or equal to the specified value.
 
 Specifically,
-the empirical distribution function (EDF) and empirical PDF of a sample $x \sim F$ of size $n$ can be written as:
+the empirical distribution function (EDF) and empirical PDF of a sample $x \overset{d}\sim F$ of size $n$ can be written as:
 
 $$
 \begin{aligned}
@@ -105,7 +176,7 @@ $$
 where $I$ is an indicator function.
 
 Intuitively and loosely speaking,
-$\hat{F}$ is just an estimator for $F$ the true population distribution.
+$\hat{F}_n$ is just an estimator for $F$ the true population distribution.
 But here we are not guesing a single population parameter but the entire distribution.
 That is,
 we are not guesing a scalar but a function.
@@ -118,7 +189,7 @@ not a constant scalar.]
 Why introducing the notion of EDF?
 To see the value,
 it's better to step back and examine our best-friend parameter:
-population mean $E(x)$.
+population mean $\mu = E(x)$.
 By definition the derivative of a CDF $F$ is a PDF $p$:
 
 $$
@@ -139,7 +210,7 @@ and to many other statistics.
 Of course we don't know CDF of the population.
 But we do know the EDF from our observed sample dataset,
 which itself is an estimator for CDF.
-This immediately gives us one estimator of the form:
+This immediately gives us one estimator for population mean of the following form:
 
 $$
 \begin{aligned}
@@ -186,6 +257,8 @@ $$
 
 One thing remains unclear for those who are skeptical:
 How good does $\hat{F}_n$ approximate $F$?
+Technically speaking,
+what is the variance of $\hat{F}_n$?
 
 The good news is,
 we do have a sound theoretical ground describing the bounds how close EDF will be to CDF.
@@ -202,67 +275,25 @@ EDF converges uniformly to CDF in $n$ with exponential speed.
 ^[Notation $\sup$ denotes the [supremum](https://en.wikipedia.org/wiki/Infimum_and_supremum):
 The smallest number that is greater than or equal to every number in the set.]
 
-## Sampling Distribution Approximation
+So the heuristic of why bootstrapping works lies in the following facts:
 
-The sampling distribution of our estimator is the ground to measure the quality of that estimator.
-As we already mentioned the classical way of deriving sampling distribution is through CLT whenver applicable.
-Now based on the fact that the empirical distribution is a good estimator for the population distribution,
-another solution comes to play: Bootstrapping.
+1. Many estimators can be formulated as a linear function of CDF
+2. EDF is a good estimator for CDF
 
-In short,
-bootstrapping is a sampling technique to draw estimates that,
-under certain conditions,
-will approximate the sampling distribution of that estimator,
-without knowing the closed form solution to that distribution.
+# Monte Carlo Bootstrapping
 
-# Bootstrapping
+It is possible to derive the closed form solution for a bootstrap distribution.
+But this is kinda defeating the purpose of using bootstrap.
+The very reason we resort to bootstrapping is to bypass the need for a trackable derivation.
+So we will use [*Monte Carlo*](https://en.wikipedia.org/wiki/Monte_Carlo_method) simulation to approximate the bootstrap distribution.
+Usually we are particularly interested in the variance of the bootstrap distribution.
 
-@efron1992bootstrap propose the idea of bootstrapping as a solution to estimate the variance (or the confidence interval) of a given estimator,
-such that we can draw conclusion about the quaility of our inference,
-especially when there is no analytical solution to derive the variance of that estimator.
-
-Bootstrapping can be simply defined as drawing i.i.d. sample of the same size $n$ from a given empirical distribution.
-In some literatures this is also called the *resample*.
-To strictly follow i.i.d. the sampling must be done *with replacement*.
-
-To do bootstrap we essentially take the random sample $X$ from the original population $F$,
-and do the i.i.d. sampling from that sample *as if* the sample itself is another population $\hat{F}$.
-Only in this time the population is finite and has a discrete distribution function,
-which is the EDF $\hat{F}_n(x)$.
-
-## Bootstrap Distribution
-
-The resulting distribution from a sample is sometimes referred to as the bootstrap distribution.
-It has been proven that the limiting distribution (as $n \rightarrow \infty$) of a bootstrap distribution is the same as that of the sampling distribution,
-for a variety of statistics widely used for inference. [@singh1981asymptotic]
-
-To be clear let's put it in notation:
-
-$$
-\underbrace{(\hat{\theta}_b - \hat{\theta})}_\text{Bootstrap Distribution}
-\overset{d}\rightarrow
-\underbrace{(\hat{\theta} - \theta)}_\text{Sampling Distribution},
-$$
-
-where $\hat{\theta}$ is the estimate derived from our only sample to infer the parameter $\theta$,
-and $\hat{\theta}_b$ is the estimate derived from the bootstrap sample out of the sample.
-^[Though we didn't discuss the technical details,
-the proof of this convergence is indeed based on CLT.]
-
-Due to realistic reason we only have one sample to derive $\hat{\theta}$,
-but we can do as many as bootstrap samples from that sample to derive many $\hat{\theta}_b$.
-Knowing that under large sample size (of the original sample) the bootstrap distribution will approximate the sampling distribution,
-we can estimate the variance of our estimator without knowing its closed form solution.
-We've already discussed the intuition why this is the case.
-It can be mostly attributed to the fact that sample EDF is a good estimator of population CDF.
-
-## Monte Carlo Bootstrapping
-
-Now given a particular estimator $\hat{\theta}$ as a random variable,
-we are concerning about its expectation and (especially) variance.
+Just a little recap.
+Given a particular estimator $\hat{\theta}(\cdot)$ as a random variable,
+we are usually concerning about its expectation and variance.
 The expectation tells us whether the estimator is *unbiased* or not.
 The variance tells us how volatile our guess is,
-and also if it can be *consistent*--converge to the true parameter of interest.
+and also if it can be *consistent*--converging to the true parameter of interest.
 
 By definition,
 the variance of a random variable $\hat{\theta}$ is:
@@ -297,13 +328,15 @@ $$
 \end{aligned}
 $$
 
-Remember that now we express the estimator $\hat{\theta}(x)$ as function of EDF: $\hat{\theta}(\hat{F}_n(x))$,
+Remember that now we express the estimator $\hat{\theta}(X)$ as function of EDF: $\hat{\theta}(\hat{F}_n(X))$,
 i.e.,
 a statistical functional.
 Now to draw random sample from this function we do i.i.d. sampling with replacement against $\hat{F}_n$.
 Once the sample is constructed,
 we calculate the corresponding estimate value,
 and we do this for many many times to derive the entire distribution of the resulting estimates.
+That is,
+the simulated bootstrap distribution.
 
 ## The Error of Measuring Error
 
@@ -315,14 +348,14 @@ Increasing the number of repetitions can effectively decrease such error.
 Thanks to the wide-spread computing power nowadays,
 this is not a big issue at all.
 
-Estimation error is the error due to statistical noise when we use  $\hat{F}_n$ to approximate $F$ and by nature cannot be fully eliminated.
+Estimation error is the error due to statistical noise when we use $\hat{F}_n$ to approximate $F$ and by nature cannot be fully eliminated unless $n$ goes to infinity.
 To reduce this error we will need a larger $n$.
 Remember that the DKW inequality tells us that the convergence is at exponential speed in $n$.
 
 ## Hands-On: The Sample Mean
 
-Let's demonstrate the use of bootstrapping with our best friend sample mean.
-Assume a Beta distribution as our unknown population with the PDF:
+Let's demonstrate the use of Monte Carlo bootstrapping with our best friend estimator: sample mean.
+Assume a [Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution) as our pretendingly unknown population with the PDF:
 
 ```{r beta_population_pdf}
 beta_a <- 2
@@ -343,7 +376,7 @@ curve(beta_cdf, from=0, to=1, ylab="Density",
       main=sprintf("(Unknown) Population Beta(%s, %s) CDF", beta_a, beta_b))
 ```
 
-Now we draw a random sample with fair size from the population.
+Now we draw a random sample with a fair size from the population.
 We plot the resulting histogram (probability mass function, or PMF):
 
 ```{r beta_sample_pmf}
@@ -389,7 +422,7 @@ sqrt(var_beta / n)
 ```
 
 But remember that we don't know our population so there is no way we have access to the variance of population (the numerator).
-So instead we will almost always use sample variance to approximate the solution:
+So instead we will *almost always* use sample variance to approximate the solution:
 
 ```{r sample_mean_analytical_2}
 # Plugin sample standard deviation since population s.d. is unknown.
@@ -400,7 +433,8 @@ sd(x) / sqrt(n)
 
 Now let's say we don't know the analytical solution.
 If we can draw more than just one sample dataset,
-we are able to use Monte Carlo to approximate the error of our estimator:
+we can use the resulting distribution to measure the error of our estiimator.
+Here is a corresponding Monte Carlo simulation to do exactly this:
 ^[Here we didn't adjust the denominator to $n-1$ in the formula we used.
 using function `sd` will do that by default.
 Theoretically the adjustment make the estimation unbiased.
@@ -427,9 +461,9 @@ mc_xbar <- mc_sampling(M, n)
 The simulated distribution is the sampling distribution of our estimator.
 CLT tells us that the sampling distribution of sample mean is asymptotically Normal.
 Here without even knowing that,
-we can just use Monte Carlo to approximate the sampling distribution.
+we can just use Monte Carlo to approximate the asymptotic sampling distribution.
 But this is hypothetical only.
-In reality we don't have access to multiple random samples since we don't have access to the population,
+In reality we don't have access to multiple random samples due to various resource constraints,
 so this approach only exists in theory.
 
 Here we can plot the simulated estimates.
@@ -443,16 +477,17 @@ hist(mc_xbar, main="Sampling Distribution (Sample Mean)", xlab="X", probability=
 lines(x_mc, y_mc, col="blue", lwd=2)
 ```
 
+One can see how closely the simulated sampling distribution in histogram follow the theoretical limiting distribution in blue curve.
 When CLT applies,
-we can bypass the need to use multiple sample datasets and instead use only one to derive our statistical inference.
-(See how closely the simulated sampling distribution in histogram follow the theoretical limiting distribution in blue curve.)
-Bootstrapping is yet another route to the solution.
-Even though we only have one sample dataset,
-and without applying CLT,
-we can use bootstrapping to generate as many *resamples* as we want.
-And this is totally feasible given enough computing power.
+we can bypass the need to use multiple sample datasets and instead use only one to measure our statistical inference.
 
 ### Monte Carlo Bootstrapping
+
+Bootstrapping is yet another route to the sampling distribution.
+Even though we only have one sample dataset,
+and without applying CLT,
+we can use bootstrapping to generate as many resamples as we want.
+And this is totally feasible given enough computing power.
 
 The same Monte Carlo setup,
 but now each sample is generated by bootstrapping from the only sample we have at hand:
@@ -474,12 +509,11 @@ bs_sampling <- function(x, M, print=TRUE) {
 bs_xbar <- bs_sampling(x, M)
 ```
 
-As one can see,
-the approximation is as good as if we hypothetically created multiple samples from the original population.
+The approximation is as good as if we hypothetically created multiple samples from the original population (as in the previous Monte Carlo exercise).
 
 Below we plot all bootstrapped sample means.
 We also plot a green curve as the sampling distribution as if the original sample is the population.
-(And the original sample mean becomes the "population mean".)
+(That is, the original sample mean becomes the "population mean".)
 
 ```{r sample_mean_bs_dist}
 x_bs <- seq(min(bs_xbar), max(bs_xbar), length=100)
@@ -498,10 +532,6 @@ There is a bias introduced by the original sample mean which is statistically de
 But they do share the same variance (shape).
 And since we are asking for the variance of our estimator,
 such bias does not affect our estimation of variance at all!
-^[In reality we don't have access to the population so we will never be able to use either Monte Carlo or CLT to derive the true mean.
-This is where we further use [hypothesis testing](https://en.wikipedia.org/wiki/Statistical_hypothesis_testing) to draw statistical insight about the population based on our sample.]
-
-### Bootstrap v.s. Sampling Distribution
 
 So the question is,
 can the resulting bootstrapped estimates approximate the sampling distribution in both shape and location?
@@ -558,7 +588,7 @@ For example the more symetric the population the less sample size required to ha
 
 So, yes, for a classical statistic like sample mean,
 there is not much value added using bootstrap.
-But it can serve as a very good educational case study.
+But it can always serve as a good educational case study.
 
 ### Using Package `boot`
 
@@ -580,7 +610,7 @@ mean(bs_r$t) - mean(x)
 
 It should be very close to zero if nothing went wrong.
 
-#### Confidence Interval {-}
+### Confidence Interval
 
 Since we now have access to all simulated estimates,
 we can easily construct the confidence interval as well:
@@ -597,8 +627,12 @@ Be aware that when sample size is small,
 as what we have shown above,
 it can be the case that only the variance of the sampling distribution is approximated well but the location is not.
 So the confidence interval may well be biased.
+To avoid such bias,
+increasing sample size is one solution,
+but another solution which is more feasible is to use the t-statistic,
+which we will discuss latter in the next hands-on example.
 
-#### Mean Squared Error {-}
+### Mean Squared Error
 
 Another possible (though higly similar to variance) metric we may want to look at is the mean squared error (MSE).
 We can approximate MSE of our estimator using bootstrapping:
@@ -651,7 +685,7 @@ $$
 \mu = \bar{X}\pm t\times \frac{s}{\sqrt{n}}.
 $$
 
-It is possible to derive the approximated confidence interval of t-statistic using bootstrap without knowing the parameter $mu$.
+It is possible to derive the approximated confidence interval of t-statistic using bootstrap without knowing the parameter $\mu$.
 All we need to do is to replace $t$ with $t_b$ in the above equation:
 
 $$
@@ -683,7 +717,7 @@ mean(x) + (sd(x) / sqrt(n)) * quantile(bs_t, c(.025, .975))
 Remember that in this simulated dataset our bootstrap distribution is a bit biased to the right in absolute term.
 But that seems not affect our approximation of confidence interval using t-statistic.
 Why?
-This is referred to as second-order correction of bootstrap in the literature.
+This is referred to as *second-order correction* of bootstrap in the literature.
 It is the result of the de-mean in numerator and the division by standard error.
 In the previous visualization what we plot is the distribution $\hat{\theta}$ v.s. $\hat{\theta}_b$.
 But the approximation is better for $(\hat{\theta}_b - \hat{\theta})$ v.s. $(\hat{\theta} - \theta)$,
@@ -696,12 +730,11 @@ To keep the scope manageable we will skip the proof here.
 
 ## Residual Bootstrap
 
-**TODO: block bootstrap for time series.**
+# Bootstrapping for Time Series
 
 # Cases where Bootstrap Fails
 
 min and max statistic. (end-point estimator)
 infinite variance population (CLT fails so CLT for bootstrap fails too)
-
 
 # References
