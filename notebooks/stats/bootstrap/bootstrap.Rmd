@@ -675,11 +675,13 @@ $$
 
 where $s$ is the standard deviation of sample $X$.
 
-The confidence interval for $\mu$ is:
+The (two-sided) confidence interval for $\mu$ is:
 
 $$
-\mu = \bar{X}\pm t\times \frac{s}{\sqrt{n}}.
+\mu = \bar{X}\pm t_{(1 - \alpha/2)} \times \frac{s}{\sqrt{n}},
 $$
+
+where $t_{(1 - \alpha/2)}$ is the t-statistic at confidence level $\alpha$ with degree of freedom $n - 1$.
 
 For our demo example the groud truth of t-statistic is:
 
@@ -712,7 +714,7 @@ $$
 Then all we need to do is to replace $t$ with $t_b$ in the equation:
 
 $$
-\mu \approx \bar{X}\pm t_b\times \frac{s}{\sqrt{n}}.
+\mu \approx \bar{X}\pm t_{b{(1 - \alpha/2)}} \times \frac{s}{\sqrt{n}}.
 $$
 
 The exact exercise follows.
