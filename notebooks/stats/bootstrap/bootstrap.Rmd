@@ -130,7 +130,7 @@ To be clear let's put it in notation:
 $$
 \underbrace{(\hat{\theta}_b - \hat{\theta})}_\text{Bootstrap Distribution}
 \overset{d}\rightarrow
-\underbrace{(\hat{\theta} - \theta)}_\text{Sampling Distribution},
+\underbrace{(\hat{\theta} - \theta) \vphantom{\hat{\theta}_b}}_\text{Sampling Distribution},
 $$
 
 where $\hat{\theta}$ is the estimate derived from our only sample to infer the parameter $\theta$,
@@ -477,7 +477,7 @@ hist(mc_xbar, main="Sampling Distribution (Sample Mean)", xlab="X", probability=
 lines(x_mc, y_mc, col="blue", lwd=2)
 ```
 
-One can see how closely the simulated sampling distribution in histogram follow the theoretical limiting distribution in blue curve.
+One can see how closely the simulated sampling distribution in histogram follows the theoretical limiting distribution in blue curve.
 When CLT applies,
 we can bypass the need to use multiple sample datasets and instead use only one to measure our statistical inference.
 
