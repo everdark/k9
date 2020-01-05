@@ -1,0 +1,272 @@
+---
+title: "On Linear Regression: Machine Learning v.s. Econometrics"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (10 Jan 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: reg.bib
+link-citations: yes
+abstract: |
+  TBC.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="On Linear Regression">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/regression/reg.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.png">',
+  '<meta property="og:description" content="A data science notebook about linear regression.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/regression")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+# Linear Models Overview
+
+**TBC.**
+
+# Machine Learning v.s. Econometric Modeling
+
+Linear models are widely used in both machine learning and statistical modeling.
+Mathematically they looks highly similar with only a subtle and sometimes no difference,
+depending on the underlying assumption.
+But in fact each can have a very different end goal,
+resulting in their divergence in developing the relevant techniques.
+
+In general,
+machine learning practitioners focus more on out-of-sample predictability for the target variable,
+while statisticians or econometrists focus more on the testing of the null effect of a given variable on the target variable,
+especially on investigating the potential causal relation.
+Some researchers refer to this as the *y problem* for machine learning and the *β problem* for econometrics.
+
+For the y problem,
+we focus on model generalization in order to predict unseen data,
+and develop strategies to handle huge amount of data.
+
+1. Model Generalization:
+    a. Train-valid-test split or cross-validation for evaluation
+    b. Hyperparameter tuning (on validation set)
+    c. Regularization
+    d. Cost function customization
+2. Model Scalability:
+    a. Stochastic gradient descent optimization
+    b. Numerical stability
+
+For β problem,
+instead,
+we focus on statistical testing against the effect on variable of interest.
+
+1. Sampling Distribution of the estimator
+    a. expectation and variance of the estimator
+    b. Asymptotic property
+2. Causal Inference
+    a. Quasi natural experiment
+    b. Instrumental variable
+    c. Difference-in-difference
+
+
+# A Machine Learning Problem
+
+**TBC.**
+
+# A Statistical Inference Problem
+
+## Ordinary Least Square
+
+A linear model can be expressed concisely in matrix notation as:
+
+$$
+y = X\beta + \epsilon.
+$$
+
+We'd like to estimate a model:
+
+$$
+\hat{y} = X\hat{\beta},
+$$
+
+by learning parameters $\hat{\beta}$ to minimize the squared error loss:
+
+$$
+\begin{aligned}
+\min_{\hat{\beta}} L
+&= \big|\big| (y - X\hat{\beta})^T(y - X\hat{\beta}) \big|\big|^2 \\
+&= y^Ty - y^TX\hat{\beta} - \hat{\beta}^TX^Ty + \hat{\beta}^TX^TX^T\hat{\beta} \\
+&= y^Ty - 2\hat{\beta}^TX^Ty + \hat{\beta}^TX^TX^T\hat{\beta}.
+\end{aligned}
+$$
+
+The first order condition $\frac{\partial L}{\partial \hat{\beta}} = 0$ gives us the optimal $\hat{\beta}^*$:
+
+$$
+\hat{\beta}^* = (X^TX)^{-1}X^Ty,
+$$
+
+which is the well-known ordinary least square (OLS) estimator of a linear regression model.
+^[For single variable regression we have $\hat{\beta}^* = \frac{Cov(x, y)}{Var(x)}$.]
+
+Since $y^TX\hat{\beta}$ and $\hat{\beta}^TX^Ty$ are the same,
+we can also derive the result to be $(X^TX)^{-1}y^TX$ which is a row vector.
+Conventionally for one-dimension vector we use column vector so the form $(X^TX)^{-1}X^Ty$ is much more common.
+
+For machine learning application the point estimates themselves are usually enough since we care more about out-of-sample predictability.
+So we shift our focus to regularization and evaluation techniques.
+But for statistical modeling or econometrics we care more about the statistical property of our estimator since we want to know if a given variable $j$ has a null effect ($\beta_j = 0$) on our response variable.
+To answer that we need to derive the limiting distribution of OLS estimator.
+Or at least we need to know the standard error of the OLS estimator.
+^[Note that when $X$ reduces to only a constant variable,
+the problem reduces to the sample mean case we've already discussed.]
+
+First of all,
+we know that OLS is unbiased under the conditional zero-mean assumption $E(\epsilon | X) = 0$:
+
+$$
+\begin{aligned}
+E(\hat{\beta})
+&= E\big[(X^TX)^{-1}X^Ty\big] \\
+&= E\big[(X^TX)^{-1}X^T(X\beta + \epsilon)\big] \\
+&= E\big[(X^TX)^{-1}X^TX\beta + (X^TX)^{-1}X^T\epsilon)\big] \\
+&= \beta + E\big[(X^TX)^{-1}X^T\epsilon)\big] \\
+&= \beta + E\big[E\big[(X^TX)^{-1}X^T\epsilon | X)\big]\big] &\text{(by law of total expectation)} \\
+&= \beta + E\big[(X^TX)^{-1}X^TE\big[\epsilon|X\big]\big] \\
+&= \beta. &\text{(by conditional zero-mean assumption)}
+\end{aligned}
+$$
+
+Since we usually have multiple regressors want we want is the covariance matrix of $\hat{\beta}$:
+^[Note that we are using the fact that $(A^T)^{-1} = (A^{-1})^T$ to decompose the product.]
+
+$$
+\begin{aligned}
+Cov(\hat{\beta})
+&= E\big[(\hat{\beta} - \beta)(\hat{\beta} - \beta)^T\big] \\
+&= E\bigg[\bigg((X^TX)^{-1}X^T(X\beta + \epsilon) - \beta\bigg)\bigg((X^TX)^{-1}X^T(X\beta + \epsilon) - \beta\bigg)^T\bigg] \\
+&= E\bigg[\bigg((X^TX)^{-1}X^T\epsilon\bigg)\bigg((X^TX)^{-1}X^T\epsilon\bigg)^T\bigg] \\
+&= E\bigg[(X^TX)^{-1}X^T\epsilon\epsilon^TX(X^TX)^{-1}\bigg] \\
+&= (X^TX)^{-1}X^TE\big[\epsilon\epsilon^T\big]X(X^TX)^{-1}.
+\end{aligned}
+$$
+
+This *sandwich* style of covariance matrix is the key to our statistical inference about a regression model.
+Traditional old-school modelers impose very strong assumptions (a.k.a. [Gauss Markov assumptions](https://en.wikipedia.org/wiki/Gauss–Markov_theorem)) in order to simplify the sandwich into a computationally friendly form.
+They assumes that the error term is zero-mean (unconditional) ($E(\epsilon) = 0$),
+uncorrelated ($Cov(\epsilon_i, \epsilon_j) = 0$),
+and is [*homoscedastic*](https://en.wikipedia.org/wiki/Homoscedasticity):
+all errors have equal variance.
+This immediately gives us the variance of error simplified:
+
+$$
+Var(\epsilon) = E\big[\big(\epsilon - E(\epsilon)\big)\big(\epsilon - E(\epsilon)\big)^T\big] = E[\epsilon\epsilon^T] = \sigma^2 I,
+$$
+
+where $\sigma$ is the homogenous standard deviation of all errors and $I$ the identity matrix.
+
+The sandwich then becomes:
+
+$$
+Cov(\hat{\beta}) = E\bigg[(X^TX)^{-1}X^T\epsilon\epsilon^TX(X^TX)^{-1}\bigg] = \sigma^2(X^TX)^{-1}.
+$$
+
+Now (without detailed derivation) the unbiased estimator for $\sigma^2$ is:
+
+$$
+\hat{\sigma}^2 = \frac{\sum_i \hat{\epsilon}_i^2}{n - k},
+$$
+
+where $\hat{\epsilon}_i = y_i - X_i\hat{\beta}$ is the model residual and $k$ is number of regressors.
+
+Unfornutately for empirical problems homoskedasticity is usually NOT true.
+Since practically we are not able to include all relevant variables in a model there are usually sub-groups of our data having different variances in their unexplained error terms.
+This will lead to both bias and inconsistency not in OLS point estimate but in our estimation for the standard error of the OLS estimator.
+And since we rely on the standard error to do statistical inference,
+our inference may well be wrong!
+
+To deal with the issue,
+several *robust* standard error estimators of OLS have been proposed.
+They are usually termed *heteroskedasticity robust standard error* in the literature.
+
+
+
+
+Let's randomly create a data generating process as our underlying true model first:
+
+```{r lm_sim_data}
+set.seed(777)
+size <- 10000
+num_feature <- 2
+
+# Regressors (design matrix).
+X <- rbeta(size * num_feature, beta_a, beta_b)
+X <- cbind(1, matrix(X, ncol=num_feature))
+colnames(X) <- paste0("x_", 0:2)
+
+# Noise.
+e <- rnorm(size)
+
+# True parameters.
+true_coefs <- runif(3)
+print(true_coefs)
+
+# Response.
+y <- (X %*% true_coefs + e)
+
+Xy <- as.data.frame(X)
+Xy$y <- y
+
+head(Xy)
+```
+
+
+
+```{r}
+lm_model <- lm(y ~ . - 1, data=Xy)
+summary(lm_model)
+```
+
+```{r}
+# Verify the standard error calculation based on Gauss Markov assumptions.
+s2 <- sum(lm_model$residuals^2) / (size - num_feature - 1)
+sqrt(diag(s2 * solve(t(X)%*%X)))
+```
+
+```{r}
+# Then sandwich under Gauss Markov assumptions.
+sqrt(diag(solve(t(X)%*%X)%*%(t(X)*s2)%*%X%*%solve(t(X)%*%X)))
+```
+
+
+```{r}
+library(lmtest)
+library(sandwich)
+
+coeftest(lm_model, vcov=vcovHAC(lm_model))
+```
+
+Heteroskedasticity consistent (HC)
+Heteroskedasticity and autocorrelation consistent (HAC)
+
+# References
