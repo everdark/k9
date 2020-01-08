@@ -1,6 +1,6 @@
 ---
-title: "On Linear Regression: Machine Learning v.s. Econometrics"
-subtitle: ""
+title: "On Linear Regression"
+subtitle: "Machine Learning v.s. Econometrics"
 author:
 - name: Kyle Chung
   affiliation:
@@ -51,7 +51,7 @@ close(meta_header_file)
 
 # Machine Learning v.s. Econometric Modeling
 
-Linear models are widely used in both machine learning and statistical modeling.
+Linear models are widely used in both machine learning and econometrics or statistical modeling.
 Mathematically they looks highly similar with only a subtle and sometimes no difference,
 depending on the underlying assumption.
 But in fact each can have a very different end goal,
@@ -78,7 +78,7 @@ and develop strategies to handle huge amount of data.
 
 For β problem,
 instead,
-we focus on statistical testing against the effect on variable of interest.
+we focus on statistical testing against the effect on the variable of interest.
 
 1. Sampling Distribution of the estimator
     a. expectation and variance of the estimator
@@ -139,7 +139,7 @@ But for statistical modeling or econometrics we care more about the statistical 
 To answer that we need to derive the limiting distribution of OLS estimator.
 Or at least we need to know the standard error of the OLS estimator.
 ^[Note that when $X$ reduces to only a constant variable,
-the problem reduces to the sample mean case we've already discussed.]
+the model reduces to the sample mean estimator.]
 
 First of all,
 we know that OLS is unbiased under the conditional zero-mean assumption $E(\epsilon | X) = 0$:
@@ -157,7 +157,7 @@ E(\hat{\beta})
 \end{aligned}
 $$
 
-Since we usually have multiple regressors want we want is the covariance matrix of $\hat{\beta}$:
+Since we usually have multiple regressors what we want is the covariance matrix of $\hat{\beta}$:
 ^[Note that we are using the fact that $(A^T)^{-1} = (A^{-1})^T$ to decompose the product.]
 
 $$
@@ -175,7 +175,7 @@ This *sandwich* style of covariance matrix is the key to our statistical inferen
 Traditional old-school modelers impose very strong assumptions (a.k.a. [Gauss Markov assumptions](https://en.wikipedia.org/wiki/Gauss–Markov_theorem)) in order to simplify the sandwich into a computationally friendly form.
 They assumes that the error term is zero-mean (unconditional) ($E(\epsilon) = 0$),
 uncorrelated ($Cov(\epsilon_i, \epsilon_j) = 0$),
-and is [*homoscedastic*](https://en.wikipedia.org/wiki/Homoscedasticity):
+and is [*homoskedastic*](https://en.wikipedia.org/wiki/Homoscedasticity):
 all errors have equal variance.
 This immediately gives us the variance of error simplified:
 
@@ -199,6 +199,8 @@ $$
 
 where $\hat{\epsilon}_i = y_i - X_i\hat{\beta}$ is the model residual and $k$ is number of regressors.
 
+### Heteroskedasticity Robust Standard Error
+
 Unfornutately for empirical problems homoskedasticity is usually NOT true.
 Since practically we are not able to include all relevant variables in a model there are usually sub-groups of our data having different variances in their unexplained error terms.
 This will lead to both bias and inconsistency not in OLS point estimate but in our estimation for the standard error of the OLS estimator.
@@ -207,10 +209,49 @@ our inference may well be wrong!
 
 To deal with the issue,
 several *robust* standard error estimators of OLS have been proposed.
-They are usually termed *heteroskedasticity robust standard error* in the literature.
+They are usually termed *heteroskedasticity robust* or *heteroskedasticity consistent* standard error in the literature.
 
+When heteroskedasticity is present,
+the variance of error term (after centering at zero),
+denoted as $\Sigma$,
+can be written as:
 
+$$
+E(\epsilon\epsilon^T) =
+\begin{pmatrix}
+\sigma_1^2 & 0 & \dots & 0 \\
+0 & \sigma_2^2 & 0 & \vdots \\
+\vdots & 0 & \ddots & 0 \\
+0 & \dots & 0 & \sigma_n^2
+\end{pmatrix},
+$$
 
+where $\sigma_i^2$ is the variance of error in the $i$-th observation.
+
+To estimate this variance matrix the most straightforward estimator will be:
+
+$$
+\hat{\Sigma} =
+\begin{pmatrix}
+\hat{\epsilon}_1^2 & 0 & \dots & 0 \\
+0 & \hat{\epsilon}_2^2 & 0 & \vdots \\
+\vdots & 0 & \ddots & 0 \\
+0 & \dots & 0 & \hat{\epsilon}_n^2
+\end{pmatrix},
+$$
+
+where $\hat{\epsilon}_i^2$ is the squared model residual of the $i$-th observation.
+
+### Heteroskedasticity and Autocorrelation Consistent
+
+The HC standard error assumes no correlation between error terms (that the covariance matrix is only non-zero at diagonal),
+which may not be true as well,
+especially in time series modeling where autocorrelation is common.
+To deal with this,
+a even more robust standard error estimator has been proposed as the heteroskedasticity and autocorrelation consistent (HAC) standard error,
+or the [Newey-West estimator](https://en.wikipedia.org/wiki/Newey–West_estimator).
+
+## Hands-On Example
 
 Let's randomly create a data generating process as our underlying true model first:
 
@@ -240,8 +281,6 @@ Xy$y <- y
 head(Xy)
 ```
 
-
-
 ```{r}
 lm_model <- lm(y ~ . - 1, data=Xy)
 summary(lm_model)
@@ -254,19 +293,34 @@ sqrt(diag(s2 * solve(t(X)%*%X)))
 ```
 
 ```{r}
-# Then sandwich under Gauss Markov assumptions.
+# The sandwich under Gauss Markov assumptions.
 sqrt(diag(solve(t(X)%*%X)%*%(t(X)*s2)%*%X%*%solve(t(X)%*%X)))
 ```
 
 
 ```{r}
-library(lmtest)
-library(sandwich)
-
-coeftest(lm_model, vcov=vcovHAC(lm_model))
+u <- lm_model$residuals
+sqrt(diag(solve(t(X)%*%X)%*%t(X)%*%diag(u^2)%*%X%*%solve(t(X)%*%X)))
 ```
 
 Heteroskedasticity consistent (HC)
-Heteroskedasticity and autocorrelation consistent (HAC)
+
+```{r}
+library(lmtest)
+library(sandwich)
+
+coeftest(lm_model, vcov=vcovHC(lm_model, type="HC0"))
+```
+
+
+
+
+
+
+
+
+
+## Testing for Heteroskedasticity
+
 
 # References
