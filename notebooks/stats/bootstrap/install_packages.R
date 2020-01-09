@@ -1,6 +1,8 @@
 #!/usr/bin/env Rscript
 
 required_pkgs <- c(
-    "rmarkdown"
+    "rmarkdown",
+    "lmtest",
+    "sandwich"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")
