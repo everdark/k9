@@ -4,7 +4,7 @@ subtitle: ""
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (10 Jan 2020 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (08 Jan 2020 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -743,15 +743,107 @@ What we demonsatrate here is that the bootstrap distribution of t-statistic is a
 
 # Bootstrapping for Regression Models
 
-## Paired Bootstrap
+Now we understand the basic idea of bootstrapping.
+In this section we further discuss its application for a linear regressor.
+
+We create some simulated data with a hypotehtical true model:
+
+```{r lm_sim_data}
+set.seed(777)
+size <- 10000
+num_feature <- 2
+
+# Regressors (design matrix).
+X <- rbeta(size * num_feature, beta_a, beta_b)
+X <- cbind(1, matrix(X, ncol=num_feature))
+colnames(X) <- paste0("x_", 0:2)
+
+# Noise.
+e <- rnorm(size)
+
+# True parameters.
+true_coefs <- runif(3)
+print(true_coefs)
+
+# Response.
+y <- (X %*% true_coefs + e)
+
+Xy <- as.data.frame(X)
+Xy$y <- y
+
+head(Xy)
+```
+
+We fit the model and report the heteroskedasticity consistent standard error:
+
+```{r lm_sim_res}
+library(lmtest)
+library(sandwich)
+
+lm_model <- lm(y ~ . - 1, data=Xy)
+coeftest(lm_model, vcov=vcovHC(lm_model, type="HC0"))
+```
+
+## Case-Wise Bootstrap
+
+The simpliest approach is to resample at the observation level.
+To speed up the repetitions we will directly compute the analytical solution rather than calling `lm` to avoid the overhead.
+
+```{r boot_lm_casewise}
+M <- 10000
+
+ols <- function(X, y) {
+  # Analytical solution for OLS estimator.
+  solve(t(X) %*% X) %*% t(X) %*% y
+}
+
+bs_coefs <- matrix(NA_real_, nrow=1 + num_feature, ncol=M)
+for ( i in seq_len(M) ) {
+  Xy_b <- as.matrix(Xy[sample(size, replace=TRUE),])
+  coefs_b <- ols(X=Xy_b[, 0:num_feature + 1], y=Xy_b[, ncol(Xy_b)])
+  bs_coefs[,i] <- coefs_b
+}
+```
+
+```{r boot_lm_casewise_point}
+rowMeans(bs_coefs)
+```
+
+```{r boot_lm_casewise_sd}
+apply(bs_coefs, 1, sd)
+```
 
 ## Residual Bootstrap
 
-# Bootstrapping for Time Series
+```{r boot_lm_resid}
+bs_coefs2 <- matrix(NA_real_, nrow=1 + num_feature, ncol=M)
+yhat <- predict(lm_model, Xy)
+for ( i in seq_len(M) ) {
+  e_b <- sample(lm_model$residuals, size=size, replace=TRUE)  # Residual bootstrapping.
+  y_b <- yhat + e_b
+  bs_coefs2[,i] <- ols(X=X, y=y_b)
+}
+```
 
-# Cases where Bootstrap Fails
+```{r boot_lm_resid_point}
+rowMeans(bs_coefs2)
+```
 
-min and max statistic. (end-point estimator)
-infinite variance population (CLT fails so CLT for bootstrap fails too)
+```{r boot_lm_resid_sd}
+apply(bs_coefs2, 1, sd)
+```
+
+## Bootstrapping for Time Series
+
+# Cases Where Bootstrap Fails
+
+There are well-known cases where bootstrapping is not able to approximate the sampling distribution of the estimator:
+
+1. Min and max statistic (end-point estimator)
+2. population with infinite variance
+
+The second item is easier to understand,
+if we know that the proof of the convergence of bootstrap distribution toward sampling distribution is done by using CLT.
+Remember that finite variance is one requirement for CLT to apply.
 
 # References
