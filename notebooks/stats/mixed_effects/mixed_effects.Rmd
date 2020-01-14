@@ -1,0 +1,193 @@
+---
+title: "Linear Mixed Effects Models"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (28 Feb 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: mixed_effects.bib
+link-citations: yes
+abstract: |
+  TBC.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Linear Mixed Effects Models">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/mixed_effects/mixed_effects.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/androidify.png">',
+  '<meta property="og:description" content="A data science notebook about linear mixed effects model.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/mixed_effects")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+# Linear Models: A Quick Overview
+
+A linear model can be expressed concisely in matrix notation as:
+
+$$
+y = X\beta + \epsilon,
+$$
+
+where $y$ is the target variable,
+$X$ is the covariates (*design matrix*),
+$beta$ is the parameter vector (regression coefficients or simply *weights*),
+and $\epsilon$ the error term.
+
+We can solve for the model weights using [Ordinary Least Squares](https://en.wikipedia.org/wiki/Ordinary_least_squares) (OLS),
+That is,
+we find the weights that minimize the sum of squared errors (denoted as $L$ for loss function):
+
+$$
+\min_{\hat{\beta}} L
+= \big|\big| (y - X\hat{\beta})^T(y - X\hat{\beta}) \big|\big|^2.
+$$
+
+If we further assume the error term follows distribution of a random variable,
+for example:
+
+$$
+\epsilon \sim \text{Normal}(0, \sigma^2),
+$$
+
+then the model becomes a probabilistic model:
+
+$$
+y \sim \text{Normal}(X\beta, \sigma^2).
+$$
+
+Now we can also solve for the model weights using a [Maximum Likelihood Estimator](https://en.wikipedia.org/wiki/Maximum_likelihood_estimation) (MLE):
+
+$$
+\max_{\hat{\beta}} \text{Lik}
+= \sum_i \ln p(y_i),
+$$
+
+where $p(y)$ is the Gaussian probability distribution function:
+
+$$
+p(y) = \frac{1}{\sqrt{2\pi\sigma^2}} \cdot e^{-\frac{(y - X\beta)^2}{2\sigma^2}}.
+$$
+
+Even though MLE seems to require more assumptions on our model,
+for a simple linear model the solution of OLS and MLE indeed coincides with each other.
+
+Let's use the dataset of a sleep deprivation study (@belenky2003patterns) to demonstrate the modeling.
+The dataset comes with [`lme4`](https://github.com/lme4/lme4/) (@lme4),
+a R package dedicated for solving mixed effects models with a very efficient implementation using `Rcpp`.
+
+```{r import, message=FALSE}
+library(ggplot2)
+library(lme4)
+```
+
+The `sleepstudy` data is very simple on its own:
+
+```{r sleep_data_head}
+str(sleepstudy)
+head(sleepstudy)
+```
+
+The data is a minimum representation of a [panel data](https://en.wikipedia.org/wiki/Panel_data).
+Panel data can be sliced into two dimensions,
+where one entity will have multiple observations,
+either along the time or based on spatial information.
+
+In `sleepstudy` we have daily observations of each subject for 10 consecutive days:
+
+```{r sleep_data_plot}
+ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(0, 9, 3)) +
+  labs(y="Average Reaction Time (ms)") +
+  facet_wrap(~ Subject, ncol=6)
+```
+
+We can quickly build a model describing the linear relationship between reaction time and days of sleep deprivation:
+
+```{r linear_model}
+m <- lm(Reaction ~ Days, data=sleepstudy)
+summary(m)
+```
+
+The model result suggests a significant negative impact (higher is worse) of sleep deprivation on suibjects' reaction time.
+The above model does not take into consideration individual difference among subjects,
+so the estimated effect is a pooling of every subjects' outcome.
+To express this idea visually,
+what we actually estimate is a single regression line along the entire dataset:
+
+```{r linear_model_plot}
+ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(0, 9, 3)) +
+  labs(y="Average Reaction Time (ms)") +
+  geom_smooth(method="lm")
+```
+
+But as we already know from the previous per-subject plots,
+there are individual differences.
+Even though we don't know what is behind the differences,
+we can build a model to *control* the effect of individual differences.
+In econometrics this is referred to as the *fixed effects model*.
+
+# Linear Fixed Effects Models
+
+```{r fixed_effects_model}
+fe <- lm(Reaction ~ Days + Subject, data=sleepstudy)
+summary(fe)
+```
+
+```{r fixed_effects_model_plot}
+ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(0, 9, 3)) +
+  labs(y="Average Reaction Time (ms)") +
+  facet_wrap(~ Subject, ncol=6) +
+  geom_smooth(method="lm")
+```
+
+# Linear Random Effects Models
+
+In a random effects model,
+the model coefficient is assumed to follow the distribution of a random variable.
+This is on the contrary to the assumption of model parameters being unknown constant (and hence fixed) in the usual case.
+^[In Bayesian modeling all parameters are random variables.
+So random effects models can be very closely related or even identical to a Bayesian model,
+depending on the configuration details.]
+
+
+## Crossed Random Effects
+
+# Linear Mixed Effects Models
+
+```{r}
+me <- lmer(Reaction ~ Days + (Days | Subject), sleepstudy)
+summary(me)
+```
+
+
+# References
