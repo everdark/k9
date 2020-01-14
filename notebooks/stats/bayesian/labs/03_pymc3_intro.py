@@ -38,7 +38,7 @@ print(np.log(dnorm(0)))
 # Binomial model. (De-generated logistic regression.) #
 # --------------------------------------------------- #
 # We use the example of analytical Bayesian discussed here:
-# https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html#122_analytical_bayesian
+# https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html#122_analytical_bayesian
 # Out of 10 coin flips, 6 are heads.
 N = 10
 y = 6
@@ -64,7 +64,7 @@ print(pm.summary(trace).round(3))
 # Logistic model. #
 # --------------- #
 # Use the example dataset we've explored in the notebook:
-# https://everdark.github.io/k9/bayesian/bayesian_modeling_explained.nb.html#4_bayesian_logistic_regression_using_r
+# https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html#4_bayesian_logistic_regression_using_r
 infile = "data/logit.csv"
 data = pd.read_csv(infile)
 data["b"] = 1  # Add a constant term.

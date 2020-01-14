@@ -46,7 +46,7 @@ def logloss(X, y, b):
 
 # We derive analytically the gradient to the loss function.
 # For detailed derivation please refer to
-# https://everdark.github.io/k9/neural_nets/neural_networks_fundamentals.nb.html#12_logistic_regression
+# https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html#12_logistic_regression
 def grad_fn(X, y, b):
     """Gradient to the logloss function."""
     return - (y - sigmoid(X.dot(b))).dot(X) / X.shape[0]
