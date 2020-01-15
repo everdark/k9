@@ -631,7 +631,7 @@ We see that the convergence is indeed quite good already.
 Rather than implementing the sampling procedure from scratch,
 we can also take advantage of the built-in package `boot` [@boot] in R to simplify our code:
 
-```{r import_boot, results="hide"}
+```{r import_boot, results="hide", message=FALSE, warning=FALSE}
 library(boot)  # This is a built-in package.
 ```
 
@@ -651,7 +651,7 @@ It should be very close to zero if nothing went wrong.
 
 The returned object from `boot` also has a convenient `plot` method for visualization purpose:
 
-```{r boot_plot}
+```{r boot_plot, fig.width=8}
 plot(bs_r)
 ```
 
@@ -816,7 +816,7 @@ We fit the model and report the [heteroskedasticity consistent standard error](h
 ^[Even though we know that our true model has homoskedastic error,
 the HC approach is more robust in practice.]
 
-```{r import_hc, results="hide"}
+```{r import_hc, results="hide", message=FALSE, warning=FALSE}
 library(lmtest)
 library(sandwich)
 ```
@@ -862,7 +862,7 @@ print(bs_coefs)
 
 To plot the bootstrap distribution of the 3rd coefficient:
 
-```{r boot_lm_plot}
+```{r boot_lm_plot, fig.width=8}
 plot(bs_coefs, index=3)
 ```
 
