@@ -19,6 +19,8 @@ output:
 bibliography: bootstrap.bib
 nocite: |
   @boot2
+  @lmtest
+  @sandwich
 link-citations: yes
 abstract: |
   We review Monte Carlo bootstrap sampling approach, a powerful technique to measure error of a statistical inference task when the variance of our estimator is not analytically trackable. We explain why bootstrapping works with minimum amount of theoretical derivation and demonstration of hands-on examples.
@@ -595,7 +597,7 @@ This is over-simplification and can be dangerous in practice.
 Whether a sample size is big enough for CLT to have good approximation really depends on the nature of the population distribution,
 which unfortunately is unknown in the first place.
 There are some heuristics, though.
-For example the more symetric the population the less sample size required to have a good approximation.]
+For example the more symmetric the population the less sample size required to have a good approximation.]
 
 So, yes, for a classical statistic like sample mean,
 there is not much value added using bootstrap.
