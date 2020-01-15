@@ -323,6 +323,8 @@ summary(fe_dm)
 
 **TODO: sd correction in demeaned estimator.**
 
+We can also use the R package `plm` [@plm] with a high-level API for panel data regression.
+
 ```{r fixed_effects_plm}
 library(plm)
 
