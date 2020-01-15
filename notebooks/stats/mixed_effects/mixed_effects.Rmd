@@ -110,7 +110,7 @@ Let's use the dataset of a sleep deprivation study (@belenky2003patterns) to dem
 The dataset comes with [`lme4`](https://github.com/lme4/lme4/) (@lme4),
 a R package dedicated for solving mixed effects models with a very efficient implementation using `Rcpp`.
 
-```{r import, results="hide"}
+```{r import, results="hide", message=FALSE, warning=FALSE}
 library(ggplot2)
 library(data.table)
 library(lme4)
