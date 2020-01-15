@@ -45,6 +45,10 @@ writeLines(contents, meta_header_file)
 close(meta_header_file)
 ```
 
+# Motivation
+
+**TBC.**
+
 # Linear Models: A Quick Overview
 
 A linear model can be expressed concisely in matrix notation as:
@@ -55,8 +59,10 @@ $$
 
 where $y$ is the target variable,
 $X$ is the covariates (*design matrix*),
-$beta$ is the parameter vector (regression coefficients or simply *weights*),
+$\beta$ is the parameter vector (regression coefficients or simply *weights*),
 and $\epsilon$ the error term.
+
+## Ordinary Least Squares
 
 We can solve for the model weights using [Ordinary Least Squares](https://en.wikipedia.org/wiki/Ordinary_least_squares) (OLS),
 That is,
@@ -66,6 +72,8 @@ $$
 \min_{\hat{\beta}} L
 = \big|\big| (y - X\hat{\beta})^T(y - X\hat{\beta}) \big|\big|^2.
 $$
+
+## Maximum Likelihood Estimator
 
 If we further assume the error term follows distribution of a random variable,
 for example:
@@ -96,12 +104,15 @@ $$
 Even though MLE seems to require more assumptions on our model,
 for a simple linear model the solution of OLS and MLE indeed coincides with each other.
 
+## Hands-On: The Sleep Deprivation Study
+
 Let's use the dataset of a sleep deprivation study (@belenky2003patterns) to demonstrate the modeling.
 The dataset comes with [`lme4`](https://github.com/lme4/lme4/) (@lme4),
 a R package dedicated for solving mixed effects models with a very efficient implementation using `Rcpp`.
 
-```{r import, message=FALSE}
+```{r import, results="hide"}
 library(ggplot2)
+library(data.table)
 library(lme4)
 ```
 
@@ -112,7 +123,8 @@ str(sleepstudy)
 head(sleepstudy)
 ```
 
-The data is a minimum representation of a [panel data](https://en.wikipedia.org/wiki/Panel_data).
+The data is an experimental dataset with a proper control.
+The data is also a minimum representation of a [panel data](https://en.wikipedia.org/wiki/Panel_data).
 Panel data can be sliced into two dimensions,
 where one entity will have multiple observations,
 either along the time or based on spatial information.
@@ -127,18 +139,20 @@ ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
   facet_wrap(~ Subject, ncol=6)
 ```
 
-We can quickly build a model describing the linear relationship between reaction time and days of sleep deprivation:
+We can quickly build a simple model describing the linear relationship between reaction time and days of sleep deprivation:
 
 ```{r linear_model}
+# Ideally we should calculate the clustered standard error (a type of robust standard error.)
+# Here for simplicity we will just report the Gauss Markov standard error.
 m <- lm(Reaction ~ Days, data=sleepstudy)
 summary(m)
 ```
 
-The model result suggests a significant negative impact (higher is worse) of sleep deprivation on suibjects' reaction time.
+The model result suggests a significant negative impact (higher is worse) of sleep deprivation on suibjects' reaction time over time (measured in days).
 The above model does not take into consideration individual difference among subjects,
-so the estimated effect is a pooling of every subjects' outcome.
+so the estimated effect is an average pooling of every subjects' outcome.
 To express this idea visually,
-what we actually estimate is a single regression line along the entire dataset:
+what we actually estimate is a single regression line throughout the entire dataset:
 
 ```{r linear_model_plot}
 ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
@@ -151,15 +165,172 @@ ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
 But as we already know from the previous per-subject plots,
 there are individual differences.
 Even though we don't know what is behind the differences,
-we can build a model to *control* the effect of individual differences.
+we can build a model to *control* the effect of individual differences to some extent.
 In econometrics this is referred to as the *fixed effects model*.
 
 # Linear Fixed Effects Models
+
+How do we account for individual differences if there is no observed variable describing such differences?
+For example the subject can be different gender or age.
+Or even more subtle,
+different *personality*.
+For individual features that are not observed or simply *cannot* be observed,
+but do not change over time (or spatial dimension),
+panel data can be used to control those effect to avoid potential [omitted-variable bias](https://en.wikipedia.org/wiki/Omitted-variable_bias).
+
+The rationale behind this is rather simple.
+Consider a true model of the form:
+
+$$
+y_{it} = \beta_0 + \beta_1x_{it} + \beta_2z_{i} + \epsilon_{it},
+$$
+
+where $i$ is the cross-sectional dimension and $t$ is the time dimension,
+$x_{it}$ is our observed covariate that may change across both entity and time,
+while $z_i$ is an individual feature that is not observable but does not change over time (like birthplace or personality).
+
+Even though we don't have access to $z_{it}$.
+(Indeed we don't even know what it is!)
+For a panel data of two period $t = \{1, 2\}$,
+we can estimate a model of the form:
+
+$$
+(y_{i2} - y_{i1}) = \beta_1(x_{i2} - x_{i1}) + (\epsilon_{i2} - \epsilon_{i1}).
+$$
+
+That is,
+to estimate the difference in time we can elinimate anything that doesn't change over time.
+
+## Entity-Fixed Effects
+
+To generalize the idea to multiple time period for $t > 2$,
+we can re-write the model as:
+
+$$
+\begin{aligned}
+y_{it} &= \alpha_i + \beta_1x_{it} + \epsilon_{it}, \\
+\alpha_i &= \beta_0 + \beta_2z_{i}.
+\end{aligned}
+$$
+
+The constant term $\alpha_i$ effectively absorbs the unobserved individual effect.
+It is essentially the *fixed effects* we are talking about.
+It is fixed at each individual and doesn't change over time.
+
+Empirically to estimate a model with individual-specific intercept we simply include the individual indicator variable into our design matrix.
+This is often referred to as the *dummy variable* approach.
+So the operating model will be of the following form:
+
+$$
+y_{it} = \beta_0 + \beta_1x_{it} + \sum_s\beta_sD_s + \epsilon_{it},
+$$
+
+where $s$ is the individual identifier (in our sleep study case the subject),
+and $D_s$ is the indicator function for subject $s$:
+
+$$
+D_s = I(i \in s).
+$$
+
+Technically $D$ should be one-hot encoded into our design matrix,
+but in R `lm` can treat `factor` class naturally as categorical dummies so no extra effort is required.
+^[One factor out of all will be dropped out to avoid [perfect collinearity](https://en.wikipedia.org/wiki/Multicollinearity).
+The corresponding estimation is not dropped though,
+but absorbed into the intercept term as the *base level*.]
+
+Here is the model fitted with time-invariant (individual) fixed effects:
 
 ```{r fixed_effects_model}
 fe <- lm(Reaction ~ Days + Subject, data=sleepstudy)
 summary(fe)
 ```
+
+Geometrically speaking,
+we no longer fit one single regression line but as many as per subject,
+each with a different intercept.
+Note that the two models (the pooling model and the fixed effects model) share the same slope:
+
+```{r check_equal_slope}
+stopifnot(coef(m)["Days"] == coef(fe)["Days"])
+```
+
+So the estimated incremental effect of days of deprivation on different subjects are still the same.
+(But the standard error of the point estimate is different.
+So the statistical testing can potentially render different results.)
+
+To see this clearly we can visualize the results:
+
+```{r fixed_effects_plot}
+sleepstudy2 <- cbind(sleepstudy, fe=predict(fe))
+ggplot(sleepstudy2, aes(x=Days, y=Reaction, color=Subject)) +
+  geom_point() +
+  scale_x_continuous(breaks=seq(0, 9, 3)) +
+  labs(y="Average Reaction Time (ms)") +
+  geom_line(aes(y=fe))
+```
+
+The model is definitely better fit the model since it can adapt to each individual subject with a different estimated intercept:
+
+```{r rmse}
+print(sprintf("RMSE of the linear model: %s", sqrt(sum(m$residuals^2))))
+print(sprintf("RMSE with fixed effects:  %s", sqrt(sum(fe$residuals^2))))
+```
+
+The problem is:
+Can we do even better?
+Naturally we would like to have the model able to also adapt to different *slopes* for different subjects.
+
+## A Digression: The De-Meaned Estimator
+
+For real world problems a panel data can contains thousands of levels which make the dummy variable approach expensive to compute.
+For econometric application usually these dummies act as control variable and hence are not at the core of the question being addressed.
+That is,
+we include these variables only to avoid the omitted-variable bias.
+We don't really care if we can estimate them precisely.
+Technically we don't care about the standard error of the coefficients on those dummies.
+In some extreme cases,
+we don't even care about the point estimate of those coefficients!
+This gives us a shortcut to derive a model without the need to estimate the coefficient on any dummy,
+but still can arrive at the correct $\beta_1$ at the core of our question.
+
+To accomplish this,
+we observe that the model can be re-written in an entity-demeaned format:
+
+$$
+\begin{aligned}
+y_{it} - \frac{1}{T}\sum_ty_{it}
+&=
+(\alpha_i- \frac{1}{T}\sum_t\alpha_i) +
+\beta_1(x_{it} - \frac{1}{T}\sum_tx_{it}) +
+(\epsilon_{it} - \frac{1}{T}\sum_t\epsilon_{it}) \\
+(y_{it} - \bar{y_i})
+&= \beta_1(x_{it} - \bar{x_i}) +
+(\epsilon_{it} - \bar{\epsilon_i})
+\end{aligned},
+$$
+
+where the fixed effects $\alpha_i$ are eliminated all together.
+
+```{r fixed_effects_demeaned}
+sleepstudy3 <- as.data.table(sleepstudy)[
+  , `:=`(Reaction_m=mean(Reaction),
+         Days_m=mean(Days)),
+  by="Subject"]
+
+fe_dm <- lm(I(Reaction - Reaction_m) ~ I(Days - Days_m) - 1, data=sleepstudy3)
+summary(fe_dm)
+```
+
+**TODO: sd correction in demeaned estimator.**
+
+```{r fixed_effects_plm}
+library(plm)
+
+fe2 <- plm(Reaction ~ Days, data=sleepstudy, index="Subject", model="within")
+summary(fe2)
+```
+
+
 
 ```{r fixed_effects_model_plot}
 ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
@@ -169,6 +340,12 @@ ggplot(sleepstudy, aes(x=Days, y=Reaction)) +
   facet_wrap(~ Subject, ncol=6) +
   geom_smooth(method="lm")
 ```
+
+## Time-Fixed Effects
+
+Exactly the same logic can be applied to time-fixed but entity-varying features.
+It is also straightforward to include both time and entity-fixed effects into one model.
+Indeed this is very common in the field of empirical micro-econometric study.
 
 # Linear Random Effects Models
 
