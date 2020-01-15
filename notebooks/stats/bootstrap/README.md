@@ -30,4 +30,3 @@ Then to render the html output:
 ```sh
 Rscript render.R
 ```
-

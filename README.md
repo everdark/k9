@@ -84,7 +84,8 @@ pip install -r requirements.txt
     + Approximated Nearest Neighbor
 + Statistics
     + Law of Large Numbers and Central Limit Theorem
-    + Linear and Logistic Models: Econometrics v.s. Machine Learning
+    + On Linear Regression: Machine Learning vs Econometrics
+    + Linear Mixed Effects Models
     + Naive Bayes
     + Bayesian Model Diagnostic
     + Time Series Forecasting

@@ -13,6 +13,12 @@ navbar:
         - text: "---"
         - text: "Bootstrap Sampling 101"
           href: notebooks/stats/bootstrap/bootstrap.nb.html
+        - text: "---"
+        - text: "On Linear Regression: Machine Learning vs Econometrics (WIP)"
+          #href: notebooks/stats/regression/reg.nb.html
+        - text: "---"
+        - text: "Linear Mixed Effects Models (WIP)"
+          #href: notebooks/stats/mixed_effects/mixed_effects.nb.html
     - text: "Machine Learning"
       menu:
         - text: "Neural Networks Fundamentals"
@@ -35,9 +41,10 @@ navbar:
           href: notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html
         - text: "---"
         - text: "Context-Free Word Embeddings (WIP)"
-          href: notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html
+          #href: notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html
         - text: "---"
         - text: "Context-Aware Word Embeddings (WIP)"
+          #href: notebooks/ml/natural_language_understanding/context_aware_word_embeddings/context_aware_word_embeddings.nb.html
   right:
     - text: "Projects"
       menu:
