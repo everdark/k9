@@ -4,7 +4,7 @@ subtitle: ""
 author:
 - name: Kyle Chung
   affiliation:
-date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (08 Jan 2020 First Uploaded)"
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (15 Jan 2020 First Uploaded)"
 output:
   html_notebook:
     highlight: tango
@@ -259,7 +259,6 @@ One thing remains unclear for those who are skeptical:
 How good does $\hat{F}_n$ approximate $F$?
 Technically speaking,
 what is the variance of $\hat{F}_n$?
-
 The good news is,
 we do have a sound theoretical ground describing the bounds how close EDF will be to CDF.
 This is referred to as the [Dvoretzky–Kiefer–Wolfowitz inequality](https://en.wikipedia.org/wiki/Dvoretzky%E2%80%93Kiefer%E2%80%93Wolfowitz_inequality):
@@ -275,10 +274,22 @@ EDF converges uniformly to CDF in $n$ with exponential speed.
 ^[Notation $\sup$ denotes the [supremum](https://en.wikipedia.org/wiki/Infimum_and_supremum):
 The smallest number that is greater than or equal to every number in the set.]
 
-So the heuristic of why bootstrapping works lies in the following facts:
+So the intuition of why bootstrapping works lies in the following facts:
 
 1. Many estimators can be formulated as a linear function of CDF
 2. EDF is a good estimator for CDF
+
+## Cases Where Bootstrap Fails
+
+There are well-known cases where bootstrapping is not able to approximate the sampling distribution of the estimator.
+Here are two of them:
+
+1. Min and max statistic (a.k.a. *endpoint* estimator)
+2. population with infinite variance
+
+They are both related to the applicability of CLT.
+The proof of the convergence of bootstrap distribution toward sampling distribution is based on CLT.
+So anything disqualifying CLT will result in the failure of bootstrapping.
 
 # Monte Carlo Bootstrapping
 
@@ -835,15 +846,6 @@ apply(bs_coefs2, 1, sd)
 
 ## Bootstrapping for Time Series
 
-# Cases Where Bootstrap Fails
 
-There are well-known cases where bootstrapping is not able to approximate the sampling distribution of the estimator:
-
-1. Min and max statistic (end-point estimator)
-2. population with infinite variance
-
-The second item is easier to understand,
-if we know that the proof of the convergence of bootstrap distribution toward sampling distribution is done by using CLT.
-Remember that finite variance is one requirement for CLT to apply.
 
 # References
