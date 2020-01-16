@@ -1,0 +1,160 @@
+---
+title: "2020 Taiwanese Presidential Election Data"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (19 Jan 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+#bibliography: bootstrap.bib
+#nocite: |
+link-citations: yes
+abstract: |
+  TBC.
+---
+
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="2020 Taiwanese Presidential Election Data">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
+  '<meta property="og:description" content="A data science notebook about 2020 Taiwanese presidential election.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/projects/tw_election_2020")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+# Prerequisites
+
+#### Platform {-}
+
+The source data contains traditional Chinese characters encoded in UTF-8.
+To avoid troublesome encoding issues (especially in a Windows platform) the codes are only tested on Ubuntu.
+
+```{bash}
+lsb_release -a
+```
+
+#### Data {-}
+
+We use processed data for our analytics.
+Please refer to the repo [TW_Presidential_Election_2020](https://github.com/everdark/TW_Presidential_Election_2020) for details about the pre-processing.
+
+For Taiwan map information,
+the `shp` file can be downloaded at [GADM.org](https://gadm.org/download_country_v3.html).
+We put the unzipped files under `data/map`.
+
+#### Dependencies {-}
+
+In order to do map plotting,
+we need to install some additional libraries.
+
+Install [`gdal`](https://gdal.org/):
+
+```sh
+sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+sudo apt update
+sudo apt install libgdal-dev
+```
+
+Install `ubunits`:
+
+```sh
+sudo apt install libudunits2-dev
+```
+
+After installation of the above packages,
+we can then install and import the following R packages for this project:
+
+```{r import, results="hide", message=FALSE, warning=FALSE}
+library(data.table)
+library(sf)
+library(ggplot2)
+library(plotly)
+```
+
+# Background
+
+TBC.
+
+# Presidential Election Results
+
+## By County
+
+```{r}
+# Read county-level presidential election results.
+p_county <- fread("data/processed/presidential/presidential_counties.csv")
+p_county[, Region:=trimws(Region, whitespace = "[\\h\\v]")]  # Trim full-width white space.
+
+# Melt from wide to long for plotting purpose.
+p_county_l <- melt(p_county[, 4:7], id.vars="Region", variable.name="Candidate", value.name="Votes")
+p_county_l <- p_county_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
+
+# Compute difference between DPP and KMT by county.
+setorder(p_county_l, Region, Candidate)
+p_county_l <- p_county_l[, Votes_Diff:=Votes[3] - Votes[2], by=.(Region)]
+
+# Compute total votes by county.
+p_county_l <- p_county_l[, Total_Votes:=sum(Votes), by=.(Region)]
+
+# Compute share by county.
+p_county_l <- p_county_l[, Votes_Share:=Votes / Total_Votes]
+
+# Show Taipei.
+p_county_l[Region == "臺北市"]
+```
+
+```{r}
+p <- ggplot(p_county_l, aes(x=reorder(Region, Total_Votes), y=Votes, fill=Candidate)) +
+  geom_bar(stat="identity", position="dodge", width=.8) +
+  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
+  labs(x="縣市", y="得票數",
+       title="2020台灣總統大選候選人各縣市得票數",
+       caption="各縣市依總票數排序") +
+  coord_flip() +
+  theme(legend.position="bottom")
+#ggplotly(p, width=750, height=480)
+p
+```
+
+```{r}
+p <- ggplot(p_county_l, aes(x=reorder(Region, Total_Votes), y=Votes_Share, fill=Candidate)) +
+  geom_bar(stat="identity", position="stack", width=.8) +
+  geom_text(aes(label=scales::percent(Votes_Share)), position=position_stack(vjust=.5), size=2) +
+  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
+  labs(x="縣市", y="得票率") +
+  coord_flip() +
+  theme(legend.position="bottom")
+ggplotly(p, width=750, height=480)
+```
+
+
+```{r}
+tw_shp <- st_read("data/map/gadm36_TWN_2.shp")
+```
+
+
+# Legislative Election Results
