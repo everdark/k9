@@ -150,6 +150,7 @@ Then parse the election results by county:
 p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
 p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
 p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
+setnames(p_county, "投票率H H=C÷G", "Voting_Rate")
 
 # Merge with shp to get English county name.
 p_county <- merge(p_county, tw_county_sf[, c("NL_NAME_2", "NAME_2")],
@@ -242,11 +243,13 @@ p <- ggplot(tw_county_sf, aes(text=County)) +
 ggplotly(p, width=800, height=600)
 ```
 
-#### By County Sub-Region
+#### By County Sub-Region {.tabset .tabset-fade .tabset-pills}
 
 ```{r process_presidential_region, results="hide"}
+# Read county subregion-level presidential election results.
 p_region <- fread("data/processed/presidential/presidential_regions.csv", encoding="UTF-8")
 p_region[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+setnames(p_region, "投票率H H=C÷G", "Voting_Rate")
 
 # Compute difference between DPP and KMT by region.
 p_region[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
@@ -282,11 +285,20 @@ plot_region_share_diff <- function(counties, title) {
 }
 ```
 
-Vote share difference (DPP v.s. KMT) ranking by region across the nation:
+Vote share difference (DPP v.s. KMT) ranked by region across the nation:
 
 ```{r share_diff_rank_by_region}
-p_region[, .(By, Region, Share_Diff, Vote_Diff)]
+p_region_rank <- p_region[, .(By, Region, Share_Diff, Vote_Diff)]
+p_region_rank <- p_region_rank[, Share_Diff:=scales::percent(Share_Diff, .001)]
+p_region_rank <- p_region_rank[, i:=.I]
+setcolorder(p_region_rank, "i")
+setnames(p_region_rank, c("排序", "縣市", "鄉鎮市區", "綠藍得票率差", "綠藍得票數差"))
+p_region_rank[]
 ```
+
+We bar-plot the above ranking by region by county:
+
+##### North Taiwan
 
 ```{r presidential_north_region_bar_pct_diff, fig.height=17, fig.width=8}
 plot_region_share_diff(
@@ -294,11 +306,15 @@ plot_region_share_diff(
   title="2020台灣總統大選北部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
+##### Central Taiwan
+
 ```{r presidential_central_region_bar_pct_diff, fig.height=20, fig.width=8}
 plot_region_share_diff(
   central_counties,
   title="2020台灣總統大選中部地區（鄉鎮市區）：綠藍得票率差")
 ```
+
+##### South Taiwan
 
 ```{r presidential_south_region_bar_pct_diff, fig.height=22, fig.width=8}
 plot_region_share_diff(
@@ -306,31 +322,21 @@ plot_region_share_diff(
   title="2020台灣總統大選南部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
+##### East Taiwan
+
 ```{r presidential_east_region_bar_pct_diff, fig.height=6, fig.width=8}
 plot_region_share_diff(
   east_counties,
   title="2020台灣總統大選東部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
+##### Outlying Islands
+
 ```{r presidential_island_region_bar_pct_diff, fig.height=3, fig.width=8}
 plot_region_share_diff(
   island_counties,
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
-
-#### By Polling Place
-
-##### Zoom-In: Taipei
-
-##### Zoom-In: New Taipei
-
-##### Zoom-In: Kaohsiung
-
-##### Zoom-In: Tainan
-
-##### Zoom-In: Taichung
-
-Polling place is the lowest level of aggregation we have for the election results.
 
 ### Invalid Votes {.tabset .tabset-fade .tabset-pills}
 
@@ -340,16 +346,6 @@ Polling place is the lowest level of aggregation we have for the election result
 
 #### By Polling Place
 
-##### Zoom-In: Taipei
-
-##### Zoom-In: New Taipei
-
-##### Zoom-In: Kaohsiung
-
-##### Zoom-In: Tainan
-
-##### Zoom-In: Taichung
-
 ### Voting Rates {.tabset .tabset-fade .tabset-pills}
 
 Definition of voting rate?
@@ -357,8 +353,6 @@ Definition of voting rate?
 #### By County
 
 ```{r process_presidential_county_voting_rate, results="hide"}
-setnames(p_county, "投票率H H=C÷G", "Voting_Rate")
-
 # Compute difference between DPP and KMT on the wide data as well.
 p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
 p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
@@ -372,74 +366,100 @@ p <- ggplot(p_county, aes(x=reorder(County, Voting_Rate), y=Voting_Rate)) +
   geom_bar(stat="identity", width=.8, fill="white", color="black") +
   geom_text(aes(label=paste(Voting_Rate, "%")), position=position_stack(vjust=.5), size=2.5) +
   labs(x="縣市（依投票率排序）", y="投票率 Voting Rate",
-       title="2020台灣總統大選各縣市：投票率 | Voting Rate by County") +
+       title="2020台灣總統大選各縣市：投票率") +
   coord_flip()
 
 ggplotly(p, width=800, height=600, tooltip=NULL)
 ```
 
 
-```{r}
+```{r presidential_county_vr_vsd}
 ggplot(p_county, aes(x=Voting_Rate, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(35, 80)) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.05) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
   geom_smooth(method="lm") +
-  geom_text(check_overlap=TRUE)
+  geom_text(check_overlap=TRUE) +
+  labs(x="投票率％", y="綠藍得票率差",
+       title="2020台灣總統大選各縣市：投票率 X 藍綠得票率差")
 ```
 
-```{r}
+```{r presidential_county_vr70_vsd}
 ggplot(p_county[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(70, 80)) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.05) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
-  geom_text_repel(color="grey40")
+  geom_text_repel(color="grey40") +
+  labs(x="投票率％", y="綠藍得票率差",
+       title="2020台灣總統大選各縣市：投票率(>70%) X 綠藍得票率差")
 ```
 
-```{r}
+```{r presidential_county_vr_vs, fig.width=8, fig.height=3}
 ggplot(p_county_l, aes(x=Voting_Rate, y=Votes_Share)) +
+  geom_rect(data=unique(p_county_l, by="Candidate"), aes(fill=Candidate),
+            xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
+  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
+  theme(legend.position="none") +
   geom_point() +
-  geom_smooth(method="lm") +
-  facet_grid(~ Candidate)
+  geom_smooth(method="lm", color="black") +
+  facet_grid(~ Candidate) +
+  labs(x="投票率％", y="得票率",
+       title="2020台灣總統大選各縣市：投票率 X 得票率")
 ```
 
 #### By County Sub-Region
 
-```{r}
-setnames(p_region, "投票率H H=C÷G", "Voting_Rate")
+```{r process_presidential_region_voting_rate}
+# Compute region-level voting rate and vote shares in the long data.
 p_region_l[p_region, Voting_Rate:=i.Voting_Rate, on=.(Region)]
-p_region_l[, Votes_Share:=Votes / sum(Vote), by=.(Region)]
+p_region_l[, Votes_Share:=Votes / sum(Votes), by=.(Region)]
 ```
 
-```{r}
+From the previous county-level visualization we realized that voting rate may be related to the difference between DDP and KMT candidates.
+Here we use a simple linear model to test the correlation based on region-level data:
+
+```{r lm_vr_vsd}
 lm_vr <- lm(Share_Diff ~ Voting_Rate, data=p_region_l)
 coeftest(lm_vr, vcov=vcovHC(lm_vr, type="HC0"))
 ```
 
-```{r}
+Apparently the correlation is significant.
+Let's also generate the region-level scatterplot:
+
+```{r presidential_region_vr_vsd}
 ggplot(p_region, aes(x=Voting_Rate, y=Share_Diff)) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
+            fill="lightgreen", alpha=.8) +
+  geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0),
+            fill="lightblue", alpha=.8) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
-  geom_smooth(method="lm")
+  geom_smooth(method="lm") +
+  labs(x="投票率％", y="綠藍得票率差",
+       title="2020台灣總統大選各鄉鎮市區：投票率 X 綠藍得票率差")
 ```
 
-```{r}
+```{r presidential_region_vr70_vsd}
 ggplot(p_region[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=Region)) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
-  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
+            fill="lightgreen", alpha=.8) +
+  geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0),
+            fill="lightblue", alpha=.8) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
   geom_smooth(method="lm", se=FALSE) +
-  geom_text(check_overlap=TRUE, nudge_y=-.035, color="darkgrey")
+  geom_text(check_overlap=TRUE, nudge_y=-.035, color="darkgrey") +
+  labs(x="投票率％", y="綠藍得票率差",
+       title="2020台灣總統大選各鄉鎮市區：投票率(>70%) X 綠藍得票率差")
 ```
 
-```{r}
+We can also test the correlation between voting rate and vote share of each candidate:
+
+```{r lm_vr_vs}
 for ( candidate in unique(p_region_l$Candidate) ) {
   lm_vr <- lm(Votes_Share ~ Voting_Rate, data=p_region_l[Candidate == candidate])
   message("Test correlation between vote shares and voting rates.")
@@ -448,25 +468,23 @@ for ( candidate in unique(p_region_l$Candidate) ) {
 }
 ```
 
-```{r}
+Interestingly,
+such correlation is not found for PFP (People First Party) candidates.
+
+```{r presidential_region_vr_vs, fig.width=8, fig.height=3}
 ggplot(p_region_l, aes(x=Voting_Rate, y=Votes_Share)) +
+  geom_rect(data=unique(p_region_l, by="Candidate"), aes(fill=Candidate),
+            xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
+  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
+  theme(legend.position="none") +
   geom_point() +
-  geom_smooth(method="lm") +
-  facet_grid(~ Candidate)
+  geom_smooth(method="lm", color="black") +
+  facet_grid(~ Candidate) +
+  labs(x="投票率％", y="得票率",
+       title="2020台灣總統大選各縣市：投票率 X 得票率")
 ```
 
-
 #### By Polling Place
-
-##### Zoom-In: Taipei
-
-##### Zoom-In: New Taipei
-
-##### Zoom-In: Kaohsiung
-
-##### Zoom-In: Tainan
-
-##### Zoom-In: Taichung
 
 ## The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
 
