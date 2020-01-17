@@ -182,7 +182,6 @@ p_county_diff <- unique(p_county_l, by="County")[
 tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Region")
 ```
 
-
 The pre-processed county result for presidential election is a *wide* format by county:
 
 ```{r show_presidential_county_result}
@@ -260,10 +259,63 @@ p_region_l <- p_region_l[, Candidate:=factor(Candidate)]  # Level by candidate n
 p_region_l[p_region, Share_Diff:=i.Share_Diff, on=.(Region)]
 
 setorder(p_region, -Share_Diff)
+
+# Group counties into areas.
+north_counties <- c("臺北市", "新北市", "基隆市", "新竹市", "桃園市", "新竹縣", "宜蘭縣")
+central_counties <- c("臺中市", "苗栗縣", "彰化縣", "南投縣", "雲林縣")
+south_counties <- c("高雄市", "臺南市", "嘉義市", "嘉義縣", "屏東縣", "澎湖縣")
+east_counties <- c("花蓮縣", "臺東縣")
+island_counties <- c("金門縣", "連江縣")
+
+# Helper function for share difference bar plot.
+plot_region_share_diff <- function(counties, title) {
+  DT <- p_region[By %in% counties]
+  DT[, By:=factor(By, levels=counties)]  # Fix order for facet grids.
+  DT[, Region2:=paste(By, Region)]  # Fixed order within facet (same-name region for different counties).
+  p <- ggplot(DT, aes(x=reorder(Region2, Share_Diff), y=Share_Diff)) +
+    geom_bar(stat="identity", width=.8, fill="white", color="black") +
+    geom_text(aes(label=scales::percent(Share_Diff)), position=position_stack(vjust=.5), size=2.5) +
+    labs(x="", y="", title=title) +
+    coord_flip() +
+    facet_grid(By ~ ., scales="free_y", space="free_y")
+  p
+}
 ```
 
-```{r}
-p_region[, .(By, Region, Share_Diff)]
+Vote share difference (DPP v.s. KMT) ranking by region across the nation:
+
+```{r share_diff_rank_by_region}
+p_region[, .(By, Region, Share_Diff, Vote_Diff)]
+```
+
+```{r presidential_north_region_bar_pct_diff, fig.height=17, fig.width=8}
+plot_region_share_diff(
+  north_counties,
+  title="2020台灣總統大選北部地區（鄉鎮市區）：綠藍得票率差")
+```
+
+```{r presidential_central_region_bar_pct_diff, fig.height=20, fig.width=8}
+plot_region_share_diff(
+  central_counties,
+  title="2020台灣總統大選中部地區（鄉鎮市區）：綠藍得票率差")
+```
+
+```{r presidential_south_region_bar_pct_diff, fig.height=22, fig.width=8}
+plot_region_share_diff(
+  south_counties,
+  title="2020台灣總統大選南部地區（鄉鎮市區）：綠藍得票率差")
+```
+
+```{r presidential_east_region_bar_pct_diff, fig.height=6, fig.width=8}
+plot_region_share_diff(
+  east_counties,
+  title="2020台灣總統大選東部地區（鄉鎮市區）：綠藍得票率差")
+```
+
+```{r presidential_island_region_bar_pct_diff, fig.height=3, fig.width=8}
+plot_region_share_diff(
+  island_counties,
+  title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
 
 #### By Polling Place
