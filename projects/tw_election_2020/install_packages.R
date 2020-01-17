@@ -2,9 +2,14 @@
 
 required_pkgs <- c(
     "rmarkdown",
+    "magrittr",
     "data.table",
-    "ggplot",
+    "scales",
+    "ggplot2",
+    "ggrepel",
     "plotly",
-    "sf"
+    "sf",
+    "lmtest",
+    "sandwich"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")

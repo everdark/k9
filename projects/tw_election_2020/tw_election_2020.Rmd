@@ -1,14 +1,15 @@
 ---
-title: "2020 Taiwanese Presidential Election Data"
-subtitle: ""
+title: "Data Visualization for TW General Election"
+subtitle: "On 2020 Presidential and Legislative Results"
 author:
 - name: Kyle Chung
   affiliation:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (19 Jan 2020 First Uploaded)"
 output:
   html_notebook:
+    code_folding: hide
     highlight: tango
-    number_sections: yes
+    number_sections: no
     theme: paper
     toc: yes
     toc_depth: 3
@@ -16,13 +17,13 @@ output:
     includes:
       in_header: /tmp/meta_header.html
   code_download: true
+  
 #bibliography: bootstrap.bib
 #nocite: |
 link-citations: yes
 abstract: |
   TBC.
 ---
-
 
 ```{r meta, include=FALSE}
 meta_header_file <- file("/tmp/meta_header.html")
@@ -39,7 +40,7 @@ meta <- c(
 contents <- meta
 
 # Add Github corner.
-github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_svg <- "../../assets/github_corner.html"
 github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/projects/tw_election_2020")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
 writeLines(contents, meta_header_file)
@@ -52,7 +53,11 @@ close(meta_header_file)
 #### Platform {-}
 
 The source data contains traditional Chinese characters encoded in UTF-8.
-To avoid troublesome encoding issues (especially in a Windows platform) the codes are only tested on Ubuntu.
+To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page) the **codes in this notebook are only tested on Ubuntu.**
+Codes are still working under Windows.
+Just that some code chunk may not be able to print out unicode characters nicely.
+^[For users who want to reproduce the output on a Windows machine,
+please comment out the `bash` executable ode chunk.]
 
 ```{bash}
 lsb_release -a
@@ -60,8 +65,8 @@ lsb_release -a
 
 #### Data {-}
 
-We use processed data for our analytics.
-Please refer to the repo [TW_Presidential_Election_2020](https://github.com/everdark/TW_Presidential_Election_2020) for details about the pre-processing.
+We use minimally pre-processed data for our analytics.
+Please refer to the repo [TW_Presidential_Election_2020](https://github.com/everdark/TW_Presidential_Election_2020) for details about the pre-processing logic.
 
 For Taiwan map information,
 the `shp` file can be downloaded at [GADM.org](https://gadm.org/download_country_v3.html).
@@ -70,7 +75,7 @@ We put the unzipped files under `data/map`.
 #### Dependencies {-}
 
 In order to do map plotting,
-we need to install some additional libraries.
+we need to install some additional libraries for a Linux machine.
 
 Install [`gdal`](https://gdal.org/):
 
@@ -90,71 +95,327 @@ After installation of the above packages,
 we can then install and import the following R packages for this project:
 
 ```{r import, results="hide", message=FALSE, warning=FALSE}
+library(magrittr)
 library(data.table)
-library(sf)
+
+# For viualization.
 library(ggplot2)
+library(ggrepel)
 library(plotly)
+
+# For spatial data visualization.
+library(sf)
+
+# For linear modeling with robust std err.
+library(lmtest)
+library(sandwich)
 ```
+
+```{r check_pkg_ver}
+packageVersion("ggplot2")
+packageVersion("plotly")
+packageVersion("sf")
+```
+
 
 # Background
 
 TBC.
+https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
 
-# Presidential Election Results
+# Election Results {.tabset .tabset-fade .tabset-pills}
 
-## By County
+## The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
 
-```{r}
+### Valid Vote Counts {.tabset .tabset-fade .tabset-pills}
+
+#### By County
+
+First let's parse the county map information from a [shapefile](https://en.wikipedia.org/wiki/Shapefile):
+
+```{r parse_tw_county_map}
+# Read shapefile for spatial information about counties in Taiwan.
+tw_county_sf <- sf::st_read("data/map/gadm36_TWN_2.shp", quiet=TRUE)
+
+# Align county naming.
+tw_county_sf$NL_NAME_2 <- gsub("台中", "台中市", tw_county_sf$NL_NAME_2)
+tw_county_sf$NL_NAME_2 <- gsub("台南", "台南市", tw_county_sf$NL_NAME_2)
+tw_county_sf$NL_NAME_2 <- gsub("馬祖列島", "連江縣", tw_county_sf$NL_NAME_2)
+```
+
+Then parse the election results by county:
+
+```{r process_presidential_county, results="hide"}
 # Read county-level presidential election results.
-p_county <- fread("data/processed/presidential/presidential_counties.csv")
-p_county[, Region:=trimws(Region, whitespace = "[\\h\\v]")]  # Trim full-width white space.
+p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
+p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
+
+# Merge with shp to get English county name.
+p_county <- merge(p_county, tw_county_sf[, c("NL_NAME_2", "NAME_2")],
+                  by.y="NL_NAME_2", by.x="Region")
+p_county$geometry <-NULL
+setnames(p_county, "NAME_2", "RegionEn")
+p_county[, County:=paste(Region, RegionEn)]
 
 # Melt from wide to long for plotting purpose.
-p_county_l <- melt(p_county[, 4:7], id.vars="Region", variable.name="Candidate", value.name="Votes")
+cols_region <- c("County", "Region", "RegionEn")
+cols_candidate <- c("(1) 宋楚瑜 余湘", "(2) 韓國瑜 張善政", "(3) 蔡英文 賴清德")
+p_county_l <- melt(p_county[, c(cols_region, cols_candidate), with=FALSE],
+                   id.vars=cols_region, variable.name="Candidate", value.name="Votes")
 p_county_l <- p_county_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
 
 # Compute difference between DPP and KMT by county.
-setorder(p_county_l, Region, Candidate)
-p_county_l <- p_county_l[, Votes_Diff:=Votes[3] - Votes[2], by=.(Region)]
+setorder(p_county_l, County, Candidate)
+p_county_l[, Votes_Diff:=Votes[3] - Votes[2], by=.(County)]
 
 # Compute total votes by county.
-p_county_l <- p_county_l[, Total_Votes:=sum(Votes), by=.(Region)]
+p_county_l[, Total_Votes:=sum(Votes), by=.(County)]
 
 # Compute share by county.
-p_county_l <- p_county_l[, Votes_Share:=Votes / Total_Votes]
+p_county_l[, Votes_Share:=Votes / Total_Votes]
+p_county_l[, Share_Diff:=Votes_Share[3] - Votes_Share[2], by=.(County)]
+p_county_diff <- unique(p_county_l, by="County")[
+  , c(cols_region, "Total_Votes", "Share_Diff"), with=FALSE]
 
-# Show Taipei.
-p_county_l[Region == "臺北市"]
+# Join share diff to spatial dataframe.
+tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Region")
 ```
 
-```{r}
-p <- ggplot(p_county_l, aes(x=reorder(Region, Total_Votes), y=Votes, fill=Candidate)) +
+
+The pre-processed county result for presidential election is a *wide* format by county:
+
+```{r show_presidential_county_result}
+head(p_county)
+```
+
+And we've reshaped it into a *long* format for ease of plotting:
+
+```{r show_presidential_taiepi}
+# Show result for Taipei.
+p_county_l[Region == "台北市"]
+```
+
+```{r presidential_county_bar}
+p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes, fill=Candidate)) +
   geom_bar(stat="identity", position="dodge", width=.8) +
-  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
-  labs(x="縣市", y="得票數",
-       title="2020台灣總統大選候選人各縣市得票數",
-       caption="各縣市依總票數排序") +
+  scale_fill_manual(name="候選人", values=c("darkorange", "dodgerblue", "green3")) +
+  scale_y_continuous(labels=scales::comma) +
+  labs(x="縣市（依總票數排序）", y="得票數",
+       title="2020台灣總統大選候選人各縣市：得票數") +
   coord_flip() +
   theme(legend.position="bottom")
-#ggplotly(p, width=750, height=480)
-p
+
+ggplotly(p, width=800, height=600)
 ```
 
-```{r}
-p <- ggplot(p_county_l, aes(x=reorder(Region, Total_Votes), y=Votes_Share, fill=Candidate)) +
+```{r presidential_county_bar_pct}
+p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes_Share, fill=Candidate)) +
   geom_bar(stat="identity", position="stack", width=.8) +
   geom_text(aes(label=scales::percent(Votes_Share)), position=position_stack(vjust=.5), size=2) +
-  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
-  labs(x="縣市", y="得票率") +
+  scale_fill_manual(name="候選人", values=c("darkorange", "dodgerblue", "green3")) +
+  labs(x="縣市（依總票數排序）", y="得票率",
+       title="2020台灣總統大選候選人各縣市：得票率") +
   coord_flip() +
   theme(legend.position="bottom")
-ggplotly(p, width=750, height=480)
+
+ggplotly(p, width=800, height=600)
+```
+
+```{r presidential_county_bar_pct_diff}
+p <- ggplot(p_county_diff, aes(x=reorder(County, Share_Diff), y=Share_Diff)) +
+  geom_bar(stat="identity", width=.8, fill="white", color="black") +
+  geom_text(aes(label=scales::percent(Share_Diff)), position=position_stack(vjust=.5), size=2.5) +
+  labs(x="縣市（依得票率差排序）", y="綠藍得票率差",
+       title="2020台灣總統大選各縣市：綠藍得票率差") +
+  coord_flip()
+
+ggplotly(p, width=800, height=600)
+```
+
+```{r presidential_county_map}
+p <- ggplot(tw_county_sf, aes(text=County)) +
+  geom_sf(aes(fill=Share_Diff)) +
+  coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
+  scale_fill_gradient(name="綠藍得票率差", low="blue3", high="green3") +
+  labs(title="2020台灣總統大選各縣市：綠藍得票率差")
+
+ggplotly(p, width=800, height=600)
+```
+
+#### By County Sub-Region
+
+```{r process_presidential_region, results="hide"}
+p_region <- fread("data/processed/presidential/presidential_regions.csv", encoding="UTF-8")
+p_region[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+
+# Compute difference between DPP and KMT by region.
+p_region[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_region[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+
+# Wide to long.
+p_region_l <- melt(p_region[, c("By", "Region", cols_candidate), with=FALSE],
+                   id.vars=c("By", "Region"), variable.name="Candidate", value.name="Votes")
+p_region_l <- p_region_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
+p_region_l[p_region, Share_Diff:=i.Share_Diff, on=.(Region)]
+
+setorder(p_region, -Share_Diff)
+```
+
+```{r}
+p_region[, .(By, Region, Share_Diff)]
+```
+
+#### By Polling Place
+
+##### Zoom-In: Taipei
+
+##### Zoom-In: New Taipei
+
+##### Zoom-In: Kaohsiung
+
+##### Zoom-In: Tainan
+
+##### Zoom-In: Taichung
+
+Polling place is the lowest level of aggregation we have for the election results.
+
+### Invalid Votes {.tabset .tabset-fade .tabset-pills}
+
+#### By County
+
+#### By County Sub-Region
+
+#### By Polling Place
+
+##### Zoom-In: Taipei
+
+##### Zoom-In: New Taipei
+
+##### Zoom-In: Kaohsiung
+
+##### Zoom-In: Tainan
+
+##### Zoom-In: Taichung
+
+### Voting Rates {.tabset .tabset-fade .tabset-pills}
+
+Definition of voting rate?
+
+#### By County
+
+```{r process_presidential_county_voting_rate, results="hide"}
+setnames(p_county, "投票率H H=C÷G", "Voting_Rate")
+
+# Compute difference between DPP and KMT on the wide data as well.
+p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+
+# Get voting rate from wide data to long.
+p_county_l[p_county, Voting_Rate:=i.Voting_Rate, on=.(County)]
+```
+
+```{r presidential_county_voting_rate_bar}
+p <- ggplot(p_county, aes(x=reorder(County, Voting_Rate), y=Voting_Rate)) +
+  geom_bar(stat="identity", width=.8, fill="white", color="black") +
+  geom_text(aes(label=paste(Voting_Rate, "%")), position=position_stack(vjust=.5), size=2.5) +
+  labs(x="縣市（依投票率排序）", y="投票率 Voting Rate",
+       title="2020台灣總統大選各縣市：投票率 | Voting Rate by County") +
+  coord_flip()
+
+ggplotly(p, width=800, height=600, tooltip=NULL)
 ```
 
 
 ```{r}
-tw_shp <- st_read("data/map/gadm36_TWN_2.shp")
+ggplot(p_county, aes(x=Voting_Rate, y=Share_Diff, label=County)) +
+  scale_x_continuous(limits=c(35, 80)) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_hline(aes(yintercept=0), color="red") +
+  geom_point() +
+  geom_smooth(method="lm") +
+  geom_text(check_overlap=TRUE)
+```
+
+```{r}
+ggplot(p_county[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=County)) +
+  scale_x_continuous(limits=c(70, 80)) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_hline(aes(yintercept=0), color="red") +
+  geom_point() +
+  geom_text_repel(color="grey40")
+```
+
+```{r}
+ggplot(p_county_l, aes(x=Voting_Rate, y=Votes_Share)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  facet_grid(~ Candidate)
+```
+
+#### By County Sub-Region
+
+```{r}
+setnames(p_region, "投票率H H=C÷G", "Voting_Rate")
+p_region_l[p_region, Voting_Rate:=i.Voting_Rate, on=.(Region)]
+p_region_l[, Votes_Share:=Votes / sum(Vote), by=.(Region)]
+```
+
+```{r}
+lm_vr <- lm(Share_Diff ~ Voting_Rate, data=p_region_l)
+coeftest(lm_vr, vcov=vcovHC(lm_vr, type="HC0"))
+```
+
+```{r}
+ggplot(p_region, aes(x=Voting_Rate, y=Share_Diff)) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_hline(aes(yintercept=0), color="red") +
+  geom_point() +
+  geom_smooth(method="lm")
+```
+
+```{r}
+ggplot(p_region[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=Region)) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.01) +
+  geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.01) +
+  geom_hline(aes(yintercept=0), color="red") +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE) +
+  geom_text(check_overlap=TRUE, nudge_y=-.035, color="darkgrey")
+```
+
+```{r}
+for ( candidate in unique(p_region_l$Candidate) ) {
+  lm_vr <- lm(Votes_Share ~ Voting_Rate, data=p_region_l[Candidate == candidate])
+  message("Test correlation between vote shares and voting rates.")
+  message(sprintf("For %s:", candidate))
+  print(coeftest(lm_vr, vcov=vcovHC(lm_vr, type="HC0")))
+}
+```
+
+```{r}
+ggplot(p_region_l, aes(x=Voting_Rate, y=Votes_Share)) +
+  geom_point() +
+  geom_smooth(method="lm") +
+  facet_grid(~ Candidate)
 ```
 
 
-# Legislative Election Results
+#### By Polling Place
+
+##### Zoom-In: Taipei
+
+##### Zoom-In: New Taipei
+
+##### Zoom-In: Kaohsiung
+
+##### Zoom-In: Tainan
+
+##### Zoom-In: Taichung
+
+## The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
+
+TBC.
