@@ -2,7 +2,7 @@
 
 import itertools
 
-import mxnet
+from mxnet import gluon
 import sentencepiece as spm
 from gluonnlp.data import IMDB, SentencepieceTokenizer, PadSequence
 from mxnet.gluon.data import SimpleDataset
@@ -12,7 +12,7 @@ from mxnet.gluon.data import SimpleDataset
 imdb_train = IMDB("train")
 imdb_test = IMDB("test")
 imdb_review_train, imdb_s_train = zip(*imdb_train)
-imdb_y_train = [1 if s > 5 else 0 for s in imdb_s_train]
+imdb_y_train = SimpleDataset([1 if s > 5 else 0 for s in imdb_s_train])
 
 
 # Train a sentencepiece tokenizer.
@@ -48,6 +48,8 @@ imdb_x_train = [encode(toks) for toks in imdb_tok_train]
 # TODO: Wrap x and y before making a dataset?
 maxlen = max([len(x) for x in imdb_x_train])
 dataset = SimpleDataset(imdb_x_train)
+
+
 dataset = dataset.transform(PadSequence(maxlen))
 dataset = dataset.transform(mxnet.nd.array)
 
