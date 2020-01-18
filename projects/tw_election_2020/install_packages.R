@@ -2,7 +2,6 @@
 
 required_pkgs <- c(
     "rmarkdown",
-    "magrittr",
     "data.table",
     "scales",
     "ggplot2",

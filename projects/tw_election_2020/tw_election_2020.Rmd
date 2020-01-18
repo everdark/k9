@@ -88,7 +88,6 @@ After installation of the above packages,
 we can then install and import the following R packages for this project:
 
 ```{r import, results="hide", message=FALSE, warning=FALSE, class.source="fold-show"}
-library(magrittr)
 library(data.table)
 
 # For viualization.
