@@ -32,7 +32,7 @@ meta_header_file <- file("/tmp/meta_header.html")
 # Add open graph meta.
 meta <- c(
   '<meta name="author" content="Kyle Chung">',
-  '<meta property="og:title" content="Bootstrap Sampling">',
+  '<meta property="og:title" content="Bootstrap Sampling 101">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html">',
   '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
