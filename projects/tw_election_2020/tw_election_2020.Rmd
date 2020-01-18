@@ -56,12 +56,6 @@ The source data contains traditional Chinese characters encoded in UTF-8.
 To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page) the **codes in this notebook are only tested on Ubuntu.**
 Codes are still working under Windows.
 Just that some code chunk may not be able to print out unicode characters nicely.
-^[For users who want to reproduce the output on a Windows machine,
-please comment out the `bash` executable ode chunk.]
-
-```{bash}
-lsb_release -a
-```
 
 #### Data {-}
 
