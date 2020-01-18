@@ -1,23 +1,22 @@
 ---
-title: "Data Visualization for TW General Election"
-subtitle: "On 2020 Presidential and Legislative Results"
+title: "Visualization for TW General Election"
+subtitle: "2020 Presidential and Legislative Results"
 author:
 - name: Kyle Chung
   affiliation:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (19 Jan 2020 First Uploaded)"
 output:
+
   html_notebook:
     code_folding: hide
+    fig_caption: yes
     highlight: tango
-    number_sections: no
-    theme: paper
-    toc: yes
-    toc_depth: 3
-    toc_float: yes
     includes:
       in_header: /tmp/meta_header.html
+    theme: paper
+    toc: yes
+    toc_float: yes
   code_download: true
-  
 #bibliography: bootstrap.bib
 #nocite: |
 link-citations: yes
@@ -53,7 +52,7 @@ close(meta_header_file)
 #### Platform {-}
 
 The source data contains traditional Chinese characters encoded in UTF-8.
-To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page) the **codes in this notebook are only tested on Ubuntu.**
+To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page) the **codes in this notebook are only tested on Ubuntu and macOS.**
 Codes are still working under Windows.
 Just that some code chunk may not be able to print out unicode characters nicely.
 
@@ -88,7 +87,7 @@ sudo apt install libudunits2-dev
 After installation of the above packages,
 we can then install and import the following R packages for this project:
 
-```{r import, results="hide", message=FALSE, warning=FALSE}
+```{r import, results="hide", message=FALSE, warning=FALSE, class.source="fold-show"}
 library(magrittr)
 library(data.table)
 
@@ -96,6 +95,9 @@ library(data.table)
 library(ggplot2)
 library(ggrepel)
 library(plotly)
+
+# Fix macOS ggplot device Chinese font.
+theme_set(theme_get() + theme(text=element_text(family="Heiti TC Light")))
 
 # For spatial data visualization.
 library(sf)
@@ -105,19 +107,12 @@ library(lmtest)
 library(sandwich)
 ```
 
-```{r check_pkg_ver}
-packageVersion("ggplot2")
-packageVersion("plotly")
-packageVersion("sf")
-```
-
-
 # Background
 
 TBC.
 https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
 
-# Election Results {.tabset .tabset-fade .tabset-pills}
+# Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills}
 
 ## The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
 
@@ -127,7 +122,7 @@ https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
 
 First let's parse the county map information from a [shapefile](https://en.wikipedia.org/wiki/Shapefile):
 
-```{r parse_tw_county_map}
+```{r parse_tw_county_map, class.source="fold-show"}
 # Read shapefile for spatial information about counties in Taiwan.
 tw_county_sf <- sf::st_read("data/map/gadm36_TWN_2.shp", quiet=TRUE)
 
@@ -139,12 +134,12 @@ tw_county_sf$NL_NAME_2 <- gsub("馬祖列島", "連江縣", tw_county_sf$NL_NAME
 
 Then parse the election results by county:
 
-```{r process_presidential_county, results="hide"}
+```{r process_presidential_county, class.source="fold-show", results="hide"}
 # Read county-level presidential election results.
 p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
 p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
 p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
-setnames(p_county, "投票率H H=C÷G", "Voting_Rate")
+setnames(p_county, "投票率H H=C÷G", "Turnout")
 
 # Merge with shp to get English county name.
 p_county <- merge(p_county, tw_county_sf[, c("NL_NAME_2", "NAME_2")],
@@ -172,15 +167,20 @@ p_county_l[, Votes_Share:=Votes / Total_Votes]
 p_county_l[, Share_Diff:=Votes_Share[3] - Votes_Share[2], by=.(County)]
 p_county_diff <- unique(p_county_l, by="County")[
   , c(cols_region, "Total_Votes", "Share_Diff"), with=FALSE]
+p_county_diff[, dpp_win:=Share_Diff > 0]
 
 # Join share diff to spatial dataframe.
 tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Region")
+
+# Compute difference between DPP and KMT on the wide data as well.
+p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
 ```
 
 The pre-processed county result for presidential election is a *wide* format by county:
 
 ```{r show_presidential_county_result}
-head(p_county)
+head(p_county[, -c(1:3)])
 ```
 
 And we've reshaped it into a *long* format for ease of plotting:
@@ -190,7 +190,9 @@ And we've reshaped it into a *long* format for ease of plotting:
 p_county_l[Region == "台北市"]
 ```
 
-```{r presidential_county_bar}
+Plot vote counts by county:
+
+```{r presidential_county_bar, fig.cap="2020 Presidential Election Vote Counts by County"}
 p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes, fill=Candidate)) +
   geom_bar(stat="identity", position="dodge", width=.8) +
   scale_fill_manual(name="候選人", values=c("darkorange", "dodgerblue", "green3")) +
@@ -203,7 +205,9 @@ p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes, fill=Candid
 ggplotly(p, width=800, height=600)
 ```
 
-```{r presidential_county_bar_pct}
+And also vote shares (vote counts / total valid votes):
+
+```{r presidential_county_bar_pct, fig.cap="2020 Presidential Election Vote Shares by County"}
 p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes_Share, fill=Candidate)) +
   geom_bar(stat="identity", position="stack", width=.8) +
   geom_text(aes(label=scales::percent(Votes_Share)), position=position_stack(vjust=.5), size=2) +
@@ -216,9 +220,15 @@ p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes_Share, fill=
 ggplotly(p, width=800, height=600)
 ```
 
-```{r presidential_county_bar_pct_diff}
-p <- ggplot(p_county_diff, aes(x=reorder(County, Share_Diff), y=Share_Diff)) +
-  geom_bar(stat="identity", width=.8, fill="white", color="black") +
+Since the main parties are DDP and KMT,
+we define vote share difference as vote share of DDP minus that of KMT.
+The following barplot gives us a clear view of which county DPP won the most.
+
+```{r presidential_county_bar_pct_diff, fig.cap="2020 Presidential Election Vote Share Difference (DPP's - KMT's) by County"}
+p <- ggplot(p_county_diff, aes(x=reorder(County, Share_Diff), fill=dpp_win, y=Share_Diff)) +
+  geom_bar(stat="identity", width=.8, color="black", alpha=.5) +
+  scale_fill_manual(values=c("dodgerblue", "green3")) +
+  theme(legend.position="none") +
   geom_text(aes(label=scales::percent(Share_Diff)), position=position_stack(vjust=.5), size=2.5) +
   labs(x="縣市（依得票率差排序）", y="綠藍得票率差",
        title="2020台灣總統大選各縣市：綠藍得票率差") +
@@ -227,7 +237,9 @@ p <- ggplot(p_county_diff, aes(x=reorder(County, Share_Diff), y=Share_Diff)) +
 ggplotly(p, width=800, height=600)
 ```
 
-```{r presidential_county_map}
+We can also visualize the above ranking with a choropleth map:
+
+```{r presidential_county_map, fig.cap="Choropleth Map for Vote Share Differences (DPP's - KMT's)"}
 p <- ggplot(tw_county_sf, aes(text=County)) +
   geom_sf(aes(fill=Share_Diff)) +
   coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
@@ -237,13 +249,15 @@ p <- ggplot(tw_county_sf, aes(text=County)) +
 ggplotly(p, width=800, height=600)
 ```
 
+Apparently DPP won most counties besides maintain and outlying island areas.
+
 #### By County Sub-Region {.tabset .tabset-fade .tabset-pills}
 
 ```{r process_presidential_region, results="hide"}
 # Read county subregion-level presidential election results.
 p_region <- fread("data/processed/presidential/presidential_regions.csv", encoding="UTF-8")
 p_region[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
-setnames(p_region, "投票率H H=C÷G", "Voting_Rate")
+setnames(p_region, "投票率H H=C÷G", "Turnout")
 
 # Compute difference between DPP and KMT by region.
 p_region[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
@@ -269,8 +283,11 @@ plot_region_share_diff <- function(counties, title) {
   DT <- p_region[By %in% counties]
   DT[, By:=factor(By, levels=counties)]  # Fix order for facet grids.
   DT[, Region2:=paste(By, Region)]  # Fixed order within facet (same-name region for different counties).
-  p <- ggplot(DT, aes(x=reorder(Region2, Share_Diff), y=Share_Diff)) +
-    geom_bar(stat="identity", width=.8, fill="white", color="black") +
+  DT[, dpp_win:=Share_Diff > 0]
+  p <- ggplot(DT, aes(x=reorder(Region2, Share_Diff), y=Share_Diff, fill=dpp_win)) +
+    geom_bar(stat="identity", width=.8, color="black", alpha=.5) +
+    scale_fill_manual(values=c("dodgerblue", "green3")) +
+    theme(legend.position="none") +
     geom_text(aes(label=scales::percent(Share_Diff)), position=position_stack(vjust=.5), size=2.5) +
     labs(x="", y="", title=title) +
     coord_flip() +
@@ -291,6 +308,8 @@ p_region_rank[]
 ```
 
 We bar-plot the above ranking by region by county:
+
+**TODO: Adjust font (too small) or fig size.**
 
 ##### North Taiwan
 
@@ -332,25 +351,90 @@ plot_region_share_diff(
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-### Invalid Votes {.tabset .tabset-fade .tabset-pills}
+### Invalid Vote Counts {.tabset .tabset-fade .tabset-pills}
+
+[Invalid votes](https://en.wikipedia.org/wiki/Spoilt_vote) are votes cast but declared invalid.
+There is no way to objectively record the intention of an invalid vote,
+here we simply statistically describe the share of invalid votes from total votes cast.
 
 #### By County
 
+```{r process_presidential_invalid_votes_county, results="hide"}
+# Process invalid votes by county.
+p_county[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
+p_county[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
+
+# Join invalid vote shares to spatial dataframe.
+tw_county_sf <- merge(tw_county_sf, p_county[, .(Region, Invalid_Votes_ShareP)], by.x="NL_NAME_2", by.y="Region")
+```
+
+```{r presidential_county_bar_pct_invalid, fig.cap="2020 Presidential Election Invalid Vote Shares by County"}
+p <- ggplot(p_county, aes(x=reorder(County, Invalid_Votes_Share), y=Invalid_Votes_ShareP)) +
+  geom_bar(stat="identity", width=.8, fill="white", color="black") +
+  geom_text(aes(label=scales::percent(Invalid_Votes_Share)), position=position_stack(vjust=.5), size=2.5) +
+  labs(x="縣市（依廢票率排序）", y="廢票率％",
+       title="2020台灣總統大選各縣市：廢票率") +
+  coord_flip()
+
+ggplotly(p, width=800, height=600)
+```
+
+To see the geolocational differences:
+
+```{r presidential_county_map_invalid, fig.cap="Choropleth Map for Invalid Vote Shares"}
+p <- ggplot(tw_county_sf, aes(text=County)) +
+  geom_sf(aes(fill=Invalid_Votes_ShareP)) +
+  coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
+  scale_fill_gradient(name="廢票率％", low="white", high="black") +
+  labs(title="2020台灣總統大選各縣市：廢票率％")
+
+ggplotly(p, width=800, height=600)
+```
+
+Check if there is any correlation between invalid votes and the DPP-KMT differences:
+
+```{r presidential_invalid_vsd, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by County"}
+p <- ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
+  geom_point(shape=4, size=4) +
+  labs(x="廢票率", y="綠藍得票率差",
+       title="2020台灣總統大選各縣市：廢票率Ｘ綠藍得票率差")
+ggplotly(p, width=800, height=600)
+```
+
 #### By County Sub-Region
 
-#### By Polling Place
+```{r process_presidential_invalid_votes_region, results="hide"}
+# Process invalid votes by region.
+p_region[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
+p_region[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
+```
 
-### Voting Rates {.tabset .tabset-fade .tabset-pills}
+```{r presidential_invalid_vsd, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by Region"}
+p <- ggplot(p_region, aes(x=Invalid_Votes_Share, y=Share_Diff, label=paste(By, Region))) +
+  geom_point(shape=4, size=4) +
+  labs(x="廢票率", y="綠藍得票率差",
+       title="2020台灣總統大選各鄉鎮市區：廢票率Ｘ綠藍得票率差") +
+       geom_smooth(method="lm", color="black")
+ggplotly(p, width=800, height=600)
+```
 
-Definition of voting rate?
+A simple linear model on invalid vote shares against DPP-KMT share differences suggests the correlation is at least statistically significant.
+But such correlation may be [*spurious*](https://en.wikipedia.org/wiki/Spurious_relationship) so the interpretation shall be cautious.
+
+```{r lm_invalid}
+lm_invalid <- lm(Share_Diff ~ Invalid_Votes_ShareP, data=p_region)
+coeftest(lm_invalid, vcov=vcovHC(lm_invalid, type="HC0"))
+```
+
+### Voter Turnout {.tabset .tabset-fade .tabset-pills}
+
+[Voter turnout](https://en.wikipedia.org/wiki/Voter_turnout) is defined as total votes cast (valid and invalid) divided by legitimate voters.
+The information is readily available in the source data from the column `投票率H H=C÷G`.
+In this section we explore the possible relation between turnout and vote counts.
 
 #### By County
 
 ```{r process_presidential_county_voting_rate, results="hide"}
-# Compute difference between DPP and KMT on the wide data as well.
-p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
-p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
-
 # Get voting rate from wide data to long.
 p_county_l[p_county, Voting_Rate:=i.Voting_Rate, on=.(County)]
 ```
@@ -377,7 +461,7 @@ ggplot(p_county, aes(x=Voting_Rate, y=Share_Diff, label=County)) +
   geom_smooth(method="lm") +
   geom_text(check_overlap=TRUE) +
   labs(x="投票率％", y="綠藍得票率差",
-       title="2020台灣總統大選各縣市：投票率 X 藍綠得票率差")
+       title="2020台灣總統大選各縣市：投票率Ｘ藍綠得票率差")
 ```
 
 ```{r presidential_county_vr70_vsd}
@@ -479,6 +563,8 @@ ggplot(p_region_l, aes(x=Voting_Rate, y=Votes_Share)) +
 ```
 
 #### By Polling Place
+
+### Voter Turnout Counts {.tabset .tabset-fade .tabset-pills}
 
 ## The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
 
