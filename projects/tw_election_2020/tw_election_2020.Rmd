@@ -434,25 +434,27 @@ In this section we explore the possible relation between turnout and vote counts
 
 #### By County
 
-```{r process_presidential_county_voting_rate, results="hide"}
+```{r process_presidential_county_turnout, results="hide"}
 # Get voting rate from wide data to long.
-p_county_l[p_county, Voting_Rate:=i.Voting_Rate, on=.(County)]
+p_county_l[p_county, Turnout:=i.Turnout, on=.(County)]
 ```
 
-```{r presidential_county_voting_rate_bar}
-p <- ggplot(p_county, aes(x=reorder(County, Voting_Rate), y=Voting_Rate)) +
+```{r presidential_county_turnout_bar, fig.cap="2020 Presidential Election Voter Turnout by County"}
+p <- ggplot(p_county, aes(x=reorder(County, Turnout), y=Turnout)) +
   geom_bar(stat="identity", width=.8, fill="white", color="black") +
-  geom_text(aes(label=paste(Voting_Rate, "%")), position=position_stack(vjust=.5), size=2.5) +
-  labs(x="縣市（依投票率排序）", y="投票率 Voting Rate",
+  geom_text(aes(label=paste(Turnout, "%")), position=position_stack(vjust=.5), size=2.5) +
+  labs(x="縣市（依投票率排序）", y="投票率",
        title="2020台灣總統大選各縣市：投票率") +
   coord_flip()
 
 ggplotly(p, width=800, height=600, tooltip=NULL)
 ```
 
+It is widely suggested that an increasing voter turnout due to younger generation this time can hugely impact the results.
+Here we plot the turnout against DPP-KMT share differences by county:
 
-```{r presidential_county_vr_vsd}
-ggplot(p_county, aes(x=Voting_Rate, y=Share_Diff, label=County)) +
+```{r presidential_county_turnout_vsd}
+ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(35, 80)) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.05) +
@@ -464,8 +466,10 @@ ggplot(p_county, aes(x=Voting_Rate, y=Share_Diff, label=County)) +
        title="2020台灣總統大選各縣市：投票率Ｘ藍綠得票率差")
 ```
 
-```{r presidential_county_vr70_vsd}
-ggplot(p_county[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=County)) +
+We zoom-in in the following plot for those with turnout > 70%:
+
+```{r presidential_county_turnout70_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by County"}
+ggplot(p_county[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(70, 80)) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0), fill="lightblue", alpha=.05) +
@@ -473,11 +477,13 @@ ggplot(p_county[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=County
   geom_point() +
   geom_text_repel(color="grey40") +
   labs(x="投票率％", y="綠藍得票率差",
-       title="2020台灣總統大選各縣市：投票率(>70%) X 綠藍得票率差")
+       title="2020台灣總統大選各縣市：投票率(>70%)Ｘ綠藍得票率差")
 ```
 
-```{r presidential_county_vr_vs, fig.width=8, fig.height=3}
-ggplot(p_county_l, aes(x=Voting_Rate, y=Votes_Share)) +
+We can also visualize the turnout relation on each party candidate instead:
+
+```{r presidential_county_turnout_vs, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by County"}
+ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
   geom_rect(data=unique(p_county_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
   scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
@@ -486,30 +492,30 @@ ggplot(p_county_l, aes(x=Voting_Rate, y=Votes_Share)) +
   geom_smooth(method="lm", color="black") +
   facet_grid(~ Candidate) +
   labs(x="投票率％", y="得票率",
-       title="2020台灣總統大選各縣市：投票率 X 得票率")
+       title="2020台灣總統大選各縣市：投票率Ｘ得票率")
 ```
 
 #### By County Sub-Region
 
-```{r process_presidential_region_voting_rate}
+```{r process_presidential_region_turnout}
 # Compute region-level voting rate and vote shares in the long data.
-p_region_l[p_region, Voting_Rate:=i.Voting_Rate, on=.(Region)]
+p_region_l[p_region, Turnout:=i.Turnout, on=.(Region)]
 p_region_l[, Votes_Share:=Votes / sum(Votes), by=.(Region)]
 ```
 
-From the previous county-level visualization we realized that voting rate may be related to the difference between DDP and KMT candidates.
+From the previous county-level visualization we realized that turnout may be related to the difference between DDP and KMT candidates.
 Here we use a simple linear model to test the correlation based on region-level data:
 
-```{r lm_vr_vsd}
-lm_vr <- lm(Share_Diff ~ Voting_Rate, data=p_region_l)
-coeftest(lm_vr, vcov=vcovHC(lm_vr, type="HC0"))
+```{r lm_turnout_vsd}
+lm_turnout <- lm(Share_Diff ~ Turnout, data=p_region_l)
+coeftest(lm_turnout, vcov=vcovHC(lm_turnout, type="HC0"))
 ```
 
 Apparently the correlation is significant.
 Let's also generate the region-level scatterplot:
 
-```{r presidential_region_vr_vsd}
-ggplot(p_region, aes(x=Voting_Rate, y=Share_Diff)) +
+```{r presidential_region_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by Region"}
+ggplot(p_region, aes(x=Turnout, y=Share_Diff)) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
             fill="lightgreen", alpha=.8) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0),
@@ -518,11 +524,13 @@ ggplot(p_region, aes(x=Voting_Rate, y=Share_Diff)) +
   geom_point() +
   geom_smooth(method="lm") +
   labs(x="投票率％", y="綠藍得票率差",
-       title="2020台灣總統大選各鄉鎮市區：投票率 X 綠藍得票率差")
+       title="2020台灣總統大選各鄉鎮市區：投票率Ｘ綠藍得票率差")
 ```
 
-```{r presidential_region_vr70_vsd}
-ggplot(p_region[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=Region)) +
+Again with additional zoom-in:
+
+```{r presidential_region_turnout70_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by Region"}
+ggplot(p_region[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=Region)) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
             fill="lightgreen", alpha=.8) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=0),
@@ -532,25 +540,26 @@ ggplot(p_region[Voting_Rate > 70], aes(x=Voting_Rate, y=Share_Diff, label=Region
   geom_smooth(method="lm", se=FALSE) +
   geom_text(check_overlap=TRUE, nudge_y=-.035, color="darkgrey") +
   labs(x="投票率％", y="綠藍得票率差",
-       title="2020台灣總統大選各鄉鎮市區：投票率(>70%) X 綠藍得票率差")
+       title="2020台灣總統大選各鄉鎮市區：投票率(>70%)Ｘ綠藍得票率差")
 ```
 
-We can also test the correlation between voting rate and vote share of each candidate:
+We can also test the correlation between turnout and vote share of each party's candidates:
 
 ```{r lm_vr_vs}
 for ( candidate in unique(p_region_l$Candidate) ) {
-  lm_vr <- lm(Votes_Share ~ Voting_Rate, data=p_region_l[Candidate == candidate])
-  message("Test correlation between vote shares and voting rates.")
+  lm_turnout_candidiate <- lm(Votes_Share ~ Turnout, data=p_region_l[Candidate == candidate])
+  message(rep("-", 80))
+  message("Test correlation between vote shares and voter turnout.")
   message(sprintf("For %s:", candidate))
-  print(coeftest(lm_vr, vcov=vcovHC(lm_vr, type="HC0")))
+  print(coeftest(lm_turnout_candidiate, vcov=vcovHC(lm_turnout_candidiate, type="HC0")))
 }
 ```
 
 Interestingly,
-such correlation is not found for PFP (People First Party) candidates.
+such correlation is not found for PFP candidates.
 
-```{r presidential_region_vr_vs, fig.width=8, fig.height=3}
-ggplot(p_region_l, aes(x=Voting_Rate, y=Votes_Share)) +
+```{r presidential_region_vr_vs, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Region"}
+ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
   geom_rect(data=unique(p_region_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
   scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
@@ -563,6 +572,8 @@ ggplot(p_region_l, aes(x=Voting_Rate, y=Votes_Share)) +
 ```
 
 #### By Polling Place
+
+TBC.
 
 ### Voter Turnout Counts {.tabset .tabset-fade .tabset-pills}
 
