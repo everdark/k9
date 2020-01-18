@@ -62,7 +62,7 @@ We use minimally pre-processed data for our analytics.
 Please refer to the repo [TW_Presidential_Election_2020](https://github.com/everdark/TW_Presidential_Election_2020) for details about the pre-processing logic.
 
 For Taiwan map information,
-the `shp` file can be downloaded at [GADM.org](https://gadm.org/download_country_v3.html).
+the `shp` file ([shapefile](https://en.wikipedia.org/wiki/Shapefile)) can be downloaded at [GADM.org](https://gadm.org/download_country_v3.html).
 We put the unzipped files under `data/map`.
 
 #### Dependencies {-}
@@ -119,9 +119,7 @@ https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
 
 #### By County
 
-First let's parse the county map information from a [shapefile](https://en.wikipedia.org/wiki/Shapefile):
-
-```{r parse_tw_county_map, class.source="fold-show"}
+```{r parse_tw_county_map}
 # Read shapefile for spatial information about counties in Taiwan.
 tw_county_sf <- sf::st_read("data/map/gadm36_TWN_2.shp", quiet=TRUE)
 
@@ -131,9 +129,7 @@ tw_county_sf$NL_NAME_2 <- gsub("台南", "台南市", tw_county_sf$NL_NAME_2)
 tw_county_sf$NL_NAME_2 <- gsub("馬祖列島", "連江縣", tw_county_sf$NL_NAME_2)
 ```
 
-Then parse the election results by county:
-
-```{r process_presidential_county, class.source="fold-show", results="hide"}
+```{r process_presidential_county, results="hide"}
 # Read county-level presidential election results.
 p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
 p_county <- p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
