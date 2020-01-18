@@ -574,8 +574,6 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
 
 TBC.
 
-### Voter Turnout Counts {.tabset .tabset-fade .tabset-pills}
-
 ## The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
 
 TBC.
