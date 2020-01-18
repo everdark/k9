@@ -136,8 +136,8 @@ Then parse the election results by county:
 ```{r process_presidential_county, class.source="fold-show", results="hide"}
 # Read county-level presidential election results.
 p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
-p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
-p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
+p_county <- p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+p_county <- p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
 setnames(p_county, "投票率H H=C÷G", "Turnout")
 
 # Merge with shp to get English county name.
@@ -145,7 +145,7 @@ p_county <- merge(p_county, tw_county_sf[, c("NL_NAME_2", "NAME_2")],
                   by.y="NL_NAME_2", by.x="Region")
 p_county$geometry <-NULL
 setnames(p_county, "NAME_2", "RegionEn")
-p_county[, County:=paste(Region, RegionEn)]
+p_county <- p_county[, County:=paste(Region, RegionEn)]
 
 # Melt from wide to long for plotting purpose.
 cols_region <- c("County", "Region", "RegionEn")
@@ -156,24 +156,24 @@ p_county_l <- p_county_l[, Candidate:=factor(Candidate)]  # Level by candidate n
 
 # Compute difference between DPP and KMT by county.
 setorder(p_county_l, County, Candidate)
-p_county_l[, Votes_Diff:=Votes[3] - Votes[2], by=.(County)]
+p_county_l <- p_county_l[, Votes_Diff:=Votes[3] - Votes[2], by=.(County)]
 
 # Compute total votes by county.
-p_county_l[, Total_Votes:=sum(Votes), by=.(County)]
+p_county_l <- p_county_l[, Total_Votes:=sum(Votes), by=.(County)]
 
 # Compute share by county.
-p_county_l[, Votes_Share:=Votes / Total_Votes]
-p_county_l[, Share_Diff:=Votes_Share[3] - Votes_Share[2], by=.(County)]
+p_county_l <- p_county_l[, Votes_Share:=Votes / Total_Votes]
+p_county_l <- p_county_l[, Share_Diff:=Votes_Share[3] - Votes_Share[2], by=.(County)]
 p_county_diff <- unique(p_county_l, by="County")[
   , c(cols_region, "Total_Votes", "Share_Diff"), with=FALSE]
-p_county_diff[, dpp_win:=Share_Diff > 0]
+p_county_diff <- p_county_diff[, dpp_win:=Share_Diff > 0]
 
 # Join share diff to spatial dataframe.
 tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Region")
 
 # Compute difference between DPP and KMT on the wide data as well.
-p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
-p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+p_county <- p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_county <- p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
 ```
 
 The pre-processed county result for presidential election is a *wide* format by county:
@@ -255,18 +255,18 @@ Apparently DPP won most counties besides maintain and outlying island areas.
 ```{r process_presidential_region, results="hide"}
 # Read county subregion-level presidential election results.
 p_region <- fread("data/processed/presidential/presidential_regions.csv", encoding="UTF-8")
-p_region[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+p_region <- p_region[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
 setnames(p_region, "投票率H H=C÷G", "Turnout")
 
 # Compute difference between DPP and KMT by region.
-p_region[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
-p_region[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+p_region <- p_region[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_region <- p_region[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
 
 # Wide to long.
 p_region_l <- melt(p_region[, c("By", "Region", cols_candidate), with=FALSE],
                    id.vars=c("By", "Region"), variable.name="Candidate", value.name="Votes")
 p_region_l <- p_region_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
-p_region_l[p_region, Share_Diff:=i.Share_Diff, on=.(Region)]
+p_region_l <- p_region_l[p_region, Share_Diff:=i.Share_Diff, on=.(Region)]
 
 setorder(p_region, -Share_Diff)
 
@@ -360,8 +360,8 @@ here we simply statistically describe the share of invalid votes from total vote
 
 ```{r process_presidential_invalid_votes_county, results="hide"}
 # Process invalid votes by county.
-p_county[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
-p_county[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
+p_county <- p_county[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
+p_county <- p_county[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
 
 # Join invalid vote shares to spatial dataframe.
 tw_county_sf <- merge(tw_county_sf, p_county[, .(Region, Invalid_Votes_ShareP)], by.x="NL_NAME_2", by.y="Region")
@@ -392,7 +392,7 @@ ggplotly(p, width=800, height=600)
 
 Check if there is any correlation between invalid votes and the DPP-KMT differences:
 
-```{r presidential_invalid_vsd, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by County"}
+```{r presidential_invalid_vsd_county, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by County"}
 p <- ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
   geom_point(shape=4, size=4) +
   labs(x="廢票率", y="綠藍得票率差",
@@ -404,11 +404,11 @@ ggplotly(p, width=800, height=600)
 
 ```{r process_presidential_invalid_votes_region, results="hide"}
 # Process invalid votes by region.
-p_region[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
-p_region[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
+p_region <- p_region[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
+p_region <- p_region[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
 ```
 
-```{r presidential_invalid_vsd, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by Region"}
+```{r presidential_invalid_vsd_region, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by Region"}
 p <- ggplot(p_region, aes(x=Invalid_Votes_Share, y=Share_Diff, label=paste(By, Region))) +
   geom_point(shape=4, size=4) +
   labs(x="廢票率", y="綠藍得票率差",
@@ -435,7 +435,7 @@ In this section we explore the possible relation between turnout and vote counts
 
 ```{r process_presidential_county_turnout, results="hide"}
 # Get voting rate from wide data to long.
-p_county_l[p_county, Turnout:=i.Turnout, on=.(County)]
+p_county_l <- p_county_l[p_county, Turnout:=i.Turnout, on=.(County)]
 ```
 
 ```{r presidential_county_turnout_bar, fig.cap="2020 Presidential Election Voter Turnout by County"}
@@ -498,8 +498,8 @@ ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
 
 ```{r process_presidential_region_turnout}
 # Compute region-level voting rate and vote shares in the long data.
-p_region_l[p_region, Turnout:=i.Turnout, on=.(Region)]
-p_region_l[, Votes_Share:=Votes / sum(Votes), by=.(Region)]
+p_region_l <- p_region_l[p_region, Turnout:=i.Turnout, on=.(Region)]
+p_region_l <- p_region_l[, Votes_Share:=Votes / sum(Votes), by=.(Region)]
 ```
 
 From the previous county-level visualization we realized that turnout may be related to the difference between DDP and KMT candidates.
