@@ -6,7 +6,6 @@ author:
   affiliation:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (19 Jan 2020 First Uploaded)"
 output:
-
   html_notebook:
     code_folding: hide
     fig_caption: yes
