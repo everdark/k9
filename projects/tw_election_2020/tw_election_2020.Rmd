@@ -129,8 +129,8 @@ library(sandwich)
 
 # Background
 
-TBC.
-https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
++ [2020 10th Taiwanese Presidential Election](https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election)
++ [2020 15th Taiwanese Legislative Election](https://en.wikipedia.org/wiki/2020_Taiwanese_legislative_election)
 
 # Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills}
 
@@ -151,11 +151,16 @@ tw_county_sf$NL_NAME_2 <- gsub("馬祖列島", "連江縣", tw_county_sf$NL_NAME
 ```
 
 ```{r process_presidential_county, results="hide"}
-# Read county-level presidential election results.
+# process county-level presidential election results.
 p_county <- fread("data/processed/presidential/presidential_counties.csv", encoding="UTF-8")
 p_county <- p_county[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
 p_county <- p_county[, Region:=gsub("臺", "台", Region)]  # Align character with shapefile.
 setnames(p_county, "投票率H H=C÷G", "Turnout")
+
+# Final counts.
+p_final <- as.data.table(colSums(p_county[, cols_candidate, with=FALSE]), keep.rownames=TRUE)
+setnames(p_final, c("Candidate", "Votes"))
+p_final <- p_final[, Share:=Votes / sum(Votes)]
 
 # Merge with shp to get English county name.
 p_county <- merge(p_county, tw_county_sf[, c("NL_NAME_2", "NAME_2")],
@@ -191,6 +196,20 @@ tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Regio
 # Compute difference between DPP and KMT on the wide data as well.
 p_county <- p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
 p_county <- p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+```
+
+```{r presidential_final_result, fig.showtext=TRUE, fig.cap="2020 Presidential Election Final Outcome"}
+ggplot(p_final, aes(x=Candidate, y=Votes, fill=Candidate)) +
+  geom_bar(stat="identity") +
+  labs(x="候選人", y="得票數",
+       title="2020台灣總統大選結果") +
+  geom_text(aes(x=Candidate, y=Votes / 2,
+                label=sprintf("%s\n(%s)", scales::comma(Votes), scales::percent(Share))),
+            size=5) +
+  scale_fill_manual(values=c("darkorange", "dodgerblue", "green3")) +
+  scale_y_continuous(labels=scales::comma) +
+  theme(legend.position="none") +
+  coord_flip()
 ```
 
 The pre-processed county result for presidential election is a *wide* format by county:
