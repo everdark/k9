@@ -751,6 +751,11 @@ scatterplot <- function() {
 }
 ```
 
+We can plot the correlation between presidential candidate vote shares and party vote shares at region level.
+But we must be very careful in interpreting the relation since we don't know the direction of such relation, if any.
+Strictly speaking,
+we don't even know whether they are causally related at all.
+
 ```{r, fig.height=15, fig.showtext=TRUE, fig.cap="2020 Legislative Election Party List Shares v.s. Presidential Votes"}
 scatterplot()
 ```
