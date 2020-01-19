@@ -109,7 +109,10 @@ library(ggrepel)
 library(plotly)
 
 # Fix macOS ggplot device to locate a Chinese font.
-theme_set(theme_get() + theme(text=element_text(family="Heiti TC Light")))
+# To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
+library(showtext)
+font_add_google("Noto Serif TC", "noto")
+showtext_auto()
 
 # For spatial data visualization.
 library(sf)
@@ -459,7 +462,7 @@ ggplotly(p, width=800, height=600, tooltip=NULL)
 It is widely suggested that an increasing voter turnout due to younger generation this time can hugely impact the results.
 Here we plot the turnout against DPP-KMT share differences by county:
 
-```{r presidential_county_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout by County"}
+```{r presidential_county_turnout_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout by County"}
 ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(35, 80)) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
@@ -467,14 +470,14 @@ ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
   geom_smooth(method="lm") +
-  geom_text(check_overlap=TRUE) +
+  geom_text(check_overlap=TRUE, color="grey40") +
   labs(x="投票率％", y="綠藍得票率差",
        title="2020台灣總統大選各縣市：投票率Ｘ藍綠得票率差")
 ```
 
 We zoom-in in the following plot for those with turnout > 70%:
 
-```{r presidential_county_turnout70_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by County"}
+```{r presidential_county_turnout70_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout (>70%) by County"}
 ggplot(p_county[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(70, 80)) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
@@ -488,7 +491,7 @@ ggplot(p_county[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=County)) +
 
 We can also visualize the turnout relation on each party candidate instead:
 
-```{r presidential_county_turnout_vs, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by County"}
+```{r presidential_county_turnout_vs, fig.showtext=TRUE, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by County"}
 ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
   geom_rect(data=unique(p_county_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
@@ -520,7 +523,7 @@ coeftest(lm_turnout, vcov=vcovHC(lm_turnout, type="HC0"))
 Apparently the correlation is significant.
 Let's also generate the region-level scatterplot:
 
-```{r presidential_region_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout by Region"}
+```{r presidential_region_turnout_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout by Region"}
 ggplot(p_region, aes(x=Turnout, y=Share_Diff)) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
             fill="lightgreen", alpha=.8) +
@@ -535,7 +538,7 @@ ggplot(p_region, aes(x=Turnout, y=Share_Diff)) +
 
 Again with additional zoom-in:
 
-```{r presidential_region_turnout70_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by Region"}
+```{r presidential_region_turnout70_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout (>70%) by Region"}
 ggplot(p_region[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=Region)) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
             fill="lightgreen", alpha=.8) +
@@ -564,7 +567,7 @@ for ( candidate in unique(p_region_l$Candidate) ) {
 Interestingly,
 such correlation is not found for PFP candidates.
 
-```{r presidential_region_vr_vs, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Region"}
+```{r presidential_region_vr_vs, fig.showtext=TRUE, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Region"}
 ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
   geom_rect(data=unique(p_region_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
