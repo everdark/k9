@@ -158,6 +158,7 @@ p_county <- p_county[, Region:=gsub("臺", "台", Region)]  # Align character wi
 setnames(p_county, "投票率H H=C÷G", "Turnout")
 
 # Final counts.
+cols_candidate <- c("(1) 宋楚瑜 余湘", "(2) 韓國瑜 張善政", "(3) 蔡英文 賴清德")
 p_final <- as.data.table(colSums(p_county[, cols_candidate, with=FALSE]), keep.rownames=TRUE)
 setnames(p_final, c("Candidate", "Votes"))
 p_final <- p_final[, Share:=Votes / sum(Votes)]
@@ -171,7 +172,6 @@ p_county <- p_county[, County:=paste(Region, RegionEn)]
 
 # Melt from wide to long for plotting purpose.
 cols_region <- c("County", "Region", "RegionEn")
-cols_candidate <- c("(1) 宋楚瑜 余湘", "(2) 韓國瑜 張善政", "(3) 蔡英文 賴清德")
 p_county_l <- melt(p_county[, c(cols_region, cols_candidate), with=FALSE],
                    id.vars=cols_region, variable.name="Candidate", value.name="Votes")
 p_county_l <- p_county_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
