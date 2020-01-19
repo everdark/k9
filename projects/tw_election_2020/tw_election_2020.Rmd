@@ -520,7 +520,7 @@ coeftest(lm_turnout, vcov=vcovHC(lm_turnout, type="HC0"))
 Apparently the correlation is significant.
 Let's also generate the region-level scatterplot:
 
-```{r presidential_region_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout (>70%) by Region"}
+```{r presidential_region_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout by Region"}
 ggplot(p_region, aes(x=Turnout, y=Share_Diff)) +
   geom_rect(data=p_region[1], aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf),
             fill="lightgreen", alpha=.8) +
