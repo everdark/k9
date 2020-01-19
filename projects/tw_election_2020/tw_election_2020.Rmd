@@ -53,6 +53,10 @@ writeLines(contents, meta_header_file)
 close(meta_header_file)
 ```
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align="center")
+```
+
 # Prerequisites {.tabset .tabset-fade .tabset-pills}
 
 ## Platform
