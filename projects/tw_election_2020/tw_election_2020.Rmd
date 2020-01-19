@@ -407,12 +407,12 @@ ggplotly(p, width=800, height=600)
 
 Check if there is any correlation between invalid votes and the DPP-KMT differences:
 
-```{r presidential_invalid_vsd_county, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by County"}
-p <- ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
-  geom_point(shape=4, size=4) +
+```{r presidential_invalid_vsd_county, fig.showtext=TRUE, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by County"}
+ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
+  geom_point(shape=4, size=4, stroke=2) +
   labs(x="廢票率", y="綠藍得票率差",
-       title="2020台灣總統大選各縣市：廢票率Ｘ綠藍得票率差")
-ggplotly(p, width=800, height=600)
+       title="2020台灣總統大選各縣市：廢票率Ｘ綠藍得票率差") +
+  geom_text_repel(color="grey40")
 ```
 
 #### By County Sub-Region
