@@ -131,8 +131,8 @@ library(sandwich)
 
 # Background
 
-+ [2020 10th Taiwanese Presidential Election](https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election)
-+ [2020 15th Taiwanese Legislative Election](https://en.wikipedia.org/wiki/2020_Taiwanese_legislative_election)
++ [2020 15th Taiwanese Presidential Election](https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election)
++ [2020 10th Taiwanese Legislative Election](https://en.wikipedia.org/wiki/2020_Taiwanese_legislative_election)
 
 # Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills #head}
 
