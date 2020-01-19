@@ -42,7 +42,7 @@ meta <- c(
   '<meta property="og:title" content="2020 Taiwanese Presidential Election Data">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html">',
-  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/tw_election_2020.png">',
   '<meta property="og:description" content="A data science notebook about 2020 Taiwanese presidential election.">'
 )
 contents <- meta
