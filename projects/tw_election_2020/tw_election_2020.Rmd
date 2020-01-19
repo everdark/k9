@@ -22,6 +22,7 @@ nocite: |
   @ggplot2
   @ggrepel
   @plotly
+  @showtext
   @sf
   @lmtest
   @sandwich
