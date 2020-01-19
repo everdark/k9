@@ -34,6 +34,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
         + [High Performance Computing in R using Rcpp](https://everdark.github.io/k9/notebooks/eng/programming/r/rcpp/rcpp.nb.html)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
+    + [Visualization for Taiwanese General Election 2020](https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html)
     + [A General-Purpose Neural Ranking Model (W.I.P.)]
 
 ## Laboratory Scripts
