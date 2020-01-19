@@ -17,8 +17,15 @@ output:
     toc: yes
     toc_float: yes
   code_download: true
-#bibliography: bootstrap.bib
-#nocite: |
+bibliography: tw_election_2020.bib
+nocite: |
+  @data.table
+  @ggplot2
+  @ggrepel
+  @plotly
+  @sf
+  @lmtest
+  @sandwich
 link-citations: yes
 abstract: |
   TBC.
@@ -47,28 +54,35 @@ writeLines(contents, meta_header_file)
 close(meta_header_file)
 ```
 
-# Prerequisites
+# Prerequisites {.tabset .tabset-fade .tabset-pills}
 
-#### Platform {-}
+## Platform
 
 The source data contains traditional Chinese characters encoded in UTF-8.
-To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page) the **codes in this notebook are only tested on Ubuntu and macOS.**
-Codes are still working under Windows.
+To avoid troublesome encoding issues (especially in a Windows platform with a default `CP1252` code page),
+the **codes in this notebook are only tested on Ubuntu and macOS.**
+Codes are in general still working under Windows.
 Just that some code chunk may not be able to print out unicode characters nicely.
 
-#### Data {-}
+## Data
+
+### Election Data {-}
 
 We use minimally pre-processed data for our analytics.
 Please refer to the repo [TW_Presidential_Election_2020](https://github.com/everdark/TW_Presidential_Election_2020) for details about the pre-processing logic.
+To direct download the archives please visit [here](https://github.com/everdark/TW_Presidential_Election_2020/releases/latest).
+We put the uncompressed files under `data/processed` at our project root directory.
+
+### Map Data {-}
 
 For Taiwan map information,
 the `shp` file ([shapefile](https://en.wikipedia.org/wiki/Shapefile)) can be downloaded at [GADM.org](https://gadm.org/download_country_v3.html).
-We put the unzipped files under `data/map`.
+We put the unzipped files under `data/map` at our project root directory.
 
-#### Dependencies {-}
+## Dependencies
 
-In order to do map plotting,
-we need to install some additional libraries for a Linux machine.
+Additional dependencies are required for Linux machine in order to do map plotting.
+Here is the instruction for Ubuntu.
 
 Install [`gdal`](https://gdal.org/):
 
@@ -95,7 +109,7 @@ library(ggplot2)
 library(ggrepel)
 library(plotly)
 
-# Fix macOS ggplot device Chinese font.
+# Fix macOS ggplot device to locate a Chinese font.
 theme_set(theme_get() + theme(text=element_text(family="Heiti TC Light")))
 
 # For spatial data visualization.
