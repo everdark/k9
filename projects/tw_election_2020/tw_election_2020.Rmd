@@ -132,7 +132,7 @@ library(sandwich)
 + [2020 10th Taiwanese Presidential Election](https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election)
 + [2020 15th Taiwanese Legislative Election](https://en.wikipedia.org/wiki/2020_Taiwanese_legislative_election)
 
-# Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills}
+# Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills #head}
 
 ## 第十五屆總統選舉結果 The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
 
@@ -286,6 +286,8 @@ ggplotly(p, width=800, height=600)
 
 Apparently DPP won most counties besides maintain and outlying island areas.
 
+[Go Back to Top](#head)
+
 #### By County Sub-Region {.tabset .tabset-fade .tabset-pills}
 
 ```{r process_presidential_region, results="hide"}
@@ -384,6 +386,8 @@ plot_region_share_diff(
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
 
+[Go Back to Top](#head)
+
 ### 無效票 Invalid Vote Counts {.tabset .tabset-fade .tabset-pills}
 
 [Invalid votes](https://en.wikipedia.org/wiki/Spoilt_vote) are votes cast but declared invalid.
@@ -434,6 +438,8 @@ ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
   geom_text_repel(color="grey40")
 ```
 
+[Go Back to Top](#head)
+
 #### By County Sub-Region
 
 ```{r process_presidential_invalid_votes_region, results="hide"}
@@ -458,6 +464,8 @@ But such correlation may be [*spurious*](https://en.wikipedia.org/wiki/Spurious_
 lm_invalid <- lm(Share_Diff ~ Invalid_Votes_ShareP, data=p_region)
 coeftest(lm_invalid, vcov=vcovHC(lm_invalid, type="HC0"))
 ```
+
+[Go Back to Top](#head)
 
 ### 投票率 Voter Turnout {.tabset .tabset-fade .tabset-pills}
 
@@ -527,6 +535,8 @@ ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
   labs(x="投票率％", y="得票率",
        title="2020台灣總統大選各縣市：投票率Ｘ得票率")
 ```
+
+[Go Back to Top](#head)
 
 #### By County Sub-Region
 
@@ -604,12 +614,18 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
        title="2020台灣總統大選各縣市：投票率 X 得票率")
 ```
 
+[Go Back to Top](#head)
+
 #### By Polling Place
 
 TBC.
 
+[Go Back to Top](#head)
+
 ## 第十屆立法委員選舉結果 The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
 
 TBC.
+
+[Go Back to Top](#head)
 
 # References on R Packages
