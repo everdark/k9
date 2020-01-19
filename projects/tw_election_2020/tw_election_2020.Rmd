@@ -386,8 +386,6 @@ plot_region_share_diff(
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-[Go Back to Top](#head)
-
 ### 無效票 Invalid Vote Counts {.tabset .tabset-fade .tabset-pills}
 
 [Invalid votes](https://en.wikipedia.org/wiki/Spoilt_vote) are votes cast but declared invalid.
