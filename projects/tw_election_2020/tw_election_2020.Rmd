@@ -127,9 +127,9 @@ https://en.wikipedia.org/wiki/2020_Taiwanese_presidential_election
 
 # Visual Analytics on Election Results {.tabset .tabset-fade .tabset-pills}
 
-## The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
+## 第十五屆總統選舉結果 The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
 
-### Valid Vote Counts {.tabset .tabset-fade .tabset-pills}
+### 有效票 Valid Vote Counts {.tabset .tabset-fade .tabset-pills}
 
 #### By County
 
@@ -358,7 +358,7 @@ plot_region_share_diff(
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-### Invalid Vote Counts {.tabset .tabset-fade .tabset-pills}
+### 無效票 Invalid Vote Counts {.tabset .tabset-fade .tabset-pills}
 
 [Invalid votes](https://en.wikipedia.org/wiki/Spoilt_vote) are votes cast but declared invalid.
 There is no way to objectively record the intention of an invalid vote,
@@ -433,7 +433,7 @@ lm_invalid <- lm(Share_Diff ~ Invalid_Votes_ShareP, data=p_region)
 coeftest(lm_invalid, vcov=vcovHC(lm_invalid, type="HC0"))
 ```
 
-### Voter Turnout {.tabset .tabset-fade .tabset-pills}
+### 投票率 Voter Turnout {.tabset .tabset-fade .tabset-pills}
 
 [Voter turnout](https://en.wikipedia.org/wiki/Voter_turnout) is defined as total votes cast (valid and invalid) divided by legitimate voters.
 The information is readily available in the source data from the column `投票率H H=C÷G`.
@@ -582,6 +582,8 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
 
 TBC.
 
-## The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
+## 第十屆立法委員選舉結果 The 10th Legislative Election Results {.tabset .tabset-fade .tabset-pills}
 
 TBC.
+
+# References
