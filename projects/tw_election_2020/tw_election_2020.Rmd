@@ -27,7 +27,7 @@ nocite: |
   @sandwich
 link-citations: yes
 abstract: |
-  TBC.
+  The notebook provides some visual analytics on the 2020 Taiwanese presidential and legislative election results. The polling took place at 2020-01-11 and data has been collected by Central Election Commision (CEC) at the polling place level.
 ---
 
 ```{r meta, include=FALSE}
@@ -459,7 +459,7 @@ ggplotly(p, width=800, height=600, tooltip=NULL)
 It is widely suggested that an increasing voter turnout due to younger generation this time can hugely impact the results.
 Here we plot the turnout against DPP-KMT share differences by county:
 
-```{r presidential_county_turnout_vsd}
+```{r presidential_county_turnout_vsd, fig.cap="2020 Presidential Election Voter Turnout by County"}
 ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(35, 80)) +
   geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.05) +
