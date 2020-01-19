@@ -326,7 +326,7 @@ We bar-plot the above ranking by region by county:
 
 ##### North Taiwan
 
-```{r presidential_north_region_bar_pct_diff, fig.height=17, fig.width=8}
+```{r presidential_north_region_bar_pct_diff, fig.showtext=TRUE, fig.height=17, fig.width=8}
 plot_region_share_diff(
   north_counties,
   title="2020台灣總統大選北部地區（鄉鎮市區）：綠藍得票率差")
@@ -334,7 +334,7 @@ plot_region_share_diff(
 
 ##### Central Taiwan
 
-```{r presidential_central_region_bar_pct_diff, fig.height=20, fig.width=8}
+```{r presidential_central_region_bar_pct_diff, fig.showtext=TRUE, fig.height=20, fig.width=8}
 plot_region_share_diff(
   central_counties,
   title="2020台灣總統大選中部地區（鄉鎮市區）：綠藍得票率差")
@@ -342,7 +342,7 @@ plot_region_share_diff(
 
 ##### South Taiwan
 
-```{r presidential_south_region_bar_pct_diff, fig.height=22, fig.width=8}
+```{r presidential_south_region_bar_pct_diff, fig.showtext=TRUE, fig.height=22, fig.width=8}
 plot_region_share_diff(
   south_counties,
   title="2020台灣總統大選南部地區（鄉鎮市區）：綠藍得票率差")
@@ -350,7 +350,7 @@ plot_region_share_diff(
 
 ##### East Taiwan
 
-```{r presidential_east_region_bar_pct_diff, fig.height=6, fig.width=8}
+```{r presidential_east_region_bar_pct_diff, fig.showtext=TRUE, fig.height=6, fig.width=8}
 plot_region_share_diff(
   east_counties,
   title="2020台灣總統大選東部地區（鄉鎮市區）：綠藍得票率差")
@@ -358,7 +358,7 @@ plot_region_share_diff(
 
 ##### Outlying Islands
 
-```{r presidential_island_region_bar_pct_diff, fig.height=3, fig.width=8}
+```{r presidential_island_region_bar_pct_diff, fig.showtext=TRUE, fig.height=3, fig.width=8}
 plot_region_share_diff(
   island_counties,
   title="2020台灣總統大選離島地區（鄉鎮市區）：綠藍得票率差")
