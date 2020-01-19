@@ -203,7 +203,7 @@ p_county <- p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
 main_party_colors <- c("darkorange", "dodgerblue", "green3")
 ```
 
-```{r presidential_final_result, fig.showtext=TRUE, fig.cap="2020 Presidential Election Final Outcome"}
+```{r presidential_final_result, fig.showtext=TRUE, fig.height=4, fig.cap="2020 Presidential Election Final Outcome"}
 ggplot(p_final, aes(x=Candidate, y=Votes, fill=Candidate)) +
   geom_bar(stat="identity") +
   labs(x="候選人", y="得票數",
@@ -759,6 +759,12 @@ we don't even know whether they are causally related at all.
 ```{r, fig.height=15, fig.showtext=TRUE, fig.cap="2020 Legislative Election Party List Shares v.s. Presidential Votes"}
 scatterplot()
 ```
+
+[Go Back to Top](#head)
+
+#### By Polling Place
+
+TBC.
 
 [Go Back to Top](#head)
 
