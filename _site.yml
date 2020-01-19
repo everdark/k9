@@ -50,6 +50,9 @@ navbar:
       menu:
           - text: "YouTube-8M Multi-Label Classification: A TensorFlow 2.0 Journey"
             href: projects/yt8m/yt8m.html
+          - text: "---"
+          - text: "Visualization for Taiwanese General Election 2020"
+            href: projects/tw_election_2020/tw_election_2020.nb.html
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"
