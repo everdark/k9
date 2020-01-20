@@ -118,7 +118,7 @@ library(plotly)
 # Fix macOS ggplot device to locate a Chinese font.
 # To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
 library(showtext)
-font_add_google("Noto Serif TC", "noto")
+font_add_google("Noto Serif", "noto", db_cache=FALSE)
 showtext_auto()
 
 # For spatial data visualization.
@@ -634,7 +634,9 @@ TBC.
 ### 不分區立委 Party List {.tabset .tabset-fade .tabset-pills}
 
 ```{r process_party_list_results, results="hide"}
-partylist <- fread("data/processed/legislative/legislative_第10屆全國不分區及僑居國外國民立法委員.csv", encoding="UTF-8")
+# Process party-list results.
+# Note that the table is down to polling place level.
+partylist <- fread("data/processed/legislative/legislative_partylist.csv", encoding="UTF-8")
 partylist <- partylist[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
 cols_area <- c("By", "Region", "Village", "Place")
 cols_party <- names(partylist)[7:25]  # There are 19 parties in total.
@@ -770,7 +772,120 @@ TBC.
 
 ### 分區立委 Constituency {.tabset .tabset-fade .tabset-pills}
 
-TBC.
+#### Overall
+
+```{r process_constituency, results="hide"}
+# Process constityency results.
+# Note that each district can have a varying number of candidates.
+infiles_constituency <- grep(
+  "constituency",dir("data/processed/legislative/", full.names=TRUE), value=TRUE)
+
+c_all <- lapply(infiles_constituency, fread, encoding="UTF-8")
+names(c_all) <- gsub("legislative_constituency_", "",
+                     tools::file_path_sans_ext(basename(infiles_constituency)))
+
+# Convert all table from wide to long.
+wide_to_long <- function(DT) {
+  candidate_start_ind <- 7
+  candidate_end_ind <- ncol(DT) - 8
+  cols_candidate <- names(DT)[candidate_start_ind:candidate_end_ind]
+  cols_region <- c("By", "Region", "Village", "Place")
+  out <- melt(DT[, c(cols_region, cols_candidate), with=FALSE],
+              id.vars=cols_region, variable.name="Candidate", value.name="Votes")
+  out
+}
+
+c_l <- rbindlist(lapply(c_all, wide_to_long))
+
+# Extract candidate party for all districts.
+c_l <- c_l[, Party:=gsub(".*[ ]", "", Candidate)]
+
+# Sum by party.
+c_party <- c_l[, .(Votes=sum(Votes)), by=.(Party)]
+c_party <- c_party[, Share:=Votes / sum(Votes)]
+```
+
+Check number of polling places for each district:
+
+```{r number_of_pplace_by_district}
+c_pplace_cnt <- c_l[, .N, by=.(By)]
+setorder(c_pplace_cnt, By)
+setnames(c_pplace_cnt, c("District", "Num of Polling Place"))
+c_pplace_cnt[]
+```
+
+```{r constituency_party_result, fig.showtext=TRUE, fig.height=12, fig.width=8.33, fig.cap="2020 Legislative Election Constituency Outcome by Party"}
+ggplot(c_party, aes(x=reorder(Party, Votes), y=Votes)) +
+  geom_bar(stat="identity") +
+  labs(x="政黨", y="得票數",
+       title="2020台灣分區立委選舉結果:依候選人政黨") +
+  geom_text(aes(x=Party, y=Votes,
+                label=sprintf("%s (%s)", scales::comma(Votes), scales::percent(Share, .01))),
+            size=3, hjust=-.05) +
+  scale_y_continuous(labels=scales::comma, limits=c(0, max(c_party$Votes) * 1.2)) +
+  coord_flip()
+```
+
+[Go Back to Top](#head)
+
+#### By County
+
+```{r process_constituency_by_party_by_county, results="hide"}
+# Keep only the top few parties.
+c_top_party <- c_party[Share > .01, Party]
+c_party_colors <- c("dodgerblue", "green3", "black", "yellow", "lightblue", "darkgreen", "darkgrey")
+
+# Sum by party by county.
+c_party_county <- copy(c_l)
+c_party_county <- c_party_county[!Party %in% c_top_party, Party:="其他"]
+c_party_county <- c_party_county[, .(Votes=sum(Votes)), by=.(County, Party)]
+c_party_county <- c_party_county[, Share:=Votes / sum(Votes), by=.(County)]
+c_party_county[, Party:=factor(Party, level=c(c_top_party, "其他"))]
+
+# Order county by total votes.
+c_l <- c_l[, County:=gsub("(第[0-9]+)?選舉區", "", By)]
+county_v_cnt <- c_l[, .(Votes=sum(Votes)), by=.(County)]
+setorder(county_v_cnt, -Votes)
+c_party_county <- c_party_county[, County:=factor(County, county_v_cnt$County)]
+
+# Compute DPP-KMT share differences.
+c_party_county_gb <- c_party_county[Party %in% c("民主進步黨", "中國國民黨")]
+setorder(c_party_county_gb, County, Party)
+# Note that DPP has no candidate for 1 county. We count the share as 0.
+c_party_county_gb_diff <- c_party_county_gb[
+  , .(Share_Diff=ifelse(is.na(Share[2]), 0, Share[2]) - Share[1]), by=.(County)]
+c_party_county_gb_diff <- c_party_county_gb_diff[, dpp_win:=Share_Diff > 0]
+```
+
+We plot all parties with more than 1% vote share by county:
+
+```{r constituency_party_county, fig.showtext=TRUE, fig.height=15, fig.width=8.33, fig.cap="2020 Legislative Election Constituency Shares by Party by County"}
+ggplot(c_party_county, aes(x=reorder(Party, Votes), y=Share, fill=Party)) +
+  geom_bar(stat="identity", position="dodge", width=.75) +
+  geom_text(aes(label=scales::percent(Share, .01)),
+            position=position_dodge(.9), size=3, hjust=-.1) +
+  scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, .2)) +
+  scale_fill_manual(name="政黨", values=c_party_colors) +
+  labs(x="政黨", y="得票率",
+       title="2020台灣分區立委各縣市政黨得票率") +
+  coord_flip() +
+  facet_wrap(County ~ ., ncol=4)
+```
+
+Also examine the DPP-KMT difference for constituency votes by county:
+
+```{r constituency_dpp_kmt_diff, fig.cap="2020 Legislative Election Constituency DPP-KMT Share Difference by County"}
+p <- ggplot(c_party_county_gb_diff, aes(x=reorder(County, Share_Diff), fill=dpp_win, y=Share_Diff)) +
+  geom_bar(stat="identity", width=.8, color="black", alpha=.5) +
+  scale_fill_manual(values=c("dodgerblue", "green3")) +
+  theme(legend.position="none") +
+  geom_text(aes(label=scales::percent(Share_Diff)), position=position_stack(vjust=.5), size=2.5) +
+  labs(x="縣市（依得票率差排序）", y="綠藍得票率差",
+       title="2020台灣分區立委各縣市：綠藍得票率差") +
+  coord_flip()
+
+ggplotly(p, width=800, height=600)
+```
 
 [Go Back to Top](#head)
 
