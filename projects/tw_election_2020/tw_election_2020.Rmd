@@ -908,12 +908,12 @@ tc3 <- tc3[, C_Share:=Votes / sum(Votes)]
 tc3_pl <- partylist_l[By == tc3$County[1] & Region %in% tc3$Region]
 tc3_pl <- tc3_pl[, Share:=Votes / sum(Votes), by=.(Place)]
 tc3_candidates <- c("(3) 洪慈庸 無", "(4) 張睿倉 台灣民眾黨", "(6) 楊瓊瓔 中國國民黨")
-tc3_pl <- merge(tc3_pl, tc3[Candidate %in% tc3_candidates,
-                            .(Place, Candidate, C_Share)],
-                by="Place", allow.cartesian=TRUE)
+tc3_final <- merge(tc3_pl, tc3[Candidate %in% tc3_candidates,
+                               .(Place, Candidate, C_Share)],
+                   by="Place", allow.cartesian=TRUE)
 ```
 
-```{r, fig.showtext=TRUE}
+```{r, fig.showtext=TRUE, fig.cap="Taichung 3rd District: Constituency Candidate Share"}
 tc3r <- tc3[, .(Votes=sum(Votes)), by=.(Candidate)]
 tc3r <- tc3r[, Share:=Votes / sum(Votes)]
 ggplot(tc3r, aes(x=reorder(Candidate, Votes), y=Votes)) +
@@ -922,7 +922,24 @@ ggplot(tc3r, aes(x=reorder(Candidate, Votes), y=Votes)) +
   geom_text(aes(x=reorder(Candidate, Votes), y=Votes,
                 label=sprintf("%s\n(%s)", scales::comma(Votes), scales::percent(Share))),
             size=5, hjust=-.1) +
-  scale_y_continuous(labels=scales::comma, limits=c(0, max(kk$Votes) * 1.2)) +
+  scale_y_continuous(labels=scales::comma, limits=c(0, max(tc3r$Votes) * 1.2)) +
+  coord_flip()
+```
+
+```{r, fig.showtext=TRUE, fig.cap="Taichung 3rd District: Party-List Share"}
+tc3_plr <- tc3_pl[, .(Votes=sum(Votes)), by=.(Party)]
+tc3_plr <- tc3_plr[, Share:=Votes / sum(Votes)]
+tc3_plr <- tc3_plr[Share > .01]
+setorder(tc3_plr, -Votes)
+tc3_plr <- tc3_plr[, Party:=factor(Party)]
+ggplot(tc3_plr, aes(x=reorder(Party, Votes), y=Votes, fill=Party)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=c("darkorange", "darkgreen", "yellow", "dodgerblue", "green", "green3", "lightblue")) +
+  labs(x="政黨", y="得票數", title="臺中市第3選舉區不分區政黨結果") +
+  geom_text(aes(x=reorder(Party, Votes), y=Votes,
+                label=sprintf("%s\n(%s)", scales::comma(Votes), scales::percent(Share))),
+            size=4, hjust=-.1) +
+  scale_y_continuous(labels=scales::comma, limits=c(0, max(tc3_plr$Votes) * 1.2)) +
   coord_flip()
 ```
 
