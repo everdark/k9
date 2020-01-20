@@ -147,7 +147,7 @@ library(sandwich)
 
 ### 有效票 Valid Vote Counts {.tabset .tabset-fade .tabset-pills}
 
-#### By County
+#### By County 依縣市
 
 ```{r parse_tw_county_map}
 # Read shapefile for spatial information about counties in Taiwan.
@@ -300,7 +300,7 @@ Apparently DPP won most counties besides maintain and outlying island areas.
 
 [Go Back to Top](#head)
 
-#### By County Sub-Region {.tabset .tabset-fade .tabset-pills}
+#### By County Sub-Region 依鄉鎮市區 {.tabset .tabset-fade .tabset-pills}
 
 ```{r process_presidential_region, results="hide"}
 # Read county subregion-level presidential election results.
@@ -358,7 +358,7 @@ p_region_rank[]
 
 We bar-plot the above ranking by region by county:
 
-##### North Taiwan
+##### North Taiwan 北台灣
 
 ```{r presidential_north_region_bar_pct_diff, fig.showtext=TRUE, fig.height=17, fig.width=8}
 plot_region_share_diff(
@@ -366,7 +366,7 @@ plot_region_share_diff(
   title="2020台灣總統大選北部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-##### Central Taiwan
+##### Central Taiwan 中台灣
 
 ```{r presidential_central_region_bar_pct_diff, fig.showtext=TRUE, fig.height=20, fig.width=8}
 plot_region_share_diff(
@@ -374,7 +374,7 @@ plot_region_share_diff(
   title="2020台灣總統大選中部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-##### South Taiwan
+##### South Taiwan 南臺灣
 
 ```{r presidential_south_region_bar_pct_diff, fig.showtext=TRUE, fig.height=22, fig.width=8}
 plot_region_share_diff(
@@ -382,7 +382,7 @@ plot_region_share_diff(
   title="2020台灣總統大選南部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-##### East Taiwan
+##### East Taiwan 東台灣
 
 ```{r presidential_east_region_bar_pct_diff, fig.showtext=TRUE, fig.height=6, fig.width=8}
 plot_region_share_diff(
@@ -390,7 +390,7 @@ plot_region_share_diff(
   title="2020台灣總統大選東部地區（鄉鎮市區）：綠藍得票率差")
 ```
 
-##### Outlying Islands
+##### Outlying Islands 離島
 
 ```{r presidential_island_region_bar_pct_diff, fig.showtext=TRUE, fig.height=3, fig.width=8}
 plot_region_share_diff(
@@ -404,7 +404,7 @@ plot_region_share_diff(
 There is no way to objectively record the intention of an invalid vote,
 here we simply statistically describe the share of invalid votes from total votes cast.
 
-#### By County
+#### By County 依縣市
 
 ```{r process_presidential_invalid_votes_county, results="hide"}
 # Process invalid votes by county.
@@ -450,7 +450,7 @@ ggplot(p_county, aes(x=Invalid_Votes_Share, y=Share_Diff, label=County)) +
 
 [Go Back to Top](#head)
 
-#### By County Sub-Region
+#### By County Sub-Region 依鄉鎮市區
 
 ```{r process_presidential_invalid_votes_region, results="hide"}
 # Process invalid votes by region.
@@ -483,7 +483,7 @@ coeftest(lm_invalid, vcov=vcovHC(lm_invalid, type="HC0"))
 The information is readily available in the source data from the column `投票率H H=C÷G`.
 In this section we explore the possible relation between turnout and vote counts.
 
-#### By County
+#### By County 依縣市
 
 ```{r process_presidential_county_turnout, results="hide"}
 # Get voting rate from wide data to long.
@@ -552,7 +552,7 @@ ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
 
 [Go Back to Top](#head)
 
-#### By County Sub-Region
+#### By County Sub-Region 依鄉鎮市區
 
 ```{r process_presidential_region_turnout}
 # Compute region-level voting rate and vote shares in the long data.
@@ -630,7 +630,7 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
 
 [Go Back to Top](#head)
 
-#### By Polling Place
+#### By Polling Place 依投開票所
 
 TBC.
 
@@ -679,7 +679,7 @@ ggplot(partylist_final, aes(x=reorder(Party, Votes), y=Votes)) +
   coord_flip()
 ```
 
-#### By County
+#### By County 依縣市
 
 We group parties with less than 2% votes into "others" to make the rest of the plots easier to read.
 
@@ -726,7 +726,7 @@ ggplotly(p, width=800, height=600)
 
 [Go Back to Top](#head)
 
-#### By County Sub-Region
+#### By County Sub-Region 依鄉鎮市區
 
 ```{r process_party_list_region, results="hide"}
 # Process region-level party list results.
@@ -771,7 +771,7 @@ scatterplot()
 
 [Go Back to Top](#head)
 
-#### By Polling Place
+#### By Polling Place 依投開票所
 
 TBC.
 
@@ -779,7 +779,7 @@ TBC.
 
 ### 分區立委 Constituency {.tabset .tabset-fade .tabset-pills}
 
-#### Overall
+#### Overall 概括
 
 ```{r process_constituency, results="hide"}
 # Process constityency results.
@@ -836,7 +836,7 @@ ggplot(c_party, aes(x=reorder(Party, Votes), y=Votes)) +
 
 [Go Back to Top](#head)
 
-#### By County
+#### By County 依縣市
 
 ```{r process_constituency_by_party_by_county, results="hide"}
 # Keep only the top few parties.
@@ -898,7 +898,7 @@ ggplotly(p, width=800, height=600)
 
 [Go Back to Top](#head)
 
-#### Taichung 3rd District
+#### Taichung 3rd District 台中市第三選區
 
 ```{r process_taichung_3, results="hide"}
 # Consolidate both party-list and constituency results for Taichung district 3.
