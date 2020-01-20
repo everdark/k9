@@ -118,7 +118,7 @@ library(plotly)
 # Fix macOS ggplot device to locate a Chinese font.
 # To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
 library(showtext)
-font_add_google("Noto Serif", "noto", db_cache=FALSE)
+#font_add_google("Noto Serif", "noto")
 showtext_auto()
 
 # For spatial data visualization.
@@ -836,6 +836,7 @@ c_top_party <- c_party[Share > .01, Party]
 c_party_colors <- c("dodgerblue", "green3", "black", "yellow", "lightblue", "darkgreen", "darkgrey")
 
 # Sum by party by county.
+c_l <- c_l[, County:=gsub("(第[0-9]+)?選舉區", "", By)]
 c_party_county <- copy(c_l)
 c_party_county <- c_party_county[!Party %in% c_top_party, Party:="其他"]
 c_party_county <- c_party_county[, .(Votes=sum(Votes)), by=.(County, Party)]
@@ -843,7 +844,6 @@ c_party_county <- c_party_county[, Share:=Votes / sum(Votes), by=.(County)]
 c_party_county[, Party:=factor(Party, level=c(c_top_party, "其他"))]
 
 # Order county by total votes.
-c_l <- c_l[, County:=gsub("(第[0-9]+)?選舉區", "", By)]
 county_v_cnt <- c_l[, .(Votes=sum(Votes)), by=.(County)]
 setorder(county_v_cnt, -Votes)
 c_party_county <- c_party_county[, County:=factor(County, county_v_cnt$County)]
