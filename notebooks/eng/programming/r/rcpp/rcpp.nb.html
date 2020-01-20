@@ -4809,7 +4809,7 @@ function maskInit(el,x){
 <meta name="author" content="Kyle Chung">
 <meta property="og:title" content="High Performance Computing in R using Rcpp">
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://everdark.github.io/k9/notebooks/ml/programming/rcpp/rcpp.nb.html">
+<meta property="og:url" content="https://everdark.github.io/k9/notebooks/eng/programming/rcpp/rcpp.nb.html">
 <meta property="og:image" content="https://everdark.github.io/k9/assets/rlang.png">
 <meta property="og:description" content="A Showcase of high performance computing in R using Rcpp.">
 <a href="https://github.com/everdark/k9/tree/master/notebooks/ml/programming/r/rcpp" class="github-corner" aria-label="View source on GitHub"><svg width="60" height="60" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
@@ -5212,7 +5212,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb1-11" data-line-number="11"><span class="kw">system.time</span>(out_<span class="dv">1</span> &lt;-<span class="st"> </span><span class="kw">pow_all_1</span>(numbers))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDguNTkzICAgMC4zMjggICA4LjkyMyBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   8.593   0.328   8.923 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5234,7 +5234,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb3-9" data-line-number="9"><span class="kw">system.time</span>(out_<span class="dv">2</span> &lt;-<span class="st"> </span><span class="kw">pow_all_2</span>(numbers))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDAuMDE1ICAgMC4wMDAgICAwLjAxMCBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   0.015   0.000   0.010 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjoic3RvcGlmbm90KGFsbC5lcXVhbChvdXRfMSwgb3V0XzIpKSJ9 -->
@@ -5254,7 +5254,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb6-5" data-line-number="5"><span class="kw">system.time</span>(out_<span class="dv">3</span> &lt;-<span class="st"> </span><span class="kw">pow_all_3</span>(numbers))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gICAgICAwICAgICAgIDAgICAgICAgMCBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
       0       0       0 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjoic3RvcGlmbm90KGFsbC5lcXVhbChvdXRfMSwgb3V0XzMpKSJ9 -->
@@ -5501,7 +5501,7 @@ R is inherently a high-performance scripting language since its core is written 
 <div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">print</span>(out_r[<span class="dv">1</span>]) <span class="co"># The most frequent ngram.</span></a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiMjAyMCBcbiA4NTEgXG4ifQ== -->
-<pre><code>2020 
+<pre><code>2020
  851 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5542,7 +5542,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb33-14" data-line-number="14">ngramRcpp  <span class="co"># A primitive function.</span></a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiZnVuY3Rpb24gKGhleHZlY3RvciwgbmdyYW0pIFxuLkNhbGwoPHBvaW50ZXI6IDB4N2ZlNmFjNDg2NGEwPiwgaGV4dmVjdG9yLCBuZ3JhbSlcbiJ9 -->
-<pre><code>function (hexvector, ngram) 
+<pre><code>function (hexvector, ngram)
 .Call(&lt;pointer: 0x7fe6ac4864a0&gt;, hexvector, ngram)</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjpbIm5ncmFtX3JjcHAgPC0gZnVuY3Rpb24oeCwgbikge1xuICBuZ3JhbXMgPC0gbmdyYW1SY3BwKHgsIDIpXG4gIHNvcnQodGFibGUobmdyYW1zKSwgZGVjcmVhc2luZz1UUlVFKVxufSIsIiIsIm91dF9yY3BwIDwtIG5ncmFtX3JjcHAoaGV4X2MsIDIpIiwiIiwiYWxsLmVxdWFsKG91dF9yY3BwLCBvdXRfciwgY2hlY2suYXR0cmlidXRlcz1GQUxTRSkiXX0= -->
@@ -5823,10 +5823,10 @@ R is inherently a high-performance scripting language since its core is written 
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiW1N1biBEZWMgMDQgMDQ6NDc6NDQgMjAwNV0gW25vdGljZV0gd29ya2VyRW52LmluaXQoKSBvayAvZXRjL2h0dHBkL2NvbmYvd29ya2VyczIucHJvcGVydGllc1wiXG5bMl0gXCJbU3VuIERlYyAwNCAwNDo0Nzo0NCAyMDA1XSBbZXJyb3JdIG1vZF9qayBjaGlsZCB3b3JrZXJFbnYgaW4gZXJyb3Igc3RhdGUgNlwiICAgICAgICAgICAgICAgICBcblszXSBcIltTdW4gRGVjIDA0IDA0OjUxOjA4IDIwMDVdIFtub3RpY2VdIGprMl9pbml0KCkgRm91bmQgY2hpbGQgNjcyNSBpbiBzY29yZWJvYXJkIHNsb3QgMTBcIiAgICAgIFxuWzRdIFwiW1N1biBEZWMgMDQgMDQ6NTE6MDkgMjAwNV0gW25vdGljZV0gamsyX2luaXQoKSBGb3VuZCBjaGlsZCA2NzI2IGluIHNjb3JlYm9hcmQgc2xvdCA4XCIgICAgICAgXG5bNV0gXCJbU3VuIERlYyAwNCAwNDo1MTowOSAyMDA1XSBbbm90aWNlXSBqazJfaW5pdCgpIEZvdW5kIGNoaWxkIDY3MjggaW4gc2NvcmVib2FyZCBzbG90IDZcIiAgICAgICBcbls2XSBcIltTdW4gRGVjIDA0IDA0OjUxOjE0IDIwMDVdIFtub3RpY2VdIHdvcmtlckVudi5pbml0KCkgb2sgL2V0Yy9odHRwZC9jb25mL3dvcmtlcnMyLnByb3BlcnRpZXNcIlxuIn0= -->
 <pre><code>[1] &quot;[Sun Dec 04 04:47:44 2005] [notice] workerEnv.init() ok /etc/httpd/conf/workers2.properties&quot;
-[2] &quot;[Sun Dec 04 04:47:44 2005] [error] mod_jk child workerEnv in error state 6&quot;                 
-[3] &quot;[Sun Dec 04 04:51:08 2005] [notice] jk2_init() Found child 6725 in scoreboard slot 10&quot;      
-[4] &quot;[Sun Dec 04 04:51:09 2005] [notice] jk2_init() Found child 6726 in scoreboard slot 8&quot;       
-[5] &quot;[Sun Dec 04 04:51:09 2005] [notice] jk2_init() Found child 6728 in scoreboard slot 6&quot;       
+[2] &quot;[Sun Dec 04 04:47:44 2005] [error] mod_jk child workerEnv in error state 6&quot;
+[3] &quot;[Sun Dec 04 04:51:08 2005] [notice] jk2_init() Found child 6725 in scoreboard slot 10&quot;
+[4] &quot;[Sun Dec 04 04:51:09 2005] [notice] jk2_init() Found child 6726 in scoreboard slot 8&quot;
+[5] &quot;[Sun Dec 04 04:51:09 2005] [notice] jk2_init() Found child 6728 in scoreboard slot 6&quot;
 [6] &quot;[Sun Dec 04 04:51:14 2005] [notice] workerEnv.init() ok /etc/httpd/conf/workers2.properties&quot;</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjoicHJpbnQobGVuZ3RoKGxvZ3MpKSJ9 -->
@@ -5884,7 +5884,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb61-20" data-line-number="20"><span class="kw">system.time</span>(mw_res_r &lt;-<span class="st"> </span><span class="kw">mw_count_r</span>(apache_logs, <span class="dv">300</span>, <span class="dv">60</span>))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gMzguNTQ3ICAgMC4wNzggICA2LjQ1OSBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
  38.547   0.078   6.459 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5929,7 +5929,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb64-16" data-line-number="16"><span class="kw">system.time</span>(mw_res_r_<span class="dv">2</span> &lt;-<span class="st"> </span><span class="kw">mw_count_r_2</span>(apache_logs, <span class="dv">300</span>, <span class="dv">60</span>))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDAuNDg0ICAgMC4wMDAgICAwLjI0OCBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   0.484   0.000   0.248 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -5984,7 +5984,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb68-22" data-line-number="22"><span class="kw">system.time</span>(mw_res_rcpp &lt;-<span class="st"> </span><span class="kw">mw_count_rcpp</span>(apache_logs, <span class="dv">300</span>, <span class="dv">60</span>))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDAuMTQxICAgMC4wMTYgICAwLjA4NSBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   0.141   0.016   0.085 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -6087,7 +6087,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb75-18" data-line-number="18"><span class="kw">system.time</span>(fe_res_r1 &lt;-<span class="st"> </span><span class="kw">naive_r_func</span>(mdata))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gOTkuMDAwICAgMC4xMTAgIDE2LjU5OCBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
  99.000   0.110  16.598 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
@@ -6126,7 +6126,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb78-13" data-line-number="13"><span class="kw">system.time</span>(fe_res_r2 &lt;-<span class="st"> </span><span class="kw">better_r_func</span>(mdata))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDAuNTk0ICAgMC4wMDAgICAwLjEyNCBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   0.594   0.000   0.124 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjpbInNldGtleShmZV9yZXNfcjEsIHVzZXIpIiwiaWRlbnRpY2FsKGZlX3Jlc19yMSwgZmVfcmVzX3IyKSJdfQ== -->
@@ -6173,7 +6173,7 @@ R is inherently a high-performance scripting language since its core is written 
 <a class="sourceLine" id="cb82-25" data-line-number="25"><span class="kw">system.time</span>(fe_res_cpp &lt;-<span class="st"> </span><span class="kw">rcpp_func</span>(mdata))</a></code></pre></div>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoiICAgdXNlciAgc3lzdGVtIGVsYXBzZWQgXG4gIDAuNTE2ICAgMC4xMTAgICAwLjE2NSBcbiJ9 -->
-<pre><code>   user  system elapsed 
+<pre><code>   user  system elapsed
   0.516   0.110   0.165 </code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-source-begin eyJkYXRhIjpbInNldGtleShmZV9yZXNfY3BwLCB1c2VyKSIsImlkZW50aWNhbChmZV9yZXNfY3BwLCBmZV9yZXNfcjEpIl19 -->
