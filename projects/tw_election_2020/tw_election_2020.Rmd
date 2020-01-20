@@ -913,7 +913,7 @@ tc3_final <- merge(tc3_pl, tc3[Candidate %in% tc3_candidates,
                    by="Place", allow.cartesian=TRUE)
 ```
 
-```{r, fig.showtext=TRUE, fig.cap="Taichung 3rd District: Constituency Candidate Share"}
+```{r taichung_3_candidate_result, fig.showtext=TRUE, fig.cap="Taichung 3rd District: Constituency Candidate Share"}
 tc3r <- tc3[, .(Votes=sum(Votes)), by=.(Candidate)]
 tc3r <- tc3r[, Share:=Votes / sum(Votes)]
 ggplot(tc3r, aes(x=reorder(Candidate, Votes), y=Votes)) +
@@ -940,16 +940,16 @@ ggplot(tc3_plr, aes(x=reorder(Party, Votes), y=Votes, fill=Party)) +
                 label=sprintf("%s\n(%s)", scales::comma(Votes), scales::percent(Share))),
             size=4, hjust=-.1) +
   scale_y_continuous(labels=scales::comma, limits=c(0, max(tc3_plr$Votes) * 1.2)) +
-  coord_flip()
+  coord_flip() +
+  theme(legend.position="none")
 ```
 
-```{r, fig.showtext=TRUE, fig.height=30, fig.width=6.5, fig.cap="Taichung 3rd District: Party-List Share vs Constituency Candidate Share"}
-ggplot(tc3_pl, aes(x=Share, y=C_Share)) +
+```{r taichung_3_partylist_x_candidate, fig.showtext=TRUE, fig.height=30, fig.width=6.5, fig.cap="Taichung 3rd District: Party-List Share vs Constituency Candidate Share"}
+ggplot(tc3_final, aes(x=Share, y=C_Share)) +
   geom_point(size=.5) +
   geom_smooth(method="lm") +
   labs(x="不分區政黨得票率", y="立委候選人得票率",
        title="臺中市第3選舉區不分區政黨得票率Ｘ候選人得票率") +
-  #facet_grid(Party ~ Candidate, scales="free")
   facet_wrap(Party ~ Candidate, ncol=3, scales="free")
 ```
 
