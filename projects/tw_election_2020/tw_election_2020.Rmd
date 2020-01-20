@@ -877,7 +877,8 @@ ggplot(c_party_county, aes(x=reorder(Party, Votes), y=Share, fill=Party)) +
   labs(x="政黨", y="得票率",
        title="2020台灣分區立委各縣市政黨得票率") +
   coord_flip() +
-  facet_wrap(County ~ ., ncol=4)
+  theme(legend.position="none") +
+  facet_wrap(County ~ ., ncol=5)
 ```
 
 Also examine the DPP-KMT difference for constituency votes by county:
