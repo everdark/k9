@@ -30,7 +30,7 @@ nocite: |
   @sandwich
 link-citations: yes
 abstract: |
-  The notebook provides a visual description on the 2020 Taiwanese presidential and legislative election results. The polling took place at 2020-01-11 and data has been collected by Central Election Commision (CEC) at the polling place level.
+  The notebook provides a nearly-neutral visual description on the 2020 Taiwanese presidential and legislative election results. The polling took place at 2020-01-11 and data has been collected by Central Election Commision (CEC) at the polling place level.
 ---
 
 ```{r meta, include=FALSE}
@@ -59,6 +59,13 @@ close(meta_header_file)
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align="center")
 ```
+
+---
+
+*The notebook is more of a visualization workshop using polling data as working examples.*
+*It is NOT meant to provide any in-depth political insights.*
+
+---
 
 # Prerequisites {.tabset .tabset-fade .tabset-pills}
 
@@ -796,6 +803,7 @@ wide_to_long <- function(DT) {
 }
 
 c_l <- rbindlist(lapply(c_all, wide_to_long))
+c_l <- c_l[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white
 
 # Extract candidate party for all districts.
 c_l <- c_l[, Party:=gsub(".*[ ]", "", Candidate)]
@@ -885,6 +893,47 @@ p <- ggplot(c_party_county_gb_diff, aes(x=reorder(County, Share_Diff), fill=dpp_
   coord_flip()
 
 ggplotly(p, width=800, height=600)
+```
+
+[Go Back to Top](#head)
+
+#### Taichung 3rd District
+
+```{r process_taichung_3, results="hide"}
+# Consolidate both party-list and constituency results for Taichung district 3.
+tc3 <- c_l[By == "臺中市第3選舉區"]
+tc3 <- tc3[, C_Share:=Votes / sum(Votes)]
+
+# Compute party-list vote shares by polling place.
+tc3_pl <- partylist_l[By == tc3$County[1] & Region %in% tc3$Region]
+tc3_pl <- tc3_pl[, Share:=Votes / sum(Votes), by=.(Place)]
+tc3_candidates <- c("(3) 洪慈庸 無", "(4) 張睿倉 台灣民眾黨", "(6) 楊瓊瓔 中國國民黨")
+tc3_pl <- merge(tc3_pl, tc3[Candidate %in% tc3_candidates,
+                            .(Place, Candidate, C_Share)],
+                by="Place", allow.cartesian=TRUE)
+```
+
+```{r, fig.showtext=TRUE}
+tc3r <- tc3[, .(Votes=sum(Votes)), by=.(Candidate)]
+tc3r <- tc3r[, Share:=Votes / sum(Votes)]
+ggplot(tc3r, aes(x=reorder(Candidate, Votes), y=Votes)) +
+  geom_bar(stat="identity") +
+  labs(x="候選人", y="得票數", title="臺中市第3選舉區結果") +
+  geom_text(aes(x=reorder(Candidate, Votes), y=Votes,
+                label=sprintf("%s\n(%s)", scales::comma(Votes), scales::percent(Share))),
+            size=5, hjust=-.1) +
+  scale_y_continuous(labels=scales::comma, limits=c(0, max(kk$Votes) * 1.2)) +
+  coord_flip()
+```
+
+```{r, fig.showtext=TRUE, fig.height=30, fig.width=6.5, fig.cap="Taichung 3rd District: Party-List Share vs Constituency Candidate Share"}
+ggplot(tc3_pl, aes(x=Share, y=C_Share)) +
+  geom_point(size=.5) +
+  geom_smooth(method="lm") +
+  labs(x="不分區政黨得票率", y="立委候選人得票率",
+       title="臺中市第3選舉區不分區政黨得票率Ｘ候選人得票率") +
+  #facet_grid(Party ~ Candidate, scales="free")
+  facet_wrap(Party ~ Candidate, ncol=3, scales="free")
 ```
 
 [Go Back to Top](#head)
