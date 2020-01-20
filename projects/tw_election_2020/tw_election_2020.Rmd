@@ -118,7 +118,7 @@ library(plotly)
 # Fix macOS ggplot device to locate a Chinese font.
 # To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
 library(showtext)
-#font_add_google("Noto Serif", "noto")
+font_add_google("Noto Serif", "noto")
 showtext_auto()
 
 # For spatial data visualization.
