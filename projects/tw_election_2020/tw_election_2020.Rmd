@@ -24,10 +24,12 @@ nocite: |
   @ggplot2
   @ggrepel
   @plotly
+  @RColorBrewer
   @showtext
   @sf
   @lmtest
   @sandwich
+  @rvest
 link-citations: yes
 abstract: |
   The notebook provides a nearly-neutral visual description on the 2020 Taiwanese presidential and legislative election results. The polling took place at 2020-01-11 and data has been collected by Central Election Commision (CEC) at the polling place level.
@@ -58,12 +60,21 @@ close(meta_header_file)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align="center")
+
+# Current issues:
+# 1. fig.cap doesn't seem to work for plotly under html notebook. (Works for pure html though.)
+#
+# 2. plotly with long-enough unicode characters will cause the rendering failed.
+#    A workaround has been implemented in the render script.
+#    https://github.com/rstudio/rmarkdown/issues/1762
+# 3. rmarkdown 2.0 cannot rener citation for html notebook. This is fixed in the current dev.
 ```
 
 ---
 
-*The notebook is more of a visualization workshop using polling data as working examples.*
-*It is NOT meant to provide any in-depth political insights.*
+**The notebook is more of a visualization workshop using polling data as working examples.**
+**It is NOT meant to provide any in-depth political insights,**
+**nor is it to draw any solid conclusion on the result of the election.**
 
 ---
 
@@ -121,6 +132,7 @@ library(data.table)
 library(ggplot2)
 library(ggrepel)
 library(plotly)
+library(RColorBrewer)
 
 # Fix macOS ggplot device to locate a Chinese font.
 # To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
@@ -134,7 +146,22 @@ library(sf)
 # For linear modeling with robust std err.
 library(lmtest)
 library(sandwich)
+
+# To crawl wikipage to get all party representative colors.
+library(rvest)
 ```
+
+## Plotting Devices
+
+We use [`ggplot2`](https://ggplot2.tidyverse.org) and [`plotly`](https://plot.ly/) throughout the entire notebook.
+The former is the go-to library for static visualization using R.
+The latter is a modern interactive visualization framework built on top of `d3.js`.
+We can easily convert a static `ggplot` graph into an interactive `plotly` graph via the `ggplotly` API in R.
+But we can also code directly with the `plot_ly` API to enjoy all the supported interaction features.
+
+In all the plotting examples we will choose either of the approach,
+just for fun.
+Really. :)
 
 # Background
 
@@ -146,8 +173,6 @@ library(sandwich)
 ## 第十五屆總統選舉結果 The 15th Presidential Election Results {.tabset .tabset-fade .tabset-pills}
 
 ### 有效票 Valid Vote Counts {.tabset .tabset-fade .tabset-pills}
-
-#### By County 依縣市
 
 ```{r parse_tw_county_map}
 # Read shapefile for spatial information about counties in Taiwan.
@@ -202,6 +227,9 @@ p_county_diff <- p_county_diff[, dpp_win:=Share_Diff > 0]
 # Join share diff to spatial dataframe.
 tw_county_sf <- merge(tw_county_sf, p_county_diff, by.x="NL_NAME_2", by.y="Region")
 
+# Join turnout to spatial dataframe.
+tw_county_sf <- merge(tw_county_sf, p_county[, .(Region, Turnout)], by.x="NL_NAME_2", by.y="Region")
+
 # Compute difference between DPP and KMT on the wide data as well.
 p_county <- p_county[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
 p_county <- p_county[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
@@ -223,6 +251,8 @@ ggplot(p_final, aes(x=Candidate, y=Votes, fill=Candidate)) +
   theme(legend.position="none") +
   coord_flip()
 ```
+
+#### By County 依縣市
 
 The pre-processed county result for presidential election is a *wide* format by county:
 
@@ -250,6 +280,23 @@ p <- ggplot(p_county_l, aes(x=reorder(County, Total_Votes), y=Votes, fill=Candid
   theme(legend.position="bottom")
 
 ggplotly(p, width=800, height=600)
+```
+
+Though it's convenient to convert a `ggplot` into `plotly` with a single call of `ggplotly`,
+some nice interaction features won't be supported.
+For example to interact with stacked bars a native `plotly` output can be nicer since it will *re-stack* the bar for groups that are not disabled by user clicks:
+
+```{r presidential_county_bar_plotly, fg.cap="2020 Presidential Election Vote Counts by County"}
+# Let's try the native plotly as well.
+# Some nice interaction only works when the plot is constructed by the native API.
+plot_ly(p_county_l, y=~reorder(County, Total_Votes), x=~Votes,
+        type="bar",  orientation="h",
+        color=~Candidate, colors=main_party_colors,
+        width=800, height=600) %>%
+  layout(barmode="stack",
+         title="2020台灣總統大選候選人各縣市：得票數",
+         yaxis=list(title="縣市（依總票數排序）"),
+         xaxis=list(title="得票數"))
 ```
 
 And also vote shares (vote counts / total valid votes):
@@ -469,6 +516,8 @@ ggplotly(p, width=800, height=600)
 
 A simple linear model on invalid vote shares against DPP-KMT share differences suggests the correlation is at least statistically significant.
 But such correlation may be [*spurious*](https://en.wikipedia.org/wiki/Spurious_relationship) so the interpretation shall be cautious.
+As we will see latter as we dig into the polling place level,
+such correlation becomes weaker (and indeed becomes negative).
 
 ```{r lm_invalid}
 lm_invalid <- lm(Share_Diff ~ Invalid_Votes_ShareP, data=p_region)
@@ -476,6 +525,49 @@ coeftest(lm_invalid, vcov=vcovHC(lm_invalid, type="HC0"))
 ```
 
 [Go Back to Top](#head)
+
+#### By Polling Place 依投開票所
+
+```{r process_invalid_pplace, results="hide"}
+# Read county subregion-level presidential election results.
+p_place <- fread("data/processed/presidential/presidential_pplaces.csv", encoding="UTF-8")
+p_place <- p_place[, Region:=trimws(Region, whitespace="[\\h\\v]")]  # Trim full-width white space.
+setnames(p_place, "投票率H H=C÷G", "Turnout")
+p_place <- p_place[, Invalid_Votes_Share:=get("無效票數B") / get("投票數C C=A+B")]
+p_place <- p_place[, Invalid_Votes_ShareP:=Invalid_Votes_Share * 100]
+
+# Compute difference between DPP and KMT by region.
+p_place <- p_place[, Vote_Diff:=get("(3) 蔡英文 賴清德") - get("(2) 韓國瑜 張善政")]
+p_place <- p_place[, Share_Diff:=Vote_Diff / get("有效票數A A=1+2+...+N")]
+
+# Wide to long.
+p_place_l <- melt(p_place[, c("By", "Region", "Village", "Place", cols_candidate), with=FALSE],
+                  id.vars=c("By", "Region", "Village", "Place"),
+                  variable.name="Candidate", value.name="Votes")
+p_place_l <- p_place_l[, Candidate:=factor(Candidate)]  # Level by candidate number.
+p_place_l <- p_place_l[p_place, `:=`(Share_Diff=i.Share_Diff,
+                                     Turnout=i.Turnout), on=.(By, Region, Village, Place)]
+p_place_l <- p_place_l[, Votes_Share:=Votes / sum(Votes), by=.(By, Region, Village, Place)]
+```
+
+Let's try a native `plotly` scatter plot this time.
+Since the data points are quite a lot already at the polling place level,
+for scalability we will use `WebGL` instead of `SVG` to render the interactive plot:
+
+```{r presidential_invalid_vsd_place, fig.cap="2020 Presidential Election Invalid Vote Shares vs DPP-KMT Share Differences by Polling Place"}
+fit <- lm(Share_Diff ~ Invalid_Votes_Share, data=p_place)
+p_place <- p_place[, label:=paste(Region, Village, Place)]
+plot_ly(p_place, x=~Invalid_Votes_Share, y=~Share_Diff, text=~label,
+        color=~By, colors=colorRampPalette(brewer.pal(n=11, name="Spectral"))(22),
+        type="scatter", mode="markers", width=800, height=600) %>%
+  add_lines(x=~Invalid_Votes_Share, y=fitted(fit), color=I("black"), showlegend=FALSE) %>%
+  layout(title="2020台灣總統大選各鄉鎮市區：廢票率Ｘ綠藍得票率差",
+         yaxis=list(title="綠藍得票率差"),
+         xaxis=list(title="廢票率")) %>%
+  toWebGL()
+```
+
+(Be aware that the regression line is based on full data and doesn't reflect any user interaction changingthe displayed counties.)
 
 ### 投票率 Voter Turnout {.tabset .tabset-fade .tabset-pills}
 
@@ -501,11 +593,21 @@ p <- ggplot(p_county, aes(x=reorder(County, Turnout), y=Turnout)) +
 ggplotly(p, width=800, height=600, tooltip=NULL)
 ```
 
+```{r presidential_county_turnout_map, fig.cap="2020 Presidential Election Voter Turnout: County Map"}
+p <- ggplot(tw_county_sf, aes(text=County)) +
+  geom_sf(aes(fill=Turnout)) +
+  coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
+  scale_fill_gradient(name="投票率％", low="white", high="red") +
+  labs(title="2020台灣總統大選各縣市：廢票率％")
+
+ggplotly(p, width=800, height=600)
+```
+
 It is widely suggested that an increasing voter turnout due to younger generation this time can hugely impact the results.
 Here we plot the turnout against DPP-KMT share differences by county:
 
 ```{r presidential_county_turnout_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout by County"}
-ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
+ggplot(p_county, aes(x=Turnout / 100, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(35, 80)) +
   geom_rect(data=p_county[1],
             aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.8) +
@@ -515,14 +617,14 @@ ggplot(p_county, aes(x=Turnout, y=Share_Diff, label=County)) +
   geom_point() +
   geom_smooth(method="lm") +
   geom_text(check_overlap=TRUE, color="grey40") +
-  labs(x="投票率％", y="綠藍得票率差",
+  labs(x="投票率", y="綠藍得票率差",
        title="2020台灣總統大選各縣市：投票率Ｘ藍綠得票率差")
 ```
 
 We zoom-in in the following plot for those with turnout > 70%:
 
 ```{r presidential_county_turnout70_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout (>70%) by County"}
-ggplot(p_county[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=County)) +
+ggplot(p_county[Turnout > 70], aes(x=Turnout / 100, y=Share_Diff, label=County)) +
   scale_x_continuous(limits=c(70, 80)) +
   geom_rect(data=p_county[Turnout > 70][1],
             aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.8) +
@@ -531,14 +633,14 @@ ggplot(p_county[Turnout > 70], aes(x=Turnout, y=Share_Diff, label=County)) +
   geom_hline(aes(yintercept=0), color="red") +
   geom_point() +
   geom_text_repel(color="grey40") +
-  labs(x="投票率％", y="綠藍得票率差",
+  labs(x="投票率", y="綠藍得票率差",
        title="2020台灣總統大選各縣市：投票率(>70%)Ｘ綠藍得票率差")
 ```
 
 We can also visualize the turnout relation on each party candidate instead:
 
 ```{r presidential_county_turnout_vs, fig.showtext=TRUE, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by County"}
-ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
+ggplot(p_county_l, aes(x=Turnout / 100, y=Votes_Share)) +
   geom_rect(data=unique(p_county_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
   scale_fill_manual(values=main_party_colors) +
@@ -546,7 +648,7 @@ ggplot(p_county_l, aes(x=Turnout, y=Votes_Share)) +
   geom_point() +
   geom_smooth(method="lm", color="black") +
   facet_grid(~ Candidate) +
-  labs(x="投票率％", y="得票率",
+  labs(x="投票率", y="得票率",
        title="2020台灣總統大選各縣市：投票率Ｘ得票率")
 ```
 
@@ -564,7 +666,7 @@ From the previous county-level visualization we realized that turnout may be rel
 Here we use a simple linear model to test the correlation based on region-level data:
 
 ```{r lm_turnout_vsd}
-lm_turnout <- lm(Share_Diff ~ Turnout, data=p_region_l)
+lm_turnout <- lm(Share_Diff ~ I(Turnout/100), data=p_region_l)
 coeftest(lm_turnout, vcov=vcovHC(lm_turnout, type="HC0"))
 ```
 
@@ -604,7 +706,7 @@ We can also test the correlation between turnout and vote share of each party's 
 
 ```{r lm_vr_vs}
 for ( candidate in unique(p_region_l$Candidate) ) {
-  lm_turnout_candidiate <- lm(Votes_Share ~ Turnout, data=p_region_l[Candidate == candidate])
+  lm_turnout_candidiate <- lm(Votes_Share ~ I(Turnout / 100), data=p_region_l[Candidate == candidate])
   message(rep("-", 80))
   message("Test correlation between vote shares and voter turnout.")
   message(sprintf("For %s:", candidate))
@@ -615,8 +717,8 @@ for ( candidate in unique(p_region_l$Candidate) ) {
 Interestingly,
 such correlation is not found for PFP candidates.
 
-```{r presidential_region_vr_vs, fig.showtext=TRUE, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Region"}
-ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
+```{r presidential_region_turnout_vs, fig.showtext=TRUE, fig.width=8, fig.height=3, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Region"}
+ggplot(p_region_l, aes(x=Turnout / 100, y=Votes_Share)) +
   geom_rect(data=unique(p_region_l, by="Candidate"), aes(fill=Candidate),
             xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf, alpha=.5) +
   scale_fill_manual(values=main_party_colors) +
@@ -624,7 +726,7 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
   geom_point() +
   geom_smooth(method="lm", color="black") +
   facet_grid(~ Candidate) +
-  labs(x="投票率％", y="得票率",
+  labs(x="投票率", y="得票率",
        title="2020台灣總統大選各縣市：投票率 X 得票率")
 ```
 
@@ -632,7 +734,42 @@ ggplot(p_region_l, aes(x=Turnout, y=Votes_Share)) +
 
 #### By Polling Place 依投開票所
 
-TBC.
+```{r presidential_place_turnout_vs, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Polling Place"}
+fit1 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(1) 宋楚瑜 余湘"])
+fit2 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(2) 韓國瑜 張善政"])
+fit3 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(3) 蔡英文 賴清德"])
+p_place_l <- p_place_l[, label:=paste(Region, Village, Place)]
+plot_ly(p_place_l, x=~Turnout / 100, y=~Votes_Share, yaxis=~Candidate, text=~label,
+        color=~Candidate, colors=main_party_colors, marker=list(size=.25),
+        type="scatter", mode="markers", width=800, height=300) %>%
+  layout(title="2020台灣總統大選各縣市：投票率 X 得票率",
+         yaxis=list(title="得票率"),
+         xaxis=list(title="投票率"),
+         legend=list(orientation="h")) %>%
+  add_lines(data=p_place_l[Candidate == "(1) 宋楚瑜 余湘"],
+            x=~Turnout, y=fitted(fit1), color=I(main_party_colors[1]), showlegend=FALSE) %>%
+  add_lines(data=p_place_l[Candidate == "(2) 韓國瑜 張善政"],
+            x=~Turnout, y=fitted(fit2), color=I(main_party_colors[2]), showlegend=FALSE) %>%
+  add_lines(data=p_place_l[Candidate == "(3) 蔡英文 賴清德"],
+            x=~Turnout, y=fitted(fit3), color=I(main_party_colors[3]), showlegend=FALSE) %>%
+  subplot(nrows=1, shareY=TRUE) %>%
+  toWebGL()
+```
+
+Just a side note,
+correlation between turnout and vote share for PFP candidate is statistically significant at the polling place level,
+but not economically significant (in terms of effect size).
+
+```{r turnout_on_pfp_vote_share}
+coeftest(fit1, vcov=vcovHC(fit1, type="HC0"))
+```
+
+A 1% increase in turnout is only associated with 0.01% increase in vote share.
+Such size effect for DPP candidate is a considerable 0.51%:
+
+```{r turnout_on_dpp_vote_share}
+coeftest(fit3, vcov=vcovHC(fit3, type="HC0"))
+```
 
 [Go Back to Top](#head)
 
@@ -687,10 +824,16 @@ We group parties with less than 2% votes into "others" to make the rest of the p
 partylist_county <- partylist_l[, .(Votes=sum(Votes)), by=.(By, Party)]
 small_parties <- partylist_final[Share < .02, Party]
 
-partylist_county <- partylist_county[Party %in% small_parties, Party:="其他"]
-partylist_county <- partylist_county[, Party:=factor(Party)]  # Renew level.
-partylist_county <- partylist_county[, .(Votes=sum(Votes)), by=.(By, Party)]  # Re-group.
+# Compute shares for all parties.
+partylist_county <- partylist_county[, Party:=factor(Party)]
 partylist_county <- partylist_county[, Share:=Votes / sum(Votes), by=.(By)]
+
+# Absorb small parties and re-compute shares.
+partylist_county2 <- copy(partylist_county)
+partylist_county2 <- partylist_county2[Party %in% small_parties, Party:="其他"]
+partylist_county2 <- partylist_county2[, Party:=factor(Party)]
+partylist_county2 <- partylist_county2[, .(Votes=sum(Votes)), by=.(By, Party)]  # Re-group.
+partylist_county2 <- partylist_county2[, Share:=Votes / sum(Votes), by=.(By)]
 
 # Compute DPP-KMT share differences.
 partylist_county_gb <- partylist_county[Party %in% c("(14)  民主進步黨", "(9)  中國國民黨")]
@@ -701,7 +844,7 @@ partylist_county_gb_diff <- partylist_county_gb_diff[, dpp_win:=Share_Diff > 0]
 
 ```{r party_list_county, fig.showtext=TRUE, fig.cap="2020 Legislative Election Party List Vote Shares by County"}
 party_colors <- c("darkorange", "darkgreen", "yellow", "dodgerblue", "green", "green3", "lightblue", "grey")
-ggplot(partylist_county, aes(x=reorder(By, Votes), y=Share, fill=Party)) +
+ggplot(partylist_county2, aes(x=reorder(By, Votes), y=Share, fill=Party)) +
   geom_bar(stat="identity", position="stack", width=.8) +
   geom_text(aes(label=scales::percent(Share, .01)), position=position_stack(vjust=.5), size=2, angle=20) +
   scale_fill_manual(name="政黨", values=party_colors) +
@@ -709,6 +852,39 @@ ggplot(partylist_county, aes(x=reorder(By, Votes), y=Share, fill=Party)) +
        title="2020台灣不分區立委各縣市政黨得票率") +
   coord_flip() +
   theme(legend.position="bottom")
+```
+
+Or to incorporate all parties into one plot,
+we can plot the interactive version with no annotation but detailed hover-on info:
+
+```{r party_list_county_bar_plotly, fg.cap="2020 Legislative Election Party List Vote Shares by County"}
+# Handle bar coloring. (Quite an effort!)
+# We borrow the representing colors from wiki page (which seems to be based on party logo).
+page <- read_html("https://zh.wikipedia.org/wiki/2020年中華民國立法委員選舉")
+w_colors <- html_nodes(page, xpath="//table[contains(@class, 'wikitable sortable') and contains(., '2020年中華民國立法委員政黨提名名額')]//tr/td[1]")
+w_nodes <- html_nodes(page, xpath="//table[contains(@class, 'wikitable sortable') and contains(., '2020年中華民國立法委員政黨提名名額')]//tr/td[2]")
+
+w_colors <- gsub(".*[ ]|;", "",  html_attr(nodes, "style"))
+w_party_names <- html_text(nodes, trim=TRUE)
+all_party_colors <- data.table(p=w_party_names, color=w_colors)
+party_name_w_num <- data.table(Party=levels(partylist_county$Party))
+party_name_w_num <- party_name_w_num[, p:=gsub(".*[ ]", "", Party)]
+party_name_w_num <- merge(party_name_w_num, all_party_colors, by="p")
+
+# Align plotly internal ordering of grouping. (It doesn't respect factor level.)
+party_name_w_num <- party_name_w_num[, i:=as.integer( gsub("^\\(|\\).*", "", Party))]
+setorder(party_name_w_num, i)
+
+# Finally...
+plot_ly(partylist_county, y=~reorder(By, Votes), x=~Share, text=~Votes,
+        type="bar",  orientation="h",
+        color=~Party, colors=party_name_w_num$color,
+        width=800, height=600) %>%
+  layout(barmode="stack",
+         title="2020台灣不分區立委各縣市政黨得票率",
+         yaxis=list(title="縣市（依總票數排序）"),
+         xaxis=list(title="得票數"),
+         legend=list(orientation="h"))
 ```
 
 ```{r party_list_dpp_kmt_diff, fig.cap="2020 Legislative Election Party List DPP-KMT Share Difference by County"}
@@ -957,3 +1133,4 @@ ggplot(tc3_final, aes(x=Share, y=C_Share)) +
 [Go Back to Top](#head)
 
 # References on R Packages
+

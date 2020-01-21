@@ -7,8 +7,10 @@ required_pkgs <- c(
     "ggplot2",
     "ggrepel",
     "plotly",
+    "RColorBrewer",
     "sf",
     "lmtest",
-    "sandwich"
+    "sandwich",
+    "rvest"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")
