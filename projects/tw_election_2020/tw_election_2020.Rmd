@@ -296,7 +296,8 @@ plot_ly(p_county_l, y=~reorder(County, Total_Votes), x=~Votes,
   layout(barmode="stack",
          title="2020台灣總統大選候選人各縣市：得票數",
          yaxis=list(title="縣市（依總票數排序）"),
-         xaxis=list(title="得票數"))
+         xaxis=list(title="得票數"),
+         margin=list(t=50))
 ```
 
 And also vote shares (vote counts / total valid votes):
@@ -563,7 +564,8 @@ plot_ly(p_place, x=~Invalid_Votes_Share, y=~Share_Diff, text=~label,
   add_lines(x=~Invalid_Votes_Share, y=fitted(fit), color=I("black"), showlegend=FALSE) %>%
   layout(title="2020台灣總統大選各鄉鎮市區：廢票率Ｘ綠藍得票率差",
          yaxis=list(title="綠藍得票率差"),
-         xaxis=list(title="廢票率")) %>%
+         xaxis=list(title="廢票率"),
+         margin=list(t=50)) %>%
   toWebGL()
 ```
 
@@ -598,7 +600,7 @@ p <- ggplot(tw_county_sf, aes(text=County)) +
   geom_sf(aes(fill=Turnout)) +
   coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
   scale_fill_gradient(name="投票率％", low="white", high="red") +
-  labs(title="2020台灣總統大選各縣市：廢票率％")
+  labs(title="2020台灣總統大選各縣市：投票率％")
 
 ggplotly(p, width=800, height=600)
 ```
@@ -608,7 +610,7 @@ Here we plot the turnout against DPP-KMT share differences by county:
 
 ```{r presidential_county_turnout_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout by County"}
 ggplot(p_county, aes(x=Turnout / 100, y=Share_Diff, label=County)) +
-  scale_x_continuous(limits=c(35, 80)) +
+  scale_x_continuous(limits=c(.35, .8)) +
   geom_rect(data=p_county[1],
             aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.8) +
   geom_rect(data=p_county[1],
@@ -625,7 +627,7 @@ We zoom-in in the following plot for those with turnout > 70%:
 
 ```{r presidential_county_turnout70_vsd, fig.showtext=TRUE, fig.cap="2020 Presidential Election Voter Turnout (>70%) by County"}
 ggplot(p_county[Turnout > 70], aes(x=Turnout / 100, y=Share_Diff, label=County)) +
-  scale_x_continuous(limits=c(70, 80)) +
+  scale_x_continuous(limits=c(.7, .8)) +
   geom_rect(data=p_county[Turnout > 70][1],
             aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), fill="lightgreen", alpha=.8) +
   geom_rect(data=p_county[Turnout > 70][1],
@@ -734,25 +736,78 @@ ggplot(p_region_l, aes(x=Turnout / 100, y=Votes_Share)) +
 
 #### By Polling Place 依投開票所
 
-```{r presidential_place_turnout_vs, fig.cap="2020 Presidential Election Voter Turnout vs Candidate Vote Shares by Polling Place"}
-fit1 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(1) 宋楚瑜 余湘"])
-fit2 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(2) 韓國瑜 張善政"])
-fit3 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l[Candidate == "(3) 蔡英文 賴清德"])
+```{r presidential_place_turnout_vsd, message=FALSE}
 p_place_l <- p_place_l[, label:=paste(Region, Village, Place)]
-plot_ly(p_place_l, x=~Turnout / 100, y=~Votes_Share, yaxis=~Candidate, text=~label,
-        color=~Candidate, colors=main_party_colors, marker=list(size=.25),
-        type="scatter", mode="markers", width=800, height=300) %>%
-  layout(title="2020台灣總統大選各縣市：投票率 X 得票率",
-         yaxis=list(title="得票率"),
+fit0 <- lm(Share_Diff ~ I(Turnout / 100), data=p_place_l)
+
+# TODO:
+# add_lines always plot markers as well. A bug?
+plot_ly(
+  p_place_l, x=~(Turnout / 100), y=~Share_Diff, text=~label, marker=list(size=3, color="black"),
+  type="scatter", mode="markers",
+  width=800, height=600) %>%
+  add_trace(mode="lines", line=list(color="black"),
+            x=~(Turnout / 100), y=fitted(fit0), showlegend=FALSE) %>%
+  layout(title="2020台灣總統大選各投開票所：投票率 X 藍綠得票率差",
+         yaxis=list(title="藍綠得票率差"),
          xaxis=list(title="投票率"),
-         legend=list(orientation="h")) %>%
-  add_lines(data=p_place_l[Candidate == "(1) 宋楚瑜 余湘"],
-            x=~Turnout, y=fitted(fit1), color=I(main_party_colors[1]), showlegend=FALSE) %>%
-  add_lines(data=p_place_l[Candidate == "(2) 韓國瑜 張善政"],
-            x=~Turnout, y=fitted(fit2), color=I(main_party_colors[2]), showlegend=FALSE) %>%
-  add_lines(data=p_place_l[Candidate == "(3) 蔡英文 賴清德"],
-            x=~Turnout, y=fitted(fit3), color=I(main_party_colors[3]), showlegend=FALSE) %>%
-  subplot(nrows=1, shareY=TRUE) %>%
+         margin=list(t=50)) %>%
+  toWebGL()
+```
+
+```{r presidential_place_turnout_vs}
+# This plot is a bit troublesome to optimize...
+fit1 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l1 <- p_place_l[Candidate == "(1) 宋楚瑜 余湘"])
+fit2 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l2 <- p_place_l[Candidate == "(2) 韓國瑜 張善政"])
+fit3 <- lm(Votes_Share ~ I(Turnout / 100), data=p_place_l3 <- p_place_l[Candidate == "(3) 蔡英文 賴清德"])
+
+p1 <- plot_ly(
+  p_place_l1, x=~(Turnout / 100), y=~Votes_Share, text=~label,
+  color=~Candidate, colors=main_party_colors[1], marker=list(size=3),
+  width=600, height=600,
+  type="scatter", mode="markers") %>%
+  add_lines(data=p_place_l1,
+            x=~(Turnout / 100), y=fitted(fit1), color=I(main_party_colors[1]), showlegend=FALSE)
+p2 <- plot_ly(
+  p_place_l2, x=~(Turnout / 100), y=~Votes_Share, text=~label,
+  color=~Candidate, colors=main_party_colors[2], marker=list(size=3),
+  width=600, height=600,
+  type="scatter", mode="markers") %>%
+  add_lines(data=p_place_l2,
+            x=~(Turnout / 100), y=fitted(fit2), color=I(main_party_colors[2]), showlegend=FALSE)
+p3 <- plot_ly(
+  p_place_l3, x=~(Turnout / 100), y=~Votes_Share, text=~label,
+  color=~Candidate, colors=main_party_colors[3], marker=list(size=3),
+  width=600, height=600,
+  type="scatter", mode="markers") %>%
+  add_lines(data=p_place_l3,
+            x=~(Turnout / 100), y=fitted(fit3), color=I(main_party_colors[3]), showlegend=FALSE)
+```
+
+```{r presidential_place_turnout_vs_2, message=FALSE}
+p2 %>%
+  layout(title="2020台灣總統大選各投開票所：投票率 X 韓張得票率",
+         yaxis=list(title="得票率", rangemode="nonnegative", scaleanchor="x"),
+         xaxis=list(title="投票率", rangemode="nonnegative"),
+         margin=list(t=50)) %>%
+  toWebGL()
+```
+
+```{r presidential_place_turnout_vs_3, message=FALSE}
+p3 %>%
+  layout(title="2020台灣總統大選各投開票所：投票率 X 蔡賴得票率",
+         yaxis=list(title="得票率", rangemode="nonnegative", scaleanchor="x"),
+         xaxis=list(title="投票率", rangemode="nonnegative"),
+         margin=list(t=50)) %>%
+  toWebGL()
+```
+
+```{r presidential_place_turnout_vs_1, message=FALSE}
+p1 %>%
+  layout(title="2020台灣總統大選各縣市：投票率 X 宋余得票率",
+         yaxis=list(title="得票率", rangemode="nonnegative", scaleanchor="x"),
+         xaxis=list(title="投票率", rangemode="nonnegative"),
+         margin=list(t=50)) %>%
   toWebGL()
 ```
 
@@ -861,9 +916,7 @@ we can plot the interactive version with no annotation but detailed hover-on inf
 # Handle bar coloring. (Quite an effort!)
 # We borrow the representing colors from wiki page (which seems to be based on party logo).
 page <- read_html("https://zh.wikipedia.org/wiki/2020年中華民國立法委員選舉")
-w_colors <- html_nodes(page, xpath="//table[contains(@class, 'wikitable sortable') and contains(., '2020年中華民國立法委員政黨提名名額')]//tr/td[1]")
-w_nodes <- html_nodes(page, xpath="//table[contains(@class, 'wikitable sortable') and contains(., '2020年中華民國立法委員政黨提名名額')]//tr/td[2]")
-
+nodes <- html_nodes(page, xpath="//table[contains(@class, 'wikitable sortable') and contains(., '2020年中華民國立法委員政黨提名名額')]//tr/td[1]")
 w_colors <- gsub(".*[ ]|;", "",  html_attr(nodes, "style"))
 w_party_names <- html_text(nodes, trim=TRUE)
 all_party_colors <- data.table(p=w_party_names, color=w_colors)
@@ -884,7 +937,8 @@ plot_ly(partylist_county, y=~reorder(By, Votes), x=~Share, text=~Votes,
          title="2020台灣不分區立委各縣市政黨得票率",
          yaxis=list(title="縣市（依總票數排序）"),
          xaxis=list(title="得票數"),
-         legend=list(orientation="h"))
+         legend=list(orientation="h"),
+         margin=list(t=50))
 ```
 
 ```{r party_list_dpp_kmt_diff, fig.cap="2020 Legislative Election Party List DPP-KMT Share Difference by County"}
@@ -944,12 +998,6 @@ we don't even know whether they are causally related at all.
 ```{r, fig.height=15, fig.showtext=TRUE, fig.cap="2020 Legislative Election Party List Shares v.s. Presidential Votes"}
 scatterplot()
 ```
-
-[Go Back to Top](#head)
-
-#### By Polling Place 依投開票所
-
-TBC.
 
 [Go Back to Top](#head)
 
