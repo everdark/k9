@@ -338,7 +338,7 @@ We can also visualize the above ranking with a choropleth map:
 p <- ggplot(tw_county_sf, aes(text=County)) +
   geom_sf(aes(fill=Share_Diff)) +
   coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
-  scale_fill_gradient(name="綠藍得票率差", low="blue3", high="green3") +
+  scale_fill_gradient2(name="綠藍得票率差", low="darkblue", high="darkgreen", mid="white") +
   labs(title="2020台灣總統大選各縣市：綠藍得票率差")
 
 ggplotly(p, width=800, height=600)
