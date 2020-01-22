@@ -133,6 +133,7 @@ library(ggplot2)
 library(ggrepel)
 library(plotly)
 library(RColorBrewer)
+library(patchwork)
 
 # Fix macOS ggplot device to locate a Chinese font.
 # To make `knitr` aware of this we also need to speficy `fig.showtext=TRUE` for chunks with ggplot output.
@@ -474,16 +475,53 @@ p <- ggplot(p_county, aes(x=reorder(County, Invalid_Votes_Share), y=Invalid_Vote
 ggplotly(p, width=800, height=600)
 ```
 
-To see the geolocational differences:
+To see the geolocational differences,
+again we plot the choropleth map.
+But this time we try to plot the outlying islands as inset map:
 
 ```{r presidential_county_map_invalid, fig.cap="Choropleth Map for Invalid Vote Shares"}
-p <- ggplot(tw_county_sf, aes(text=County)) +
-  geom_sf(aes(fill=Invalid_Votes_ShareP)) +
-  coord_sf(xlim=c(118, 122.5), ylim=c(21.5, 26.5)) +
-  scale_fill_gradient(name="廢票率％", low="white", high="black") +
-  labs(title="2020台灣總統大選各縣市：廢票率％")
+# Separate spatial frame to create inset map for outlying islands.
+# Otherwise they will be too small to see.
+island_counties <- c("Kinmen", "Lienkiang")
+tw_county_sf_kinmen <- tw_county_sf[tw_county_sf$RegionEn == "Kinmen",]
+tw_county_sf_lienkiang <- tw_county_sf[tw_county_sf$RegionEn == "Lienkiang",]
+tw_county_sf_mainland <- tw_county_sf[!tw_county_sf$RegionEn %in% island_counties,]
 
-ggplotly(p, width=800, height=600)
+# Fix the gradient scale for all subplots.
+invalid_voteshare_scale <- range(tw_county_sf$Invalid_Votes_ShareP)
+grad_scale <- scale_fill_gradient(name="廢票率％", low="white", high="black",
+                                  limits=invalid_voteshare_scale)
+
+# Plot each islands individually first.
+p_mainland <- ggplot(tw_county_sf_mainland, aes(text=County)) +
+  geom_sf(aes(fill=Invalid_Votes_ShareP)) +
+  coord_sf(xlim=c(119.25, 122), ylim=c(22, 25.25)) +
+  grad_scale +
+  labs(subtitle="台灣 Taiwan")
+
+p_kinmen <- ggplot(tw_county_sf_kinmen, aes(text=County)) +
+  geom_sf(aes(fill=Share_Diff)) +
+  coord_sf(datum=NA) +
+  grad_scale +
+  labs(subtitle="金門縣 Kinmen") +
+  theme(legend.position="none")
+
+p_lienkiang <- ggplot(tw_county_sf_lienkiang, aes(text=County)) +
+  geom_sf(aes(fill=Share_Diff)) +
+  coord_sf(datum=NA) +
+  grad_scale +
+  labs(subtitle="連江縣 Lienkiang") +
+  theme(legend.position="none")
+
+# Combine.
+layout <- "
+ACCC
+BCCC
+#CCC
+"
+p <- p_kinmen + p_lienkiang + p_mainland +
+  plot_layout(guides="collect", design=layout)
+p + plot_annotation(title="2020台灣總統大選各縣市：廢票率")
 ```
 
 Check if there is any correlation between invalid votes and the DPP-KMT differences:
