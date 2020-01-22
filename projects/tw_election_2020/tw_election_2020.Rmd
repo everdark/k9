@@ -638,6 +638,7 @@ For choropleth map this time we try a native `plotly` approach:
 ```{r presidential_county_turnout_map, fig.cap="2020 Presidential Election Voter Turnout: County Map", message=FALSE}
 plot_ly(tw_county_sf, split=~County, color=~Turnout, text=~paste(County, Turnout),
         showlegend=FALSE, colors="Reds", strokes="grey",
+        hoveron="fills", hoverinfo="text",
         width=800, height=600) %>%
   layout(title="2020台灣總統大選各縣市：投票率",
          legend=list(name="投票率％"),
