@@ -21,6 +21,7 @@ nocite: |
   @reticulate
   @tensorflow2015-whitepaper
   @heinzerling2018bpemb
+link-citations: yes
 abstract: |
   Word embeddings are the building blocks for neural network models that solve natural language understanding (NLU) tasks. In this notebook we review in details several influential models that are designed to learn context-free word embeddings for other downstream machine learning application, a.k.a. transfer learning. We also exercise extensively to use TensorFlow to demonstrate how we can implement each of the models. At the end, we demonstrate in short several popular frameworks to handle pre-trained embeddings.
 ---
@@ -383,6 +384,10 @@ if tf.test.is_gpu_available():
 Since skip-gram works better when the corpus is larger,
 let's use a subset of wikipedia articles (from [Wikimedia Downloads](https://dumps.wikimedia.org/)) to demonstrate the training of `word2vec`.
 We use the [WikiExtractor](https://github.com/attardi/wikiextractor) tool to process the raw dump.
+^[Windows user may encounter encoding issues using the script.
+A quick fix is to replace the line
+`input = fileinput.FileInput(input_file, openhook=fileinput.hook_compressed)` with
+`input = open(input_file, 'r', encoding='utf-8')`.]
 
 ```{bash mkdir}
 # Bash
