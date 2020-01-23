@@ -1284,7 +1284,10 @@ dataset = dataset.prefetch(batch_size)
 
 glove_model_file = "models/enwiki_glove.h5"
 if os.path.exists(glove_model_file):
-  glove = tf.keras.models.load_model(glove_model_file)
+  # Model with custom objects cannot be directly loaded with compiliation.
+  # We need too compile with the custom objects AFTER loaded.
+  glove = tf.keras.models.load_model(glove_model_file, compile=False)
+  glove.compile(loss=weighted_sum_squared_error, optimizer="sgd")
 else:
   n_epoch = 5
   n_steps = len(triplets) // batch_size
