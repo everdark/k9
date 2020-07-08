@@ -53,6 +53,9 @@ navbar:
           - text: "---"
           - text: "Visualization for Taiwanese General Election 2020"
             href: projects/tw_election_2020/tw_election_2020.nb.html
+          - text: "---"
+          - text: "A Note on Model Evaluation for Imbalanced Data"
+            href: projects/imbalance_eval/imbalance_eval.html
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"

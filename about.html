@@ -13,12 +13,11 @@
 
 <title>Yet Another Data Scientist</title>
 
-<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="site_libs/bootstrap-3.3.5/css/flatly.min.css" rel="stylesheet" />
-<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
-<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
-<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jquery-3.5.1/jquery-3.5.1.min.js"></script>
+<meta name="name" content="viewport" />
+<meta name="content" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+<link href="site_libs/bootstrap-3.4.1/bootstrap-custom.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.4.1/bootstrap.min.js"></script>
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
@@ -27,8 +26,17 @@
 
 <style type="text/css">code{white-space: pre;}</style>
 <style type="text/css">
+  pre {
+    background-color: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: .5rem;
+  }
   pre:not([class]) {
     background-color: white;
+  }
+  pre code {
+    background-color: transparent;
   }
 </style>
 <script type="text/javascript">
@@ -65,6 +73,7 @@ h5 {
 h6 {
   font-size: 12px;
 }
+
 .table th:not([align]) {
   text-align: left;
 }
@@ -102,6 +111,7 @@ summary {
 
 
 <style type="text/css">
+/* TODO: remove this padding CSS when we drop BS3 */
 /* padding for bootstrap navbar */
 body {
   padding-top: 60px;
@@ -132,6 +142,7 @@ body {
   padding-top: 65px;
   margin-top: -65px;
 }
+
 .dropdown-submenu {
   position: relative;
 }
@@ -182,27 +193,29 @@ $(document).ready(function () {
   var menuAnchor = $('a[href="' + href + '"]');
 
   // mark it active
-  menuAnchor.parent().addClass('active');
+  menuAnchor.tab('show');
 
   // if it's got a parent navbar menu mark it active as well
   menuAnchor.closest('li.dropdown').addClass('active');
 });
 </script>
 
-<!-- tabsets -->
-
+<!--
+  Note that .tabset-dropdown was initially implemented using Glyphicons, which were dropped
+  in BS4. The idea behind the "equivalent" BS4 CSS derives from how carets are implemented
+  https://github.com/twbs/bootstrap/blob/099860/scss/mixins/_caret.scss#L1
+-->
 <style type="text/css">
 .tabset-dropdown > .nav-tabs {
   display: inline-table;
   max-height: 500px;
   min-height: 44px;
   overflow-y: auto;
-  background: white;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
+.tabset-dropdown > .nav-tabs > li.active-dropdown-tab:before {
   content: "";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
@@ -210,7 +223,7 @@ $(document).ready(function () {
   border-right: 1px solid #ddd;
 }
 
-.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active-dropdown-tab:before {
   content: "&#xe258;";
   border: none;
 }
@@ -223,7 +236,7 @@ $(document).ready(function () {
   border-right: 1px solid #ddd;
 }
 
-.tabset-dropdown > .nav-tabs > li.active {
+.tabset-dropdown > .nav-tabs > li.active-dropdown-tab {
   display: block;
 }
 
@@ -356,6 +369,10 @@ $(document).ready(function () {
     <li>
       <a href="projects/tw_election_2020/tw_election_2020.nb.html">Visualization for Taiwanese General Election 2020</a>
     </li>
+    <li class="divider"></li>
+    <li>
+      <a href="projects/imbalance_eval/imbalance_eval.html">A Note on Model Evaluation for Imbalanced Data</a>
+    </li>
   </ul>
 </li>
 <li class="dropdown">
@@ -391,7 +408,7 @@ $(document).ready(function () {
   </div><!--/.container -->
 </div><!--/.navbar -->
 
-<div class="fluid-row" id="header">
+<div id="header">
 
 
 
@@ -444,7 +461,9 @@ $(document).ready(function () {
 
 $(document).ready(function () {
   $('.tabset-dropdown > .nav-tabs > li').click(function () {
-    $(this).parent().toggleClass('nav-tabs-open')
+    $(this).parent().toggleClass('nav-tabs-open');
+    $(this).siblings().removeClass("active-dropdown-tab");
+    $(this).addClass("active-dropdown-tab");
   });
 });
 </script>
