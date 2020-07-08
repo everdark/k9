@@ -35,6 +35,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
 + Projects
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [Visualization for Taiwanese General Election 2020](https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html)
+    + [A Note on Model Evaluation for Imbalanced Data](https://everdark.github.io/k9/projects/imbalance_eval/imbalance_eval.html)
     + [A General-Purpose Neural Ranking Model (W.I.P.)]
 
 ## Laboratory Scripts
