@@ -1,0 +1,227 @@
+---
+title: "Topic Modeling: Latent Dirichlet Allocation"
+subtitle: ""
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (23 July 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: lda.bib
+link-citations: yes
+abstract: |
+  A technical introduction to LDA, the most popular topic modeling approach to date, along with working examples using R.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Latent Dirichlet Allocation for Topic Modeling">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/lda/lda.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
+  '<meta property="og:description" content="A data science notebook about LDA.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/bootstrap")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+# LDA: A Bayesian Approach
+
+LDA (Latent Dirichlet Allocation) is probably the most popular approach to date for topic modeling.
+The approach formulates the problem as a generative process,
+where a document is characterized by a distribution of topics,
+and a topic in turn is characterized by a distribution of words.
+In such hierarchical framework we can then represent (and indeed generate) a document based on bag-of-words.
+
+As long as we can fully specify bith distribution mentioned above,
+we are able to build a probabilistic model that can generate the document-term matrix in the following steps:
+
+1. Draw a topic mixing from a document-topic distribution that represents the latent topics of a document. (Something like `70% topic-1, 20% topic-2 10% topic-3` for a 3-topic setup.) 
+2. For each word position of the document, repeat:
+    a. draw a topic from the topic mixing, and hence derive the corresponding topic-word distribution
+    b. draw a word from the resulting topic-word distribution
+
+The prior for both the document-topic distribution and the topic-word distribution are postulated as Dirichlet distribution,
+where the parameters are set such that a sparse distribution is preferred.
+
+For a detailed discussion on Bayesian modeling,
+readers can refer to the notebook: [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html).
+
+**Not a Typical NLU Task**
+
+In our [technical blog](https://everdark.github.io/k9/) We didn't put this notebook under the category of `Natural Language Understanding`,
+instead we put it under the `Statistics` category.
+This is to emphasize that the model is a pure probabilistic model based on bag-of-words,
+without any mechanism of semantic embeddings.
+It is powerful partly thanks to this simplicity.
+
+# Dirichlet Distribution
+
+Dirichlet distribution is just the multivariate version of Beta distribution.
+
+
+# A Working Demo
+
+@spm
+
+
+```{r}
+library(sentencepiece)
+
+
+```
+
+
+@text2vec
+
+```{r wip}
+library(text2vec)
+
+data("movie_review")
+tokens = tolower(movie_review$review[1:4000])
+tokens = word_tokenizer(tokens)
+it = itoken(tokens, ids = movie_review$id[1:4000], progressbar = FALSE)
+v = create_vocabulary(it)
+v = prune_vocabulary(v, term_count_min = 10, doc_proportion_max = 0.2)
+  
+vectorizer = vocab_vectorizer(v)
+dtm = create_dtm(it, vectorizer, type = "dgTMatrix")
+
+lda_model = LDA$new(n_topics = 10, doc_topic_prior = 0.1, topic_word_prior = 0.01)
+doc_topic_distr = 
+  lda_model$fit_transform(x = dtm, n_iter = 1000, 
+                          convergence_tol = 0.001, n_check_convergence = 25, 
+                          progressbar = FALSE)
+```
+
+```{r}
+barplot(doc_topic_distr[1, ], xlab = "topic", 
+        ylab = "proportion", ylim = c(0, 1), 
+        names.arg = 1:ncol(doc_topic_distr))
+```
+
+
+```{r}
+lda_model$get_top_words(n = 10, topic_number = c(1L, 5L, 10L), lambda = 1)
+```
+
+```{r}
+lda_model$get_top_words(n = 10, topic_number = c(1L, 5L, 10L), lambda = 0.2)
+```
+
+# Topic Interpretation
+
+@sievert2014ldavis
+
+## Term Relevancy
+
+In their work the relevance of a term $w$ to a specific topic $k$ is measred by
+
+$$
+r(w, k \vert \lambda) = \lambda \log(\phi_{kw}) + (1 - \lambda)\log(\frac{\phi_{kw}}{p_w}),
+$$
+
+where $\phi_{kw}$ is the probability of term $w$ appears in topic $k$,
+and $p_w$ is the marginal probability of term $w$ in the corpus (marginalized over topics),
+$\lambda$ is a parameter controlling the weight of term probability within topic against its lift (as measured by $\frac{\phi_{kw}}{p_w}$).
+
+In this setup,
+setting $\lambda = 1$ effectively rank the relevancy only in terms of the word probability within topic.
+So the most popular word within the topic will be the most relevant word as well.
+If a word is popular over the entire corpus (a common word) it will likely to appear in higher rank as well,
+which is not helping in interpreting the given topic.
+
+In their study on determining the optimal $\lambda$ they use the [Newsgroup](http://qwone.com/~jason/20Newsgroups/) dataset with human testing and find that $\lambda = 0.6$ is the best choice,
+at least for their particular model.
+
+The lesson is that we should never choose a trivial $\lambda$ value on the boundary,
+i.e., neither 1 nor 0,
+but experiment with a value in-between.
+
+## Topic Distance
+
+In `LDAvis` the left panel visualization by default will show the top-2 principal components on topc distances,
+measured by [Jensen-Shannon divergence](https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence).
+It is a measure to compute the distance between two distributions.
+
+Remember that in LDA a topic is modeled as a word distribution.
+Given any two topics we'd like to compute their distributional distance to understand how well we cluster the documents into topic groups.
+
+The Jensen-Shannon divergence is a symmetric version of the [Kullback–Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+or relative entropy.
+The KL divergence of a distribution P from a distribution Q is defined as (assuming a discrete setup):
+
+$$
+D_{KL}(P \vert\vert Q) = \sum_xP(x)\log\frac{P(x)}{Q(x)}.
+$$
+
+It is the expectation of logarithmic difference between P and Q.
+
+The Jensen-Shannon divergence is defined as:
+
+$$
+JSD(P, Q) = \frac{1}{2}D_{KL}(P\vert\vert M) + \frac{1}{2}D_{KL}(Q\vert\vert M),
+$$
+
+where
+
+$$
+M = \frac{1}{2}(P + Q),
+$$
+
+is the mixture of the two distribution.
+
+If we expaned the above equation:
+
+$$
+\begin{aligned}
+JSD(P, Q) 
+&= \frac{1}{2}D_{KL}(P\vert\vert M) + \frac{1}{2}D_{KL}(Q\vert\vert M) \\
+&= \frac{1}{2}\sum_xP(x)\log\frac{P(x)}{M(x)} + \frac{1}{2}\sum_xQ(x)\log\frac{Q(x)}{M(x)} \\
+&= \frac{1}{2}\bigg[\sum_xP(x)\log P(x) + \sum_xQ(x)\log Q(x)\bigg] -
+\sum_x\bigg(\frac{P(x) + Q(x)}{2}\bigg)\log\bigg(\frac{P(x) + Q(x)}{2}\bigg) \\
+&= H_M - \frac{H_P + H_Q}{2},
+\end{aligned}
+$$
+
+where $H_D$ is the [entropy](https://en.wikipedia.org/wiki/Entropy) of distribution $D$:
+
+$$
+H_D = - \sum_xD(x)\log D(x).
+$$
+
+Hence the JSD is indeed *the entropy of the mixture minus the mixture of the entropy.*
+
+Once the JSD between all topics are computed,
+[multidimensional scaling](https://en.wikipedia.org/wiki/Multidimensional_scaling) is used to convert the distance matrix into a 2-dimentional coordinates for visaulization purpose.
+
+## Demo
+
+
+```{r}
+#lda_model$plot()
+## TODO: how to show in notebook?
+```
+
+
+# References
