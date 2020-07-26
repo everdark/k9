@@ -23,7 +23,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/notebooks/ml/learning_to_rank/learning_to_rank.html)
-    + [General-Purpose Ranking Models]((https://everdark.github.io/k9/notebooks/ml/neural_ranking/neural_ranking.nb.html))
+    + [General-Purpose Ranking Models](https://everdark.github.io/k9/notebooks/ml/neural_ranking/neural_ranking.nb.html)
     + [On Model Explainability](https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html)
     + [Demystify Modern Gradient Boosting Trees](https://everdark.github.io/k9/notebooks/ml/gradient_boosting/gbt.nb.html)
 + Natural Language Understanding
