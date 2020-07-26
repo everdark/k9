@@ -14,6 +14,9 @@ navbar:
         - text: "Bootstrap Sampling 101"
           href: notebooks/stats/bootstrap/bootstrap.nb.html
         - text: "---"
+        - text: "Topic Modeling: Latent Dirichlet Allocation (WIP)"
+          #href: notebooks/stats/lda/lda.nb.html
+        - text: "---"
         - text: "On Linear Regression: Machine Learning vs Econometrics (WIP)"
           #href: notebooks/stats/regression/reg.nb.html
         - text: "---"
@@ -29,6 +32,9 @@ navbar:
         - text: "---"
         - text: "Introduction to Learning-to-Rank"
           href: notebooks/ml/learning_to_rank/learning_to_rank.html
+        - text: "---"
+        - text: "General-Purpose Ranking Models"
+          href: notebooks/ml/neural_ranking/neural_ranking.nb.html
         - text: "---"
         - text: "On Model Explainability"
           href: notebooks/ml/model_explain/model_explain.nb.html

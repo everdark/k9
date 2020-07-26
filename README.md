@@ -18,15 +18,17 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
 + Statistics
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
     + [Bootstrap Sampling 101](https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html)
+    + [Topic Modeling]
 + Machine Learning
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
     + [Introduction to Learning-to-Rank](https://everdark.github.io/k9/notebooks/ml/learning_to_rank/learning_to_rank.html)
+    + [General-Purpose Ranking Models]((https://everdark.github.io/k9/notebooks/ml/neural_ranking/neural_ranking.nb.html))
     + [On Model Explainability](https://everdark.github.io/k9/notebooks/ml/model_explain/model_explain.nb.html)
     + [Demystify Modern Gradient Boosting Trees](https://everdark.github.io/k9/notebooks/ml/gradient_boosting/gbt.nb.html)
 + Natural Language Understanding
     + [On Subword Units](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html)
-    + [Contex-Free Word Embeddings (W.I.P.)](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/word_embeddings/word_embeddings.nb.html)
+    + [Contex-Free Word Embeddings]
     + [Contex-Aware Word Embeddings]
 + Programming
     + R
@@ -36,7 +38,6 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [Visualization for Taiwanese General Election 2020](https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html)
     + [A Note on Model Evaluation for Imbalanced Data](https://everdark.github.io/k9/projects/imbalance_eval/imbalance_eval.html)
-    + [A General-Purpose Neural Ranking Model (W.I.P.)]
 
 ## Laboratory Scripts
 
