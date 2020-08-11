@@ -466,7 +466,7 @@ Once the JSD between all topics are computed,
 [multidimensional scaling](https://en.wikipedia.org/wiki/Multidimensional_scaling) is used to convert the distance matrix into a 2-dimensional coordinates for visualization purpose.
 
 ```{r plot_ldavis, results="hide"}
-lda_model$plot(out.dir="model/ldavis", open.browser=FALSE)
+lda_model$plot(out.dir="model/ldavis", open.browser=FALSE, reorder.topics=FALSE)
 ```
 
 <head>
@@ -483,10 +483,6 @@ lda_model$plot(out.dir="model/ldavis", open.browser=FALSE)
     var vis = new LDAvis("#lda", "model/ldavis/lda.json");
   </script>
 </body>
-
-```{r ldavis}
-htmltools::includeHTML("model/ldavis/index.html")
-```
 
 # Biterm Topic Modeling
 

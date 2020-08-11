@@ -8,7 +8,8 @@ required_pkgs <- c(
     "ggplot2",
     "text2vec",
     "BTM",
-    "LDAvis",
+    "devtools",
     "rgl"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")
+devtools::install_github("cpsievert/LDAvis")  # We want the dev version that can reserve topic index.
