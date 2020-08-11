@@ -62,6 +62,9 @@ navbar:
           - text: "---"
           - text: "A Note on Model Evaluation for Imbalanced Data"
             href: projects/imbalance_eval/imbalance_eval.html
+          - text: "---"
+          - text: "A Short Ride on AWS DeepRacer 2020"
+            href: projects/deepracer_2020/deepracer_2020.html
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"

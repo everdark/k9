@@ -38,6 +38,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [YouTube-8M Multi-Label Video Classification](https://everdark.github.io/k9/projects/yt8m/yt8m.html)
     + [Visualization for Taiwanese General Election 2020](https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html)
     + [A Note on Model Evaluation for Imbalanced Data](https://everdark.github.io/k9/projects/imbalance_eval/imbalance_eval.html)
+    + [A Short Ride on AWS DeepRacer 2020](https://everdark.github.io/k9/projects/deepracer_2020/deepracer_2020.html)
 
 ## Laboratory Scripts
 
@@ -91,10 +92,9 @@ pip install -r requirements.txt
     + Linear Mixed Effects Models
     + Naive Bayes
     + Bayesian Model Diagnostic
-    + Time Series Forecasting
+    + Bayesian Time Series Forecasting
 + Tools/Programming
-    + TensorFlow 2.0 Hands-On
-    + MXNet Hands-On
+    + PyTorch Hands-On
     + RASA Chatbot Framework Hands-On
 + Programming
     + R
