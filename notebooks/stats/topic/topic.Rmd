@@ -1,0 +1,673 @@
+---
+title: "Introduction to Topic Models"
+subtitle: "Latent Dirichlet Allocation and Biterm Topic Model"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (11 August 2020 First Uploaded)"
+output:
+  html_notebook:
+    highlight: zenburn
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: topic.bib
+link-citations: yes
+abstract: |
+  A technical introduction along with working demo codes to two popular topic modeling approaches: Latent Dirichlet Allocation (LDA) and Biterm Topic Modeling (BTM). We use a very large collection of arXiv scholarly paper abstract (in English) for the former model and a very small collection of short text (in Traditional Chinese) about environmental violation fine for the latter.
+---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+
+# Add open graph meta.
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="Latent Dirichlet Allocation for Topic Modeling">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
+  '<meta property="og:description" content="A data science notebook about topic modeling.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/topic")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
+
+```{r setup, include=FALSE}
+library(reticulate)
+r <- try(use_python(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+if ( is(r, "try-error") ) {
+  r <- try(use_virtualenv(Sys.getenv("PYTHON_PATH"), required=TRUE), silent=TRUE)
+  if ( is(r, "try-error") ) use_condaenv(Sys.getenv("PYTHON_PATH"), required=TRUE)
+}
+
+# Embed 3d plot.
+library(rgl)
+knitr::knit_hooks$set(webgl=hook_webgl)
+```
+
+# The Objective
+
+From [wikipedia](https://en.wikipedia.org/wiki/Topic_model):
+
+> In machine learning and natural language processing,
+a topic model is a type of statistical model for discovering the abstract "topics" that occur in a collection of documents.
+
+The objective is to cluster documents into different topic groups.
+The task is usually unsupervised,
+which means that topics are only implicit and not pre-labeled.
+
+In this notebook we will walk through two popular approaches on topic modeling.
+Both are Bayesian and can be applied efficiently to large dataset.
+
+# LDA: A Bayesian Approach
+
+LDA (Latent Dirichlet Allocation) is probably the most popular approach to date for topic modeling.
+The approach formulates the problem as a generative process,
+where a document is characterized by a distribution of topics (a *topic mixture*),
+and a topic in turn is characterized by a distribution of words.
+In such hierarchical framework we can then represent (and indeed generate) a document based on bag-of-words.
+
+As long as we can fully specify both distribution mentioned above,
+we are able to build a probabilistic model that can generate the document-term matrix in the following steps:
+
+1. Draw a topic mixing from a document-topic distribution that represents the latent topics of a document. (Something like `70% topic-1, 20% topic-2 10% topic-3` for a 3-topic setup.)
+2. For each word position of the document, repeat:
+    a. draw a topic from the topic mixing, and hence derive the corresponding topic-word distribution
+    b. draw a word from the resulting topic-word distribution
+
+The prior for both the document-topic distribution and the topic-word distribution are postulated as Dirichlet distribution,
+where the parameters are set such that a sparse distribution is preferred.
+
+For a detailed discussion on Bayesian modeling,
+readers can refer to the notebook: [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html).
+
+**Not a Typical NLU Task**
+
+In our [technical blog](https://everdark.github.io/k9/) We didn't put this notebook under the category of `Natural Language Understanding`,
+instead we put it under the `Statistics` category.
+This is to emphasize that the model is a pure probabilistic model based on bag-of-words,
+without any mechanism of semantic embeddings.
+It is powerful partly thanks to this simplicity.
+
+## Dirichlet Distribution
+
+Dirichlet distribution is just the multivariate version of [Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution).
+It is commonly used as the prior of a multivariate Bayesian model,
+probably because it is the *conjugate* prior to categorical and multinomial distribution.
+That is, the prior and the posterior are the same distribution family.
+
+Dirichlet can be used to describe a distribution over *probability vectors*:
+
+$$
+q = (q_1, q_2, ..., q_k),
+$$
+
+where each $q_i$ is a non-negative real number and
+
+$$
+\sum_{i=1}^kq_i = 1.
+$$
+
+A realization of $q$ is a multinomial event.
+For example if we have a dice then $k = 6$ and $q_i$ is the probability of the outcome having number $i$ facing up.
+A fair dice hence will have $q_i = \frac{1}{6}$ for all $i$.
+
+A Dirichlet distribution is parameterized by a vector $a = (a_1, a_2, ..., a_k)$.
+When $k = 2$,
+Dirichlet $\text{Dir}(a)$ reduces to a Beta distribution where $q_1 \sim \text{Beta}(a_1, a_2)$.
+Indeed,
+for $k > 2$ the marginal distribution of each $q_i$ is still a Beta:
+
+$$
+q_i \sim \text{Beta}(a_i, \sum_{j \neq i}a_j).
+$$
+The probability density function of Dirichlet is:
+
+$$
+P(q\vert a) = \frac{\Gamma(\sum_ia_i)}{\prod_i\Gamma(a_i)}\prod_iq_i^{a_i - 1},
+$$
+
+where $\Gamma$ is the gamma function:
+
+$$
+\Gamma(x) = (x - 1)!.
+$$
+
+The parameter vector $a$ controls the sparsity of the distribution.
+
+One thing to note is that although we seem to have $k$ dimension for a Dirichlet distribution,
+it is actually a distribution over $k - 1$ dimension.
+This is because we have the constraint that requires $\sum_{i=1}^kq_i = 1$,
+so the last element $q_k$ is already determined by the previous $k - 1$ elements.
+
+Let's play around with this distribution with its pdf:
+
+```{r pdf_dir}
+# PDF of Dirichlet distribution.
+ddir <- function(q, a) {
+  stopifnot(sum(q) == 1)
+  (gamma(sum(a)) / prod(gamma(a))) * prod(q^(a - 1))
+}
+
+apply_ddir <- function(q, a) {
+  d <- apply(q, 1, ddir, a=a)
+  q <- cbind(q, d)
+  q <- q[order(q[, "d"]),]
+  q
+}
+
+plot_dir <- function(q) {
+  rgl::plot3d(x=q[, "q1"], y=q[, "q2"], z=q[, "d"],
+              xlab="q1", ylab="q2", zlab="density",
+              col=heat.colors(nrow(q), rev=TRUE))
+  rgl::rglwidget()
+}
+
+# Create some random probability vectors given k = 3.
+set.seed(777)
+nsample <- 5000
+q1 <- runif(nsample)
+q2 <- mapply(runif, n=rep(1, nsample),  max=1 - q1, MoreArgs=list(min=0))
+q <- cbind(q1, q2, q3=1 - q1 - q2)
+stopifnot(all(rowSums(q) == 1))
+```
+
+For $k = 3$ the distribution is indeed over only 2 dimension so we can visualize the first 2 probability dimension with the Dirichlet density as the 3rd dimension.
+Let's fix $a_3 = 1$ and assume both $a_1$ and $a_2$ are smaller than 1:
+
+```{r dir_plot_1}
+q <- q[, 1:3]  # Remove existing density.
+q <- apply_ddir(q, a=c(.5, .5, 1))
+plot_dir(q)
+```
+
+```{r dir_plot_2}
+q <- q[, 1:3]  # Remove existing density.
+q <- apply_ddir(q, a=c(.5, 1.2, 1))
+plot_dir(q)
+```
+
+```{r dir_plot_3}
+q <- q[, 1:3]  # Remove existing density.
+q <- apply_ddir(q, a=c(1.2, 1.2, 1))
+plot_dir(q)
+```
+
+The distributional difference is mainly driven by the sign of $a_i - 1$.
+That is,
+for $a > 1$ the distribution is dense and for $a < 1$ it is sparse.
+It is sparse in a sense that only a few dimension will account for the majority of the proportion.
+
+It is common for a model to have a Dirichlet prior with equal values in the $a$ parameter vector.
+For a sparse prior (usually used in LDA):
+
+```{r dir_plot_4}
+q <- q[, 1:3]  # Remove existing density.
+q <- apply_ddir(q, a=c(.1, .1, .1))
+plot_dir(q)
+```
+
+For a dense prior instead:
+
+```{r dir_plot_5}
+q <- q[, 1:3]  # Remove existing density.
+q <- apply_ddir(q, a=c(1.2, 1.2, 1.2))
+plot_dir(q)
+```
+
+## A Working Demo
+
+Let's use a HUGE dataset to demonstrate the model.
+We will use the [arXiv dataset](https://www.kaggle.com/Cornell-University/arxiv?select=arxiv-metadata-oai-snapshot.json).
+We will use only the abstract of scholarly papers on the field of computer science.
+There are millions of records stored in [`Json Lines` format](http://jsonlines.org/).
+We parse them using [`jsonlite`](https://github.com/jeroen/jsonlite) in a streaming fashion:
+
+```{r prepare_arxiv_data, results="hide"}
+library(data.table)
+library(jsonlite)
+
+# The original file is unzipped and gzip for ease of operation.
+infile <- "data/arxiv-metadata-oai-snapshot.json.gz"
+outfile <- "data/arxiv_abstract.json.gz"
+outfile_s <- "data/arxiv_abstract_cs.json.gz"
+
+if ( !file.exists(outfile_s) ) {
+  # This could take quite some times to finish.
+  outf <- gzfile(outfile, "wb")
+  f <- gzfile(infile, "rb")
+  stream_in(f,
+            handler=function(df) {
+              # We only need a subset of the fields.
+              setDT(df)
+              df <- df[, .(id, title, categories, abstract)]
+              df <- unique(df, by="id")  # There are duplicates.
+              # Remove newline char and heading and trailing white spaces.
+              df[, abstract:=tolower(trimws(gsub("\n", " ", abstract)))]
+              stream_out(df, outf, pagesize=50000)
+            },
+            pagesize=50000
+  )
+  close(f)
+  close(outf)
+
+  # Read back and de-dup again.
+  f <- gzfile(outfile, "rb")
+  arxiv <- stream_in(f, pagesize=50000)
+  close(f)
+  setDT(arxiv)
+  arxiv <- unique(arxiv, by="id")
+  setkey(arxiv, id)
+
+  # Filter for computer science papers only.
+  arxiv_cs <- arxiv[categories %like% "(\\s|^)cs\\."]
+  outf <- gzfile(outfile_s, "wb")
+  stream_out(arxiv_cs, outf, pagesize=50000)
+  close(outf)
+}
+
+arxiv_cs <- stream_in(gzfile(outfile_s, "rb"), pagesize=50000)
+setDT(arxiv_cs)
+arxiv_cs[, categories:=as.character(categories)]  # Fix type.
+```
+
+```{r size}
+dim(arxiv_cs)
+```
+
+```{r show_one}
+arxiv_cs[id == "1709.03856"]
+```
+
+We use an efficient implementation [`text2vec`](http://text2vec.org/)(@text2vec) to train the LDA model.
+For tokenization we use a simple one that can handle English without any problem,
+also removing all punctuation.
+
+```{r import_text2vec}
+library(text2vec)
+packageVersion("text2vec")
+```
+
+```{r text2vec_lda}
+dir.create("model", showWarnings=FALSE)
+
+# Simple tokenization.
+it <- itoken(arxiv_cs$abstract, ids=arxiv_cs$id, tokenizer=word_tokenizer)
+
+# Filter vocab.
+v <- create_vocabulary(it)
+v <- prune_vocabulary(v, doc_count_min=50, doc_proportion_max=.2)
+
+# Create doc-term sparse matrix
+vectorizer <- vocab_vectorizer(v)
+dtm <- create_dtm(it, vectorizer, type="dgTMatrix")
+
+# Model fit.
+# Beware that the the API requires the prior parameter to be a single value,
+# though theoretically it can be a vector of length = number of topics.
+# The same for topic-word distribution prior.
+model_file <- "model/lda_model.RData"
+if ( !file.exists(model_file) ) {
+  lda_model <- LDA$new(n_topics=20, doc_topic_prior=.1, topic_word_prior=.01)
+  doc_topic_distr <- lda_model$fit_transform(x=dtm, n_iter=1000, progressbar=FALSE)
+  save(lda_model, file=model_file)
+} else {
+  # Since only topic-word distributions are saved with the model object,
+  # we will need to transfer again to get the doc-topic distribution of our corpus.
+  load(model_file)
+  doc_topic_distr <- lda_model$transform(x=dtm)
+}
+```
+
+After a LDA model is fitted,
+each document will be assigned a topic mixing proportion.
+For example we can take a look at the topic proportions for one of [my favorite paper about neural ranking models](https://arxiv.org/abs/1709.03856):
+
+```{r plot_topic_dist}
+library(ggplot2)
+
+doc_id <- "1709.03856"  # StarSpace.
+df <- data.table(topic_index=factor(1:20), topic_prop=doc_topic_distr[doc_id,])
+ggplot(df, aes(x=topic_index, y=topic_prop)) +
+  labs(title=arxiv_cs[id == doc_id, title]) +
+  geom_bar(stat="identity")
+```
+
+Remember that each topic is just another Dirichlet distribution over words.
+For example we can see what are the most popular words in the 3rd and the 10th topic:
+
+```{r pop_words}
+print(lda_model$get_top_words(n=20, topic_number=c(3, 10), lambda=1))
+```
+
+## LDA Topic Interpretation
+
+One of the big challenge in the LDA approach is not the model training itself,
+but the interpretation of the result.
+
+@sievert2014ldavis propose a nice framework for this,
+with a visual tool for interactive inspection of LDA results.
+
+### Term Relevancy
+
+In their work the *relevance* of a term $w$ to a specific topic $k$ is measured by
+
+$$
+r(w, k \vert \lambda) = \lambda \log(\phi_{kw}) + (1 - \lambda)\log(\frac{\phi_{kw}}{p_w}),
+$$
+
+where $\phi_{kw}$ is the probability of term $w$ appears in topic $k$,
+and $p_w$ is the marginal probability of term $w$ in the corpus (marginalized over topics),
+$\lambda$ is a parameter controlling the weight of term probability within topic against its lift (as measured by $\frac{\phi_{kw}}{p_w}$).
+
+In this setup,
+setting $\lambda = 1$ effectively rank the relevancy only in terms of the word probability within topic.
+So the most popular word within the topic will be the most relevant word as well.
+If a word is popular over the entire corpus (a common word) it will likely to appear in higher rank as well,
+which is not helping in interpreting the given topic.
+
+In their study on determining the optimal $\lambda$ they use the [Newsgroup](http://qwone.com/~jason/20Newsgroups/) dataset with human testing and find that $\lambda = 0.6$ is the best choice,
+at least for their particular model.
+
+The lesson is that we should never choose a trivial $\lambda$ value on the boundary,
+i.e., neither 1 nor 0,
+but experiment with a value in-between.
+
+Back to our previous example,
+we can inspect the top relevant words in the 3rd topic given different `\lambda`s:
+
+```{r pop_words_lambda}
+rel <- list()
+lambdas <- c(.2, .6, 1)
+for ( lambda in lambdas ) {
+  rel[[as.character(lambda)]] <-
+    lda_model$get_top_words(n=10, topic_number=c(3), lambda=lambda)
+}
+rel <- do.call(cbind, rel)
+colnames(rel) <- sprintf("lambda_%s", lambdas)
+
+print(rel)
+```
+
+For this particular example,
+some words are robustly relevant regardless of the $\lambda$ values.
+That is, of course, not always the case.
+
+### Topic Distance
+
+In `LDAvis` the left panel visualization (presented at the end of this section) by default will show the top-2 principal components on topic distances,
+measured by [Jensen-Shannon divergence](https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence).
+It is a measure to compute the distance between two distributions.
+
+Remember that in LDA a topic is modeled as a word distribution.
+Given any two topics we'd like to compute their distributional distance to understand how well we cluster the documents into topic groups.
+This can help us understand questions such as:
+is the $k$ topics enough to separate our corpus or do we need more (or less) topics?
+
+The Jensen-Shannon divergence is a symmetric version of the [Kullback–Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+or relative entropy.
+The KL divergence of a distribution P from a distribution Q is defined as (assuming a discrete setup):
+
+$$
+D_{KL}(P \vert\vert Q) = \sum_xP(x)\log\frac{P(x)}{Q(x)}.
+$$
+
+It is the expectation of logarithmic difference between P and Q.
+
+The Jensen-Shannon divergence is defined as:
+
+$$
+JSD(P, Q) = \frac{1}{2}D_{KL}(P\vert\vert M) + \frac{1}{2}D_{KL}(Q\vert\vert M),
+$$
+
+where
+
+$$
+M = \frac{1}{2}(P + Q),
+$$
+
+is the mixture of the two distribution.
+
+If we expand the above equation:
+
+$$
+\begin{aligned}
+JSD(P, Q)
+&= \frac{1}{2}D_{KL}(P\vert\vert M) + \frac{1}{2}D_{KL}(Q\vert\vert M) \\
+&= \frac{1}{2}\sum_xP(x)\log\frac{P(x)}{M(x)} + \frac{1}{2}\sum_xQ(x)\log\frac{Q(x)}{M(x)} \\
+&= \frac{1}{2}\bigg[\sum_xP(x)\log P(x) + \sum_xQ(x)\log Q(x)\bigg] -
+\sum_x\bigg(\frac{P(x) + Q(x)}{2}\bigg)\log\bigg(\frac{P(x) + Q(x)}{2}\bigg) \\
+&= H_M - \frac{H_P + H_Q}{2},
+\end{aligned}
+$$
+
+where $H_D$ is the [entropy](https://en.wikipedia.org/wiki/Entropy) of distribution $D$:
+
+$$
+H_D = - \sum_xD(x)\log D(x).
+$$
+
+Hence the JSD is indeed *the entropy of the mixture minus the mixture of the entropy.*
+
+Once the JSD between all topics are computed,
+[multidimensional scaling](https://en.wikipedia.org/wiki/Multidimensional_scaling) is used to convert the distance matrix into a 2-dimensional coordinates for visualization purpose.
+
+```{r plot_ldavis, results="hide"}
+lda_model$plot(out.dir="model/ldavis", open.browser=FALSE)
+```
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>LDAvis</title>
+  <script src="model/ldavis/d3.v3.js"></script>
+  <script src="model/ldavis/ldavis.js"></script>
+  <link rel="stylesheet" type="text/css" href="model/ldavis/lda.css">
+</head>
+
+<body>
+  <div id = "lda"></div>
+  <script>
+    var vis = new LDAvis("#lda", "model/ldavis/lda.json");
+  </script>
+</body>
+
+```{r ldavis}
+htmltools::includeHTML("model/ldavis/index.html")
+```
+
+# Biterm Topic Modeling
+
+## Model Specification
+
+Instead of utilizing document-word co-occurrence,
+@yan2013biterm use a word-word co-occurrence approach for topic modeling.
+^[Similar concept has been used in developing word embeddings such as [GloVe](https://nlp.stanford.edu/projects/glove/).]
+Their approach is particularly designed for short text,
+where the document-level framework such as LDA may fail due to data sparsity.
+
+In BTM,
+the whole corpus is considered a mixture of topics.
+This is different from LDA where each document is considered as a mixture of topics.
+In this framework,
+the probability of a biterm $b = (w_i, w_j)$ can be expressed as:
+
+$$
+P(b) = \sum_zP(z)P(w_i\vert z)P(w_j\vert z),
+$$
+where $z$ is a topic drawn from a Dirichlet distribution representing the whole corpus.
+
+Now how do we recover document-level topic distribution?
+This is still necessary since we are doing topic modeling.
+We need to characterize each document $d$,
+a relatively short text in the biterm use case,
+with topic proportions.
+This is done by assuming the following equation:
+
+$$
+P(z\vert d) = \sum_bP(z\vert b)P(b\vert d).
+$$
+That is,
+topic proportions of a document is determined by its biterms.
+
+In the above equation,
+$P(z\vert b)$ can be solved by Bayes' theorem:
+
+$$
+P(z\vert b) = \frac{P(b\vert z)P(z)}{P(b)},
+$$
+
+and $P(b\vert d)$ is estimated directly from the empirical distribution of biterms found in the document $d$.
+
+The model then can be solved by MCMC.
+
+## Working Demo with Traditional Chinese
+
+Let's use the R package [`BTM`](https://github.com/bnosac/BTM)(@BTM) to demonstrate the use of biterm modeling.
+
+```{r import_btm}
+library(BTM)
+packageVersion("BTM")
+```
+
+And for the data,
+we use the violation case report from Environmental Protection Administration in Taiwan.
+This is a public dataset under the government open data platform: https://data.gov.tw/dataset/10165
+
+It is a very small dataset with short text about the fact of firms' violation of environmental protection rule.
+
+This time we try to use [CkipTagger](https://github.com/ckiplab/ckiptagger)(@li2020attention),
+a neural language model specializing in traditional Chinese used in Taiwan to tokenize the text.
+Since `CkipTagger` API is available only in Python as of now,
+we switch to use Python for data processing:
+
+```{python prepare_data}
+import csv
+import requests
+
+
+url = "https://data.epa.gov.tw/api/v1/doc_p_17?limit=1000&api_key=9be7b239-557b-4c10-9775-78cadfc555e9&format=csv"
+response = requests.get(url)
+sents = []
+csvreader = csv.reader(response.content.decode("utf-8").splitlines(), delimiter=",")
+for row in csvreader:
+  sents.append(row[4])  # The 5-th column is the `fact` column containing description.
+sents = sents[1:]
+
+# Print the first 3 cases.
+for s in sents[:3]:
+  print(s)
+```
+
+Now let's parse the text:
+
+```{python load_ckiptagger}
+import os
+import ckiptagger
+
+
+# Load the pre-trained model.
+model_dir = "/media/kylechung/D/Data/ckip_data"
+if not os.path.exists(model_dir):
+  ckiptagger.data_utils.download_data_gdown(os.path.dirname(model_dir))
+  os.rename(os.path.join(model_dir, "data"), os.path.join(model_dir, "ckip_data"))
+
+ckip_ws = ckiptagger.WS(model_dir)
+toks = ckip_ws(sents)
+```
+
+Show the first case in tokens:
+
+```{python show_tokens}
+print(sents[0])
+print(toks[0])
+```
+The quality of tokenization is very high indeed.
+
+Before we feed those tokens into BTM,
+we'd like to do one more thing:
+filtering for nouns only.
+This can potentially remove lots of noise for our already short text body.
+We can do POS-tagging easily with `CkipTagger`:
+
+```{python format_btm_input}
+# Do POS tagging.
+ckip_pos = ckiptagger.POS(model_dir)
+pos = ckip_pos(toks)
+
+# Write out only nouns.
+outfile = "data/tokens.tsv"
+if not os.path.exists(outfile):
+  with open(outfile, "w") as f:
+    for i, (l_tok, l_pos) in enumerate(zip(toks, pos)):
+      for t, p in zip(l_tok, l_pos):
+        if p in ["Na", "Nb", "Nc"]:
+          _ = f.write(f"{i}\t{t}\n")
+```
+
+Now let's load back the processed data in R,
+where we can run the `BTM` model API.
+The processed data will be in long format,
+with 1 row per token:
+
+```{r read_btm_input}
+library(data.table)
+fine <- fread(py$outfile, header=FALSE)
+setnames(fine, c("doc_id", "token"))
+head(fine)
+```
+Run `BTM` with 3 topics and show the estimated distribution (characterizing the whole corpus):
+
+```{r btm_model}
+biterm_model  <- BTM(fine, k=3)
+
+# Topic distribution over the whole corpus.
+biterm_model$theta
+```
+
+Show top words in each topic:
+
+```{r top_word_in_topic}
+terms(biterm_model, top_n=10)
+```
+
+The result suggests there are 3 interpretable topics:
+about water pollution (水), air pollution (空氣), and earthwork inadequacy (土方).
+But we also see lots of common words in each topic.
+
+To infer the document-level topic distribution we use the `predict` API.
+For example we can infer the topics for the first 5 cases:
+
+```{r predict_btm_doc_topic}
+scores <- predict(biterm_model, newdata=fine[doc_id <= 4])
+scores
+```
+Let's also print the original fact descriptions:
+
+```{python show_some_raw_text}
+for i, s in enumerate(sents[:5]):
+  print(i, s)
+```
+The first case is about groundwater quality while the topic proportions suggests a larger part on the air topic.
+This may be considered as a failed identification.
+
+The second case indeed is neither of the 3 topic.
+It suggests that we may want to increase `k` to identify additional topics (or topics that are ambiguous).
+
+The rest 3 are all fine.
+
+As a toy example we will stop here but the general idea and possible work flow should be clearly demonstrated.
+
+# References

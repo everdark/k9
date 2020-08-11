@@ -14,8 +14,8 @@ navbar:
         - text: "Bootstrap Sampling 101"
           href: notebooks/stats/bootstrap/bootstrap.nb.html
         - text: "---"
-        - text: "Topic Modeling: Latent Dirichlet Allocation (WIP)"
-          #href: notebooks/stats/lda/lda.nb.html
+        - text: "Introduction to Topic Models"
+          href: notebooks/stats/topic/topic.nb.html
         - text: "---"
         - text: "On Linear Regression: Machine Learning vs Econometrics (WIP)"
           #href: notebooks/stats/regression/reg.nb.html

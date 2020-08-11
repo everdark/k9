@@ -18,7 +18,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
 + Statistics
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
     + [Bootstrap Sampling 101](https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html)
-    + [Topic Modeling]
+    + [Introduction to Topic Models](https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html)
 + Machine Learning
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
