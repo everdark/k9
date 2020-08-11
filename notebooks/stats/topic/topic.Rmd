@@ -31,7 +31,7 @@ meta <- c(
   '<meta property="og:title" content="Latent Dirichlet Allocation for Topic Modeling">',
   '<meta property="og:type" content="article">',
   '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html">',
-  '<meta property="og:image" content="https://everdark.github.io/k9/assets/boot.png">',
+  '<meta property="og:image" content="https://everdark.github.io/k9/assets/dir.png">',
   '<meta property="og:description" content="A data science notebook about topic modeling.">'
 )
 contents <- meta
