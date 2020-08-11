@@ -36,6 +36,15 @@ meta <- c(
 )
 contents <- meta
 
+# Add LDAvis assets.
+# This will make the github-corner invisible. Don't know how to deal with it...
+ldavis_assets <- c(
+  '<script src="model/ldavis/d3.v3.js"></script>',
+  '<script src="model/ldavis/ldavis.js"></script>',
+  '<link rel="stylesheet" type="text/css" href="model/ldavis/lda.css">'
+)
+contents <- c(contents, ldavis_assets)
+
 # Add Github corner.
 github_corner_svg <- "../../../assets/github_corner.html"
 github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/topic")
@@ -469,20 +478,10 @@ Once the JSD between all topics are computed,
 lda_model$plot(out.dir="model/ldavis", open.browser=FALSE, reorder.topics=FALSE)
 ```
 
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <title>LDAvis</title>
-  <script src="model/ldavis/d3.v3.js"></script>
-  <script src="model/ldavis/ldavis.js"></script>
-  <link rel="stylesheet" type="text/css" href="model/ldavis/lda.css">
-</head>
-
-<body>
-  <div id = "lda"></div>
-  <script>
-    var vis = new LDAvis("#lda", "model/ldavis/lda.json");
-  </script>
-</body>
+<div id="lda"></div>
+<script>
+  var vis = new LDAvis("#lda", "model/ldavis/lda.json");
+</script>
 
 # Biterm Topic Modeling
 
