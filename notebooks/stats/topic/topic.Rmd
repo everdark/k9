@@ -23,22 +23,22 @@ abstract: |
 ---
 
 ```{r meta, include=FALSE}
-# Fix viewport.
 library(metathis)
-meta() %>% meta_viewport()
-
-meta_header_file <- file("/tmp/meta_header.html")
 
 # Add open graph meta.
-meta <- c(
-  '<meta name="author" content="Kyle Chung">',
-  '<meta property="og:title" content="Latent Dirichlet Allocation for Topic Modeling">',
-  '<meta property="og:type" content="article">',
-  '<meta property="og:url" content="https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html">',
-  '<meta property="og:image" content="https://everdark.github.io/k9/assets/dir.png">',
-  '<meta property="og:description" content="A data science notebook about topic modeling.">'
-)
-contents <- meta
+meta() %>%
+  meta_description(
+    "A data science notebook about topic modeling."
+  ) %>%
+  meta_viewport() %>%
+  meta_social(
+    title="Introduction to Topic Models",
+    url="https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html",
+    image="https://everdark.github.io/k9/assets/dir.png",
+    og_type="article",
+    og_author="Kyle Chung",
+    twitter_card_type="summary"
+  )
 
 # Add LDAvis assets.
 # This will make the github-corner invisible. Don't know how to deal with it...
@@ -47,14 +47,15 @@ ldavis_assets <- c(
   '<script src="model/ldavis/ldavis.js"></script>',
   '<link rel="stylesheet" type="text/css" href="model/ldavis/lda.css">'
 )
-contents <- c(contents, ldavis_assets)
+contents <- ldavis_assets
 
 # Add Github corner.
 github_corner_svg <- "../../../assets/github_corner.html"
 github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/topic")
 contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
-writeLines(contents, meta_header_file)
 
+meta_header_file <- file("/tmp/meta_header.html")
+writeLines(contents, meta_header_file)
 close(meta_header_file)
 ```
 
