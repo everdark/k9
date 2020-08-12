@@ -183,16 +183,20 @@ apply_ddir <- function(q, a) {
   q
 }
 
-plot_dir <- function(q) {
+plot_dir <- function(q, outfile=NULL, ...) {
   rgl::plot3d(x=q[, "q1"], y=q[, "q2"], z=q[, "d"],
               xlab="q1", ylab="q2", zlab="density",
               col=heat.colors(nrow(q), rev=TRUE))
-  rgl::rglwidget()
+  if ( is.null(outfile) ) {
+    rgl::rglwidget()
+  } else {
+    writeWebGL(filename=outfile, ...)
+  }
 }
 
 # Create some random probability vectors given k = 3.
 set.seed(777)
-nsample <- 5000
+nsample <- 1000
 q1 <- runif(nsample)
 q2 <- mapply(runif, n=rep(1, nsample),  max=1 - q1, MoreArgs=list(min=0))
 q <- cbind(q1, q2, q3=1 - q1 - q2)
