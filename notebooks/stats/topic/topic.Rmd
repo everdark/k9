@@ -23,6 +23,10 @@ abstract: |
 ---
 
 ```{r meta, include=FALSE}
+# Fix viewport.
+library(metathis)
+meta() %>% meta_viewport()
+
 meta_header_file <- file("/tmp/meta_header.html")
 
 # Add open graph meta.

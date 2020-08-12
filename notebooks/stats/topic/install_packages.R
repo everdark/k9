@@ -2,6 +2,7 @@
 
 required_pkgs <- c(
     "rmarkdown",
+    "metathis",
     "reticulate",
     "data.table",
     "jsonlite",
