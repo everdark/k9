@@ -2,7 +2,6 @@
 
 required_pkgs <- c(
     "rmarkdown",
-    "metathis",
     "reticulate",
     "data.table",
     "jsonlite",
@@ -13,4 +12,5 @@ required_pkgs <- c(
     "rgl"
 )
 install.packages(required_pkgs, repos="http://cran.rstudio.com")
+devtools::install_github("gadenbuie/metathis")
 devtools::install_github("cpsievert/LDAvis")  # We want the dev version that can reserve topic index.
