@@ -1,0 +1,338 @@
+---
+title: "A Simulation Exercise for Your PS5 Lottery Draws"
+subtitle: "巴哈姆特PS5抽獎池的統計模擬"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 Dec 2020 First Uploaded)"
+output:
+  html_notebook: 
+    highlight: tango
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+---
+
+# 背景
+
+PS5發售了！但是因為COVID-19的影響所以供貨嚴重不足，許多地方一機難求。就這麼一個周末，閒來沒事，看到有在台灣的玩家討論了巴哈姆特線上商城的PS5主機抽選機制的機率問題，想說好久沒寫R了，就來玩一個玩殺殺時間吧。
+
+
+# 抽選池模擬
+
+先從官方的角度出發，寫一支可以模擬抽選結果的函式，使用以下參數：
+
++ `N`: 玩家數量
++ `X`: 主機數量
++ `R`: 模擬的抽選次數
+
+幾個簡單的假設：
+
++ 一個玩家可以有超過一張抽獎券
++ 主機數量遠小於玩家數量 `N >> X`（不然抽屁）
++ 共抽`X`次，抽獎券抽後不放回，但中獎者其殘餘池裡的抽獎券亦不取出（換言之，一個擁有複數抽獎券的玩家理論上可以抽中超過一台主機，我們後面再來討論這件事情）
+
+
+```{r}
+library(Matrix)
+library(data.table)
+
+
+#' Run lucky draw simulation
+#'
+#' @param N Number of players
+#' @param n Distribution of draws
+#' @param X Number of PS5
+#' @param R Number of simulation repetition
+#' @return A named list of simulation results and expected outcome for each player
+run <- function(N, n, X, R=1e4, seed=666) {
+  
+  set.seed(seed)
+  
+  stopifnot(length(n) == N)
+  draws <- factor(rep(1:N, n))  # the pool: all draws for all players
+  
+  results <- list()
+  for ( r in 1:R ) {
+    results[[r]] <- sample(draws, X, replace=FALSE)
+  }
+  
+  # who wins a PS5 for each draw (from 1 to X) at each repetition?
+  who_wins <- data.table(do.call(rbind, results))
+  # number of PS5 obtained for each player in a sparse matrix
+  how_many <- t(Reduce(`+`, lapply(who_wins, function(x) {
+    x <- factor(x, levels=1:N)
+    fac2sparse(x, drop.unused.levels=FALSE)
+  })))
+  
+  colnames(how_many) <- paste0("player-", colnames(how_many))
+  
+  list(
+    expected=colSums(how_many) / R,
+    who_wins=who_wins,
+    how_many=how_many,
+    params=as.list(match.call())  # only works when params are passed explicitly
+  )
+}
+```
+
+為了方便討論所以回傳了：
+
++ 每次模擬（總共`R`次）的每輪中獎者（總共`X`輪）
++ 每次模擬（總共`R`次）的每個中獎者的取得主機台數
++ 模擬結果的每個玩家期望得獎主機台數
+
+
+# 小小驗證
+
+假設只有三個玩家爭奪兩台主機，一號跟二號玩家各有兩張抽獎券，可憐的三號玩家則只有一張。
+
+
+```{r}
+exp1 <- run(N=3, n=c(2, 2, 1), X=2)
+exp1$expected
+```
+
+結果顯示三號玩家的中獎期望台數約是0.4。
+
+在這個簡單的環境下，我們可以直接計算理論得獎率來檢查程式的模擬結果是否與理論一致。拿三號玩家來說，因為只有一張抽獎券（總共五張），其得獎機率就是
+
+$$
+\underbrace{\frac{1}{5}}_\text{第一抽就中獎} +
+\underbrace{\frac{4}{5} \times \frac{1}{4}}_\text{第二抽才中獎} = \frac{2}{5}.
+$$
+與模擬結果吻合。我們當然可以透過提高模擬次數`R`來讓模擬結果無限逼近理論值，比方說從預設的一萬次變成一百萬次：
+
+```{r}
+run(N=3, n=c(2, 2, 1), X=2, R=1e6)$expected
+```
+
+為了節省時間所以之後都只跑一萬次的結果。
+
+這邊由於三號玩家只有一張抽獎券，所以其中獎率與期望得獎台數會是同一個數字。為了凸顯這件事情，也來算算一號玩家的得獎率吧！這次我們試著反過來算，直接取兩次都沒中的機率
+
+
+$$
+1 - \frac{3}{5} \times \frac{2}{4} = \frac{7}{10}.
+$$
+
+得到的結果是70%。我們可以從模擬結果中也計算出對應這個數值的機率（而非期望值）：
+
+```{r}
+colSums(exp1$how_many > 0) / nrow(exp1$how_many)
+```
+
+關於抽獎券的數量，重點是相對而非絕對，所以比方說我們把所有人的抽獎券數量都放大一百倍，結果也不會有任何改變（數字的差異來自抽樣的隨機性）：
+
+```{r}
+run(N=3, n=c(2, 2, 1)*100, X=2)$expected
+```
+
+# 重複得獎
+
+在我們上面這個小小練習中，玩家一號跟二號因為都投入了複數的抽獎券，所以（根據我們前面做出的簡化假設）他們理論上都有機會抽到超過一台的主機。我們可以把這個機率也算出來：
+
+$$
+\underbrace{\frac{2}{5}}_\text{第一台是我的} \times
+\underbrace{\frac{1}{4}}_\text{第二台還是我的} = \frac{1}{10}.
+$$
+或者直接從模擬結果中找到近似值：
+
+```{r}
+colSums(exp1$how_many > 1) / nrow(exp1$how_many)
+```
+
+這邊玩家三號獲得兩台主機的機率為0，不管模擬幾次都不會改變，因為其只有一張抽獎券。
+
+有趣的事情來了，現實中官方不會真的對同一玩家送出兩台以上的主機，所以勢必會進行重抽。我們現在知道了，就以上這個三人五券情境來講，重抽事件發生的機率正是20%，也就是前兩位玩家獨得主機的機率之和。我們也可以從模擬結果中算出其近似值：
+
+
+```{r}
+nrow(exp1$who_wins[V1 == V2]) / nrow(exp1$who_wins)
+```
+
+這其實代表，我們前面算出來的三號玩家的得獎機率被低估了，這是因為我們簡化抽獎流程，允許同一名玩家獲得超過一台主機。一個玩家獲得超過一台主機的機率，會隨著兩件事情而增加：
+
++ 該玩家相對於整個抽獎池中所擁有的抽獎券數量
++ 總共參與抽獎的PS5主機台數
+
+所以實際上這個被我們忽略的數值其大小，端看現實情況而定。但我們可以拿上面的假想情境來計算看看。對於三號玩家來說，真正的中獎機率應該是沒有重抽且中獎的機率，加上有重抽且中獎的機率，從反面來算的話就是
+
+$$
+\underbrace{\frac{2}{5} \times \frac{2}{4}}_\text{第一玩家先中、第二玩家後中} +
+\underbrace{\frac{2}{5} \times \frac{2}{4}}_\text{第二玩家先中、第一玩家後中} +
+\underbrace{\frac{2}{5} \times \frac{1}{4} \times \frac{2}{3}}_\text{第一玩家全中、重抽後第二玩家中} +
+\underbrace{\frac{2}{5} \times \frac{1}{4} \times \frac{2}{3}}_\text{第二玩家全中、重抽後第一玩家中} =
+\frac{7}{15} = 0.467.
+$$
+這和我們原本的模擬結果已經不同，因為我們打破了（因便宜行事而簡化的）玩家可以獲得超過一台主機的假設。要修正這個問題並不困難，我們只要把重抽事件納入考慮，就可以算出玩家的誤差修正機率值。以上面的例子來說，原本玩家三號的簡化得獎率為40%，修正差額就是
+
+$$
+\underbrace{20\%}_\text{重抽機率} \times \underbrace{\frac{1}{3}}_\text{重抽時得獎率} = \frac{1}{15} = 0.67.
+$$
+
+這邊算式相對簡單是因為其餘兩位玩家有著相同數目的抽獎券。
+
+最後，要注意的是，在上面這個例子中我們不只有低估三號玩家的得獎機率而已。我們低估了所有玩家的得獎機率，因為只要有任何一個玩家有超過一張抽獎券，就會有重抽的可能性，也就等於增加所有其他人的得獎機會。
+
+
+# 一人一台啦幹
+
+為了讓這個練習變得更有挑戰性一點，讓我們來把模擬程式納入真實情境考量，限制一名玩家只能獲得一台主機吧！我們的策略是不斷重抽直到沒有任何玩家贏得超過一台的主機。
+
+
+```{r}
+run2 <- function(N, n, X, R=1e4, seed=666) {
+  
+  set.seed(seed)
+  
+  # get simplified results first
+  results <- do.call(run, as.list(match.call()[-1]))
+  how_many <- results$how_many
+  # re=create pool
+  draws <- factor(rep(1:N, n))  # the pool: all draws for all players
+  
+  # now consider redraw
+  calc_n_ps5_for_redraw <- function(how_many) {
+    redraws <- which(how_many > 1, arr.ind=TRUE)
+    redraw_ref <- data.table(redraws)
+    setnames(redraw_ref, c("repetition", "player"))
+    redraw_ref[, cnt:=how_many[redraws]]
+    n_release <- redraw_ref[, .(n_release=sum(cnt - 1)), by=.(repetition)]
+    setkey(n_release, repetition)
+  }
+  
+  apply_redraw <- function(n_release) {
+    repetitions_to_redraw <- n_release$repetition
+    winners <- data.table(which(how_many > 0, arr.ind=TRUE))
+    winners <- winners[row %in% repetitions_to_redraw]
+    winners <- split(winners, by="row", keep.by=FALSE)
+    new_draws <- lapply(winners, function(x) {
+      out <- droplevels(draws, x$col)
+      out[!is.na(out)]
+    })
+    new_winners <- mapply(sample, x=new_draws, size=n_release$n_release,
+                          MoreArgs=list(replace=FALSE), SIMPLIFY=FALSE)
+    # create coordinate ref for sparse matrix update
+    i <- rep(as.integer(names(new_winners)), sapply(new_winners, length))
+    j <- as.integer(as.character(unlist(new_winners, use.names=FALSE)))
+    ij <- data.table(i=i, j=j, v=1)
+    ij <- ij[, .(cnt=sum(v)), by=list(i, j)]  # there could still be duplicated winnings
+    how_many[as.matrix(ij[, 1:2])] <<- ij$cnt
+  }
+
+  n_release <- calc_n_ps5_for_redraw(how_many)
+  print(sprintf("Number of repetitions required redraw: %s", nrow(n_release)))
+  while ( nrow(n_release) ) {
+    how_many[how_many > 0] <- 1  # reset winning counts
+    apply_redraw(n_release)
+    n_release <- calc_n_ps5_for_redraw(how_many)
+  }
+  
+  colnames(how_many) <- paste0("player-", colnames(how_many))
+  
+  list(
+    expected=colSums(how_many) / R,
+    how_many=how_many
+  )
+}
+```
+
+我們現在可以用模擬的數值來驗證上面計算的理論機率了。可以注意到一號和二號玩家的得獎機率也獲得向上修正。
+
+```{r}
+exp1_real <- run2(N=3, n=c(2, 2, 1), X=2)
+exp1_real$expected
+```
+
+現在假設玩家一號不只有兩張抽獎券，而是有十張！在不修正重抽的情況下，三名玩家的贏得主機數量期望值會有很大的差距：
+
+```{r}
+exp2 <- run(N=3, n=c(10, 2, 1), X=2)
+exp2$expected
+```
+
+再看看修正重抽後的得獎機率（此時我們不再用期望值來詮釋）：
+
+```{r}
+exp2_real <- run2(N=3, n=c(10, 2, 1), X=2)
+exp2_real$expected
+```
+
+保險起見，我們可以再來驗證一次。對於玩家三號來說，考慮重抽的最終得獎機率應該是
+
+```{r}
+1 - (10/13*2/12 + 2/13*10/12 + 10/13*9/12*2/3 + 2/13*1/12*10/11)
+```
+
+覺得看起來好像不夠接近模擬結果嗎？我們可以透過放大`R`來確保我們的模擬結果會逼近這個數字，差距純粹來自抽樣偏誤。我就把這個差事留給好奇的讀者了。（當然，我私底下已經驗證過了……）
+
+雖然我們設計了嚴謹的重抽模擬，但實際上只要主機數量遠低於玩家數量，兩者的差距就會很小，所以最一開始的簡化假設仍然不失為一個好的近似估計。
+
+# 僧多粥少的現實
+
+我們試著加大模擬的規模來玩玩，並且設定抽獎券數量跟巴哈姆特第三波活動設計的一樣。假設有一百個人搶三台主機，每個人持有的抽獎券是隨機從設定的七種數量中決定，我們把模擬的得獎結果跟持有抽獎券數量視覺化。
+
+```{r}
+possible_draws <- c(1, 11, 20, 40, 90, 160, 360)
+N <- 100
+X <- 3
+n <- sample(possible_draws, size=N, replace=TRUE)
+
+r2 <- run2(N, n, X)
+```
+
+各位可以發現，在一萬次的模擬中只有七百多次出現玩家重複獲獎的情況。我們不需要把玩家數量跟主機數量設定得特別大，因為真正影響結果的是兩這之間的相對差距。把數值無謂地設訂得很大，看似貼近真實，卻只是浪費時間在模擬運算而已。
+
+我們把隨機設定的玩家抽搶券數量分配畫出來如下圖。
+
+```{r}
+barplot(table(n), main="玩家抽獎券數量分配")
+```
+
+這個分配很可能不貼近現實，我們會預期擁有360張的玩家是相對少數，但我懶得調整所以就先這樣吧。
+
+最重要的中獎率與彩券數量關係如下圖。
+
+```{r}
+library(ggplot2)
+library(plotly)
+
+d2 <- data.table(n_draws=n, expected=r2$expected)
+fig <-ggplot(d2, aes(x=factor(n_draws), y=expected)) +
+  geom_point() +
+  labs(x="抽獎券數量", y="中獎率")
+
+ggplotly(fig)
+```
+
+基本上持有相同張數其理論得獎率是一樣的，所以圖中的誤差來自模擬的隨機性。
+
+# 我只在乎我自己
+
+上面的練習，我們試圖把所有玩家的得獎機率都追蹤計算，但如果我們只關心一位玩家，那麼其實可以把問題簡化成兩個玩家的問題：我，與不是我的玩家。
+
+假設我是上述情境中只有一張抽獎券的玩家，我可以直接這樣估計：
+
+```{r}
+run(N=2, n=c(1, sum(n) - 1), X=3)$expected
+```
+
+當然，這只適用於簡化的模擬函式。但是如果我們計算上面模擬結果，所有只有一張抽獎券的玩家的平均得獎率，就會發現兩者是非常近似的：
+
+```{r}
+d2[n_draws == 1, mean(expected)]
+```
+
+這基本上也展示了為什麼會有簡化假設的理由。
+
+好了，遊戲就先到此為止吧。
+
+# 結語
+
+我沒有PS5。

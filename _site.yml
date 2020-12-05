@@ -65,6 +65,9 @@ navbar:
           - text: "---"
           - text: "A Short Ride on AWS DeepRacer 2020"
             href: projects/deepracer_2020/deepracer_2020.html
+          - text: "---"
+          - text: "A Simulation Exercise for Your PS5 Lottery Draws"
+            href: projects/ps5/ps5.nb.html
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"
