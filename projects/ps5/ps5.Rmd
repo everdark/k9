@@ -6,7 +6,7 @@ author:
   affiliation:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 Dec 2020 First Uploaded)"
 output:
-  html_notebook: 
+  html_notebook:
     highlight: tango
     number_sections: yes
     theme: paper
@@ -17,6 +17,26 @@ output:
       in_header: /tmp/meta_header.html
   code_download: true
 ---
+
+```{r meta, include=FALSE}
+meta_header_file <- file("/tmp/meta_header.html")
+meta <- c(
+  '<meta name="author" content="Kyle Chung">',
+  '<meta property="og:title" content="巴哈姆特PS5抽獎池的統計模擬">',
+  '<meta property="og:type" content="article">',
+  '<meta property="og:url" content="https://everdark.github.io/k9/projects/ps5/ps5.nb.html">',
+  '<meta property="og:description" content="A data science notebook about lottery draw simulation.">'
+)
+contents <- meta
+
+# Add Github corner.
+github_corner_svg <- "../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/projects/ps5")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+writeLines(contents, meta_header_file)
+
+close(meta_header_file)
+```
 
 # 背景
 
@@ -51,17 +71,17 @@ library(data.table)
 #' @param R Number of simulation repetition
 #' @return A named list of simulation results and expected outcome for each player
 run <- function(N, n, X, R=1e4, seed=666) {
-  
+
   set.seed(seed)
-  
+
   stopifnot(length(n) == N)
   draws <- factor(rep(1:N, n))  # the pool: all draws for all players
-  
+
   results <- list()
   for ( r in 1:R ) {
     results[[r]] <- sample(draws, X, replace=FALSE)
   }
-  
+
   # who wins a PS5 for each draw (from 1 to X) at each repetition?
   who_wins <- data.table(do.call(rbind, results))
   # number of PS5 obtained for each player in a sparse matrix
@@ -69,9 +89,9 @@ run <- function(N, n, X, R=1e4, seed=666) {
     x <- factor(x, levels=1:N)
     fac2sparse(x, drop.unused.levels=FALSE)
   })))
-  
+
   colnames(how_many) <- paste0("player-", colnames(how_many))
-  
+
   list(
     expected=colSums(how_many) / R,
     who_wins=who_wins,
@@ -188,15 +208,15 @@ $$
 
 ```{r}
 run2 <- function(N, n, X, R=1e4, seed=666) {
-  
+
   set.seed(seed)
-  
+
   # get simplified results first
   results <- do.call(run, as.list(match.call()[-1]))
   how_many <- results$how_many
   # re=create pool
   draws <- factor(rep(1:N, n))  # the pool: all draws for all players
-  
+
   # now consider redraw
   calc_n_ps5_for_redraw <- function(how_many) {
     redraws <- which(how_many > 1, arr.ind=TRUE)
@@ -206,7 +226,7 @@ run2 <- function(N, n, X, R=1e4, seed=666) {
     n_release <- redraw_ref[, .(n_release=sum(cnt - 1)), by=.(repetition)]
     setkey(n_release, repetition)
   }
-  
+
   apply_redraw <- function(n_release) {
     repetitions_to_redraw <- n_release$repetition
     winners <- data.table(which(how_many > 0, arr.ind=TRUE))
@@ -233,9 +253,9 @@ run2 <- function(N, n, X, R=1e4, seed=666) {
     apply_redraw(n_release)
     n_release <- calc_n_ps5_for_redraw(how_many)
   }
-  
+
   colnames(how_many) <- paste0("player-", colnames(how_many))
-  
+
   list(
     expected=colSums(how_many) / R,
     how_many=how_many
