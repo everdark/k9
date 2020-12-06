@@ -58,7 +58,7 @@ PS5發售了！但是因為COVID-19的影響所以供貨嚴重不足，許多地
 + 共抽`X`次，抽獎券抽後不放回，但中獎者其殘餘池裡的抽獎券亦不取出（換言之，一個擁有複數抽獎券的玩家理論上可以抽中超過一台主機，我們後面再來討論這件事情）
 
 
-```{r}
+```{r, results='hide'}
 library(Matrix)
 library(data.table)
 
@@ -309,7 +309,7 @@ r2 <- run2(N, n, X)
 
 各位可以發現，在一萬次的模擬中只有七百多次出現玩家重複獲獎的情況。我們不需要把玩家數量跟主機數量設定得特別大，因為真正影響結果的是兩這之間的相對差距。把數值無謂地設訂得很大，看似貼近真實，卻只是浪費時間在模擬運算而已。
 
-我們把隨機設定的玩家抽搶券數量分配畫出來如下圖。
+我們把隨機設定的玩家抽獎券數量分配畫出來如下圖。
 
 ```{r}
 barplot(table(n), main="玩家抽獎券數量分配")
@@ -319,7 +319,7 @@ barplot(table(n), main="玩家抽獎券數量分配")
 
 最重要的中獎率與彩券數量關係如下圖。
 
-```{r}
+```{r, echo=FALSE}
 library(ggplot2)
 library(plotly)
 
@@ -350,6 +350,51 @@ d2[n_draws == 1, mean(expected)]
 ```
 
 這基本上也展示了為什麼會有簡化假設的理由。
+
+# 同場加映
+
+上面我們自幹了一個重抽的實作方法，其實是繞了些遠路。像R這種專精於統計問題的程式語言，我們可以很輕鬆地用一行就實現「抽放不放回」與「多重抽獎券」的問題，我們只需要把後者視為加權即可。也就是說，與其手動產生抽獎池，我們可以用`sample`函數直接完成任務：
+
+```{r}
+run3 <- function(N, n, X, R=1e4, seed=666) {
+
+  set.seed(seed)
+
+  stopifnot(length(n) == N)
+  stopifnot(N >= X)
+
+  results <- list()
+  for ( r in 1:R ) {
+    results[[r]] <- sample(N, X, replace=FALSE, prob=n)
+  }
+
+  who_wins <- data.table(do.call(rbind, results))
+  how_many <- t(Reduce(`+`, lapply(who_wins, function(x) {
+    x <- factor(x, levels=1:N)
+    fac2sparse(x, drop.unused.levels=FALSE)
+  })))
+  colnames(how_many) <- paste0("player-", colnames(how_many))
+  colSums(how_many) / R
+}
+```
+
+檢查結果：
+
+```{r}
+run3(N=3, n=c(2, 2, 1), X=2)
+```
+```{r}
+run3(N=3, n=c(10, 2, 1), X=2)
+```
+
+這方法本身效能也會更好，比方說我們重複一百萬次：
+
+```{r}
+run3(N=3, n=c(10, 2, 1), X=2, R=1e6)
+```
+
+等等，那你一開始就這麼寫不就好了?呃，對啊。但這樣文章就太短了。
+
 
 好了，遊戲就先到此為止吧。
 
