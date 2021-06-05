@@ -54,6 +54,12 @@ navbar:
         - text: "---"
         - text: "Context-Aware Word Embeddings (WIP)"
           #href: notebooks/ml/natural_language_understanding/context_aware_word_embeddings/context_aware_word_embeddings.nb.html
+    - text: "Data Engineering"
+      menu:
+        - text: "Infrastructure-as-Code: Terraform AWS Use Case"
+        - text: "---"
+        - text: "Serverless Deployment: AWS Lambda with HTTP API"
+        - text: "---"
   right:
     - text: "Projects"
       menu:
@@ -71,6 +77,8 @@ navbar:
           - text: "---"
           - text: "A Simulation Exercise for Your PS5 Lottery Draws"
             href: projects/ps5/ps5.nb.html
+          - text: "---"
+          - text: "Data Visualization Workshop"
     - text: "Programming"
       menu:
           - text: "Asyncrhonous Programming in R"

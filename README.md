@@ -19,6 +19,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [Bayesian Modeling Explained](https://everdark.github.io/k9/notebooks/stats/bayesian/bayesian_modeling_explained.nb.html)
     + [Bootstrap Sampling 101](https://everdark.github.io/k9/notebooks/stats/bootstrap/bootstrap.nb.html)
     + [Introduction to Topic Models](https://everdark.github.io/k9/notebooks/stats/topic/topic.nb.html)
+    + [A Gentle Walkthrough of the Economist's Excess Deaths Model for COVID-19](https://everdark.github.io/k9/notebooks/stats/excess_deaths/excess_deaths.nb.html)
 + Machine Learning
     + [Neural Networks Fundamentals](https://everdark.github.io/k9/notebooks/ml/neural_nets/neural_networks_fundamentals.nb.html)
     + [Matrix Factorization for Recommender Systems](https://everdark.github.io/k9/notebooks/ml/matrix_factorization/matrix_factorization.nb.html)
@@ -30,6 +31,9 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [On Subword Units](https://everdark.github.io/k9/notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html)
     + [Contex-Free Word Embeddings]
     + [Contex-Aware Word Embeddings]
++ Data Engineering
+    + Infrastructure-as-Code: A Terraform AWS Use Case
+    + Serverless Deployment: AWS Lambda with HTTP API
 + Programming
     + R
         + [Asynchronous Programming in R](https://everdark.github.io/k9/notebooks/eng/programming/r/async/async_r.nb.html)
@@ -39,6 +43,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [Visualization for Taiwanese General Election 2020](https://everdark.github.io/k9/projects/tw_election_2020/tw_election_2020.nb.html)
     + [A Note on Model Evaluation for Imbalanced Data](https://everdark.github.io/k9/projects/imbalance_eval/imbalance_eval.html)
     + [A Short Ride on AWS DeepRacer 2020](https://everdark.github.io/k9/projects/deepracer_2020/deepracer_2020.html)
+    + [A Simulation Exercise for Your PS5 Lottery Draws](https://everdark.github.io/k9/projects/ps5/ps5.nb.html)
 
 ## Laboratory Scripts
 
