@@ -1,0 +1,691 @@
+---
+title: "A Gentle Walkthrough of the Economist's Excess Deaths Model for COVID-19"
+author:
+- name: Kyle Chung
+  affiliation:
+date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 June 2021 First Uploaded)"
+output:
+  html_notebook:
+    highlight: textmate
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    includes:
+      in_header: /tmp/meta_header.html
+  code_download: true
+bibliography: excess_deaths.bib
+link-citations: yes
+nocite: |
+  @owidcoronavirus
+  @vdem
+abstract: |
+  A gentle but also in-depth walkthrough of the Economist Excess Deaths Model for COVID-19. This will cover topics from the dataset being used, modeling expected and excess deaths, adaptive graident boosting, to bootstrapping for inference under uncertainty. The idea is to go beyond what has already been explained and look into the actual implementation.
+---
+
+```{r meta, include=FALSE}
+library(metathis)
+
+# Add open graph meta.
+meta() %>%
+  meta_description(
+    "A data science notebook about the Economist Excess Deaths Model for COVID-19."
+  ) %>%
+  meta_viewport() %>%
+  meta_social(
+    title="",
+    url="https://everdark.github.io/k9/notebooks/stats/excess_deaths/excess_deaths.nb.html",
+    image="https://everdark.github.io/k9/assets/dir.png",
+    og_type="article",
+    og_author="Kyle Chung",
+    twitter_card_type="summary"
+  )
+
+contents <- c()
+
+# Add Github corner.
+github_corner_svg <- "../../../assets/github_corner.html"
+github_corner_conf <- list(github_link="https://github.com/everdark/k9/tree/master/notebooks/stats/excess_deaths")
+contents <- c(contents, stringr::str_interp(readLines(github_corner_svg), github_corner_conf))
+
+meta_header_file <- file("/tmp/meta_header.html")
+writeLines(contents, meta_header_file)
+close(meta_header_file)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, fig.retina=2)
+```
+
+# Background
+
+[The Economists](https://www.economist.com/) recently published an article about global excess deaths caused by COVID-19:
+[There Have Been 7M-13M Excess Deaths Worldwide During the Pandemic](https://www.economist.com/briefing/2021/05/15/there-have-been-7m-13m-excess-deaths-worldwide-during-the-pandemic),
+with their underlying data and model [open source on Github](https://github.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model).
+They've also published another nicely written article explaining how they accomplish the estimation task: [How We Estimated the True Death Toll of the Pandemic](https://www.economist.com/graphic-detail/2021/05/13/how-we-estimated-the-true-death-toll-of-the-pandemic).
+
+The goal of this notebook is not to just re-phrase what has been explained already,
+but to deeply inspect every concept behind the scene and also the actual implementation (in terms of what has been coded).
+This is to shed some lights on several techniques and modeling know-hows that we can learn from the published approach.
+Consequently,
+the notebook will cover a larger scope of explanation,
+but with also a more detailed walk-through to help readers (and myself included) on board the entire methodology,
+plus the data being used.
+
+We are going to discuss several topics:
+
+- Data source of all-cause and COVID-19 death toll
+- Excess deaths estimation
+- Variables to predict excess deaths due to COVID-19
+- Automatic gradient boosting tree
+- Bootstrapping for measurement under uncertainty
+
+# The Data
+
+## COVID-19 Death Toll
+
+The major source of COVID-19-related statistics is from [Our World in Data](https://github.com/owid/covid-19-data/tree/master/public/data).
+They have a very good [visual interface](https://ourworldindata.org/coronavirus) for consuming the data.
+For the confirmed cases and deaths,
+data in the OWID repository is automatically sourced from Johns Hopkins University.
+We can easily obtain the numbers:
+
+```{r prepare_covid_data, results="hide", message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(ggthemes)  # let's use the Economist theme :)
+
+hju_deaths_data <- "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/jhu/new_deaths.csv"
+covid_deaths <- fread(hju_deaths_data)  # this is in wide-format
+```
+
+The data is at daily frequency,
+so we can aggregate it into either weekly or monthly to match the frequency of mortality data for modeling purpose.
+
+```{r plot_covid_deaths_some_countries}
+# aggregate monthly toll for all countries
+cols <- names(covid_deaths)[-1]
+covid_deaths[, `:=`(year=year(date), month=month(date))]
+covid_monthly_deaths <- covid_deaths[, lapply(.SD, sum, na.rm=TRUE), by=.(year, month), .SDcols=cols]
+covid_monthly_deaths[, start_date:=as.Date(ISOdate(year, month, 1))]
+covid_monthly_deaths <- melt(
+  covid_monthly_deaths, 
+  id.vars=c("year", "month", "start_date"), 
+  variable.name="region", value.name="deaths"
+)
+
+# plot some
+countries <- c("Singapore", "Malaysia", "Indonesia", "Thailand")  # just pick a few
+ggplot(covid_monthly_deaths[region %in% countries], aes(x=start_date, y=deaths, group=region, color=region)) +
+  geom_line() +
+  scale_y_continuous(trans="log") +
+  labs(title="COVID-19 Monthly Deaths (in Log Scale)", x="", y="") +
+  theme_economist_white(gray_bg=FALSE) +
+  theme(legend.title=element_blank())
+```
+
+We are not going to do too much visual exploration here since JHU and OWID both have already done many decent jobs on that.
+
+## The World Mortality Data
+
+@Karlinsky2021.01.27.21250604 initiate the project of [World Mortality Dataset](https://github.com/akarlinsky/world_mortality) in the hope to better understand the impact of COVID-19 all over the world.
+They consolidate the all-cause death toll of many countries from a variety of sources,
+update the result daily on the repository.
+
+Their works also include a model for estimating excess deaths.
+We will also take a brief look of that.
+But that's take a glance at the data first.
+
+```{r prepare_mortality_data}
+world_mortailty_dataset <- "https://raw.githubusercontent.com/akarlinsky/world_mortality/main/world_mortality.csv"
+world_mortality <- fread(world_mortailty_dataset)
+```
+
+Their data is dated back to year 2015,
+mostly at monthly or weekly frequency,
+depending on the availability.
+
+Here is an example of monthly mortality for Taiwan:
+
+```{r show_mortality_tw}
+(mortality_tw <- world_mortality[country_name == "Taiwan"])
+```
+
+```{r plot_mortality_tw}
+mortality_tw[, start_date:=as.Date(ISOdate(year, time, 1))]
+
+plot_deaths <- function(DT, title="") {
+  ggplot(DT, aes(x=start_date, y=deaths)) +
+    geom_line() +
+    geom_point(size=1) +
+    labs(title=title, x="", y="") +
+    theme_economist_white(gray_bg=FALSE) +
+    scale_colour_economist()
+}
+
+plot_deaths(mortality_tw, "Monthly All-Cause Mortality: Taiwan (2015 ~)")
+```
+
+Here is the exhausted list of countries covered by the dataset as of this writing:
+
+```{r show_country_list}
+all_countries <- unique(world_mortality$country_name)
+DT::datatable(data.table(country=all_countries), 
+              options=list(
+                pageLength=5,
+                lengthMenu=c(5, 20, 100),
+                columnDefs=list(list(className="dt-center", targets="_all"))
+              ))
+```
+
+# What is Excess Deaths
+
+Excess deaths (or excess mortality),
+defined as the increase in all-cause deaths relative to the *expected deaths*,
+is widely considered as a more objective indicator of the COVID-19 death toll.
+This is because a patient may not be diagnosed properly.
+
+Apparently,
+to arrive at excess deaths,
+we need to first understand what is the *expected deaths*.
+
+## The Expected Deaths
+
+In plain words,
+expected deaths is just an estimated number for actual deaths.
+So the next question is obviously:
+What is the model we use to estimate the actual deaths?
+There are lots of approaches,
+of course,
+from simple one to very complex one.
+
+In @Karlinsky2021.01.27.21250604 they propose a rather simple model:
+
+$$
+D_{y,m} = \alpha_m + \beta Y + \epsilon,
+$$
+where $D_{y,m}$ is the deaths at year $y$ and month $m$,
+$\alpha$ is the fixed effect of month (control the seasonality),
+$\beta$ is the coefficient for yearly trending component,
+and $\epsilon$ is a noise.
+
+This is a very classic linear regression model that can be solved analytically.
+We can even solve it by hand without a computer thanks to the small sample size.
+In R we can implement such model in a one-liner:
+
+```{r model_karlinsky}
+mortality_tw[, month:=time]  # to be explicit that this is monthly
+model_karlinsky <- lm(deaths ~ year + factor(month), mortality_tw[year < 2020])
+```
+
+The model is a baseline model,
+and the end goal is not to precisely predict the actual deaths,
+but to provide a baseline number that taking into consideration a linear yearly trend and a monthly seasonality.
+
+Put it differently,
+it is not the baseline number itself,
+but the fluctuation of it relative to the actual numbers that matters.
+If there are additional factors kicking in only at a specific period of time in the future but not in the past,
+it will not be captured by the fluctuation and hence can be identified as additional driving force to the death toll.
+Such a factor,
+for example,
+can be a pandemic like COVID-19 that only kicks in at the end of year 2019,
+and start to spread over the world from year 2020 onward.
+
+## The Expected Deaths: The Economist's Approach
+
+In the Economist's model,
+they adopt only a slightly different configuration on modeling expected deaths.
+Instead of using the total deaths number to the available frequency (weekly or monthly),
+they translate the number into a per-day basis.
+So essentially what they are trying to do is this:
+
+```{r model_economist}
+library(lubridate)
+
+mortality_tw[, end_date:=ceiling_date(start_date, unit="month") - 1]
+mortality_tw[, days:=as.integer(end_date - start_date + 1)]  # get number of days per month
+mortality_tw[, deaths_per_day:=deaths / days]
+model_economist <- lm(deaths_per_day ~ year + factor(month), mortality_tw[year < 2020])
+```
+
+We generate the prediction results for both models for year 2020 onward:
+
+```{r model_compare}
+mortality_tw[, expected_deaths_k:=predict(model_karlinsky, newdata=mortality_tw)]
+mortality_tw[, expected_deaths_e:=predict(model_economist, newdata=mortality_tw) * days]
+
+mortality_tw[year >= 2020, .(country_name, year, month, deaths, expected_deaths_k, expected_deaths_e)]
+```
+
+They are very close to each other.
+
+```{r}
+melt(mortality_tw[year >= 2020], 
+     id.vars="start_date", 
+     measure.vars=c("deaths", "expected_deaths_k", "expected_deaths_e")) %>%
+  .[variable == "deaths", type:="Actual"] %>%
+  .[variable == "expected_deaths_k", type:="the Karlinsky Model"] %>%
+  .[variable == "expected_deaths_e", type:="the Economist Model"] %>%
+  ggplot(aes(x=start_date, y=value, group=variable, color=type)) +
+    geom_line() +
+    labs(title="Expected Deaths: Taiwan", x="", y="") +
+    theme_economist_white(gray_bg=FALSE) +
+    theme(legend.title=element_blank())
+```
+
+Now,
+to derive the excess deaths,
+all we need to do is to simply subtract the actual deaths from the expected deaths.
+
+## Why Using Only 5-Year-Long Data?
+
+Some readers may be curious about why they don't use longer data to train the baseline model.
+More data is better, isn't it?
+Is it due to data availability?
+Nope.
+Indeed for lots of countries we do have historical death toll dated back to as far as 1980s.
+
+Let's use the original source of Taiwan's official death toll.
+We have monthly data dated back to as early as year 2000.
+
+```{r raw_mortality_tw}
+library(readODS)
+
+# source: https://www.moi.gov.tw/english/cl.aspx?n=7665
+mortality_tw_raw_data <- "data/taiwan_mortality_raw.ods"
+mortality_tw_raw <- read_ods(mortality_tw_raw_data)
+
+# tidy data starting from year 2000 (where monthly frequency becomes available)
+deaths <- as.integer(mortality_tw_raw[36:313, 6])
+deaths <- deaths[c(FALSE, rep(TRUE, 12))]  # jump over the yearly sum
+
+mortality_tw_long <- CJ(year=2000:2021, month=1:12)
+mortality_tw_long[, start_date:=as.Date(ISOdate(year, month, 1))]
+mortality_tw_long[, end_date:=ceiling_date(start_date, unit="month") - 1]
+mortality_tw_long <- mortality_tw_long[start_date <= "2021-04-01"]
+mortality_tw_long[, deaths:=deaths]
+
+plot_deaths(mortality_tw_long, "Monthly All-Cause Mortality: Taiwan (2000 ~ 2021 Apr)")
+```
+
+Let's build a model using the entirety of the data:
+
+```{r model_long_tw}
+model_long <- lm(deaths ~ year + factor(month), mortality_tw_long[year < 2020])
+mortality_tw[, expected_deaths_long:=predict(model_long, newdata=mortality_tw)]
+mortality_tw[year >= 2020, .(country_name, year, month, deaths, expected_deaths_k, expected_deaths_long)]
+```
+
+```{r model_compare_long_tw}
+melt(mortality_tw[year >= 2020], 
+     id.vars="start_date", 
+     measure.vars=c("deaths", "expected_deaths_k", "expected_deaths_long")) %>%
+  .[variable == "deaths", type:="actual"] %>%
+  .[variable == "expected_deaths_k", type:="model (shorter history)"] %>%
+  .[variable == "expected_deaths_long", type:="model (longer history)"] %>%
+  ggplot(aes(x=start_date, y=value, group=variable, color=type)) +
+    geom_line() +
+    geom_point() +
+    labs(title="Expected Deaths: Taiwan", x="time", y="deaths") +
+    theme_economist_white(gray_bg=FALSE) +
+    theme(legend.title=element_blank())
+```
+In the case of Taiwan,
+it seems that using shorter or longer period does not make a huge difference.
+To better illustrate the idea of more data is not always better, 
+let's try another country: Singapore.
+
+For Singapore,
+we have monthly data dated back to as early as 1960s.
+
+```{r plot_mortality_sg_raw}
+# source: https://www.tablebuilder.singstat.gov.sg/publicfacing/createDataTable.action?refId=15167
+
+mortality_sg_raw <- fread("sed -n -e 5p -e 6p data/singapore_mortality_raw.csv")
+mortality_sg <- data.table(
+  time=colnames(mortality_sg_raw[,2:(length(mortality_sg_raw)-1)]),
+  deaths=as.matrix(mortality_sg_raw)[1,2:(length(mortality_sg_raw)-1)]
+)
+mortality_sg[, deaths:=as.integer(gsub(",", "", deaths))]
+mortality_sg[, c("year", "month_abb"):=tstrsplit(time, " ")]
+mortality_sg[, year:=as.integer(year)]
+mortality_sg[, month:=match(month_abb, month.abb)]
+mortality_sg[, start_date:=as.Date(ISOdate(year, month, 1))]
+
+plot_deaths(mortality_sg, "Monthly All-Cause Mortality: Singapore (1960 ~)")
+```
+
+```{r model_compare_sg_long}
+model_sg_1 <- lm(deaths ~ year + factor(month), mortality_sg[year >= 2015 & year < 2020])
+model_sg_2 <- lm(deaths ~ year + factor(month), mortality_sg[year < 2020])
+
+mortality_sg[, expected_deaths_1:=predict(model_sg_1, newdata=mortality_sg)]
+mortality_sg[, expected_deaths_2:=predict(model_sg_2, newdata=mortality_sg)]
+
+melt(mortality_sg[year >= 2020], 
+     id.vars="start_date", 
+     measure.vars=c("deaths", "expected_deaths_1", "expected_deaths_2")) %>%
+  .[variable == "deaths", type:="actual"] %>%
+  .[variable == "expected_deaths_1", type:="model (shorter history)"] %>%
+  .[variable == "expected_deaths_2", type:="model (longer history)"] %>%
+  ggplot(aes(x=start_date, y=value, group=variable, color=type)) +
+    geom_line() +
+    geom_point() +
+    labs(title="Expected Deaths: Singapore", x="", y="") +
+    theme_economist_white(gray_bg=FALSE) +
+    theme(legend.title=element_blank())
+```
+
+As we can see,
+the model trained with a much longer history is predicting numbers way off the actuals.
+
+Why?
+
+Generally speaking,
+it is because the longer the time series the more possible that there will be [structural break](https://en.wikipedia.org/wiki/Structural_break).
+Structural breaks are exogenous factors that change the behavior of the time series.
+
+Indeed,
+for the time series of deaths,
+consider COVID-19 as a structural break.
+
+The longer the training period we include in such a simple model,
+the riskier it will be subject to structural breaks that are not directly controlled in the model.
+
+## But the $R^2$ is HIGHER?
+
+Quite a few people,
+including those among the practitioners,
+like to talk about $R^2$ when it comes to linear model fitness.
+They claim that a higher score means a better model.
+(No matter what "better" actually means here.)
+
+NO.
+
+That is just WRONG.
+
+In my humble opinion the interpretation of $R^2$ is usually by best useless and by worst misleading.
+This is exactly the case of misleading.
+Let's compare the adjusted $R^2$ between the model using only recent 5 years and the model using the entire history for both countries:
+
+```{r compare_r2}
+{
+message(sprintf("Adjusted R^2 for TW model using  5 years: %s", summary(model_karlinsky)$adj.r.squared))
+message(sprintf("Adjusted R^2 for TW model using 20 years: %s", summary(model_long)$adj.r.squared))
+message(sprintf("Adjusted R^2 for SG model using  5 years: %s", summary(model_sg_1)$adj.r.squared))
+message(sprintf("Adjusted R^2 for SG model using 60 years: %s", summary(model_sg_2)$adj.r.squared))
+}
+```
+
+Apparently,
+the adjusted $R^2$ is much higher for model with longer history.
+Does it mean that we should use that model in this case?
+
+The only situation I can imagine that $R^2$ is something you can consider for model fitness is when you only concern the absolute power of prediction.
+Unfortunately the power of prediction is never a real or even relevant question in the world of causal inference.
+Even in the very special case that prediction is the only thing that matters,
+$R^2$ still says very little about it because it is entirely based on the past data.
+It is not even calculated on a testing/unseen data.
+
+Forget about $R^2$ all together, my friends.
+
+# Predicting Excess Deaths due to COVID-19
+
+Now we've been equipped with good knowledge about the core data being used and also the meaning of excess deaths.
+Let's move on to the our main dish:
+Predicting excess deaths due to COVID-19.
+
+## Predicting Variables
+
+### OWID COVID-19 Data
+
+The first source of predicting variables come from OWID's COVID-19 data at daily frequency.
+They can be summarized into the following items:
+
+- tests done
+- positive rate
+- hospital beds
+- vaccination features
+  - new vaccination administered
+  - vaccinated and fully vaccinated percentage
+- population features
+  - density
+  - number of the elderly
+  - life expectancy
+
+```{r prepare_owid_covid_data}
+# codebook for variable def:
+# https://github.com/owid/covid-19-data/blob/master/public/data/owid-covid-codebook.csv
+
+owid_covid_data <- "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv"
+owid_covid <- fread(owid_covid_data)  # this is in long-format
+```
+Take a look at daily vaccination administered by continent:
+
+```{r plot_owid_vaccination}
+# 7-day moving averaged
+owid_covid[date >= "2021-01-01" & date < max(owid_covid$date) & continent != "", 
+           sum(new_vaccinations_smoothed, na.rm=TRUE), by=.(continent, date)] %>%
+  ggplot(aes(x=date, y=V1, group=continent, color=continent)) +
+  geom_line() +
+  labs(title="(Smoothed) Daily New Vaccination Administered", y="", x="") +
+  scale_y_continuous(labels=scales::label_number_si()) +
+  theme_economist_white(gray_bg=FALSE) +
+  theme(legend.title=element_blank())
+```
+
+Take a look at daily positive test rate for some countries in SEA:
+
+```{r plot_owid_positive_rate}
+ggplot(owid_covid[date >= "2021-01-01" & date < max(owid_covid$date) & location %in% countries],
+       aes(x=date, y=positive_rate, group=location, color=location)) +
+  geom_line() +
+  labs(title="Daily Positive Rate of COVID-19", y="", x="") +
+  scale_y_continuous(labels=scales::percent) +
+  theme_economist_white(gray_bg=FALSE) +
+  theme(legend.title=element_blank())
+```
+
+Besides OWID COVID-related feature set,
+the Economist's model also utilize several other data sources for feature engineering.
+
+### V-Dem
+
+[V-Dem](https://www.v-dem.net/) democracy report for year 2019 is used.
+These are core indices about political regime and media freedom country-level data.
+
+```{r prepare_vdem}
+vdem_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/vdem.csv"
+vdem <- fread(vdem_data)
+```
+
+To be specific,
+two indices are used:
+
+- Liberal Democracy Index
+- Freedom of Expression and Alternative Sources of Information Index
+
+Let's plot the two indices in a coordinate system and mark those with highest and lowest Liberal Democracy Index.
+
+```{r plot_vdem_best}
+library(ggrepel)
+library(ggforce)
+
+vdem_good <- copy(vdem)
+setorder(vdem_good, -v2x_libdem)
+vdem_good[1:10, tag:=TRUE]
+vdem_good[tag == TRUE, label:=country]
+
+ggplot(vdem_good, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
+  geom_point() +
+  labs(title="V-Dem Democracy Indices 2019 (Best 10)", 
+       x="Freedom of Expression and Alternative Sources of Information Index", 
+       y="Liberal Democracy Index") +
+  facet_zoom(xlim=c(.9, .97), ylim=c(.8, .87), zoom.data=tag) +
+  geom_text_repel(aes(label=label), box.padding=.5)
+```
+
+```{r plot_vdem_worst}
+vdem_bad <- copy(vdem)
+setorder(vdem_bad, v2x_libdem)
+vdem_bad[1:10, tag:=TRUE]
+vdem_bad[tag == TRUE, label:=country]
+
+ggplot(vdem_bad, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
+  geom_point() +
+  labs(title="V-Dem Democracy Indices 2019 (Worst 10)", 
+       x="Freedom of Expression and Alternative Sources of Information Index", 
+       y="Liberal Democracy Index") +
+  facet_zoom(xlim=c(0, .3), ylim=c(0, .07), zoom.data=tag) +
+  geom_text_repel(aes(label=label), box.padding=.5)
+```
+
+```{r plot_vdem_more}
+vdem[country_code %in% c("TWN", "SGP", "JPN", "USA", "CHN"), tag:=TRUE]
+vdem[tag == TRUE, label:=country]
+
+ggplot(vdem, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
+  geom_point(color = ifelse(is.na(vdem$tag), "black", "red")) +
+  labs(title="V-Dem Democracy Indices 2019", 
+       x="Freedom of Expression and Alternative Sources of Information Index", 
+       y="Liberal Democracy Index") +
+  geom_text_repel(aes(label=label), box.padding=.25)
+```
+### Democracy Classification
+
+Another political feature dataset used is the democracy binary classification from @DVN/FJLMKT_2018.
+It is a simple binary classification indicating whether a country is democracy or not.
+
+```{r prepare_democracy_classifier}
+democracy_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/democracy-v3.0.csv"
+democracy <- fread(democracy_data)
+democracy <- democracy[year == max(year)]  # 2015
+```
+
+Let's plot the democracy world map! :)
+
+```{r}
+library(rgeos)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+world <- ne_countries(scale="medium", returnclass="sf")
+world <- merge(world, democracy, by.x="iso_a3", by.y="abbreviation", all.x=TRUE)
+
+ggplot(world) +
+  geom_sf(aes(fill=factor(democracy))) +
+  coord_sf(crs=st_crs(3035))
+```
+
+### Freedom House
+
+[Freedom House report](https://freedomhouse.org/report/freedom-world) for year 2020 is used.
+To be specific,
+the following 3 indices are included as predicting variable:
+
+- Freedom Score
+- Political Rights 
+- Civil Liberties
+
+```{r prepare_freedomhouse}
+library(countrycode)
+
+freedomhouse_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/freedomhouse.csv"
+freedomhouse <- fread(freedomhouse_data)
+freedomhouse <- freedomhouse[Edition == 2020]
+fh <- freedomhouse[, .(`Country/Territory`, Total, PR, CL)]
+fh$iso_a3 <- countrycode(fh$'Country/Territory', "country.name", "iso3c")
+setnames(fh, c("country", "freedom_score", "political_rights", "civil_liverties", "iso_a3"))
+```
+
+```{r plot_freedom_score}
+world <- merge(world, fh, by="iso_a3", all.x=TRUE)
+
+ggplot(world) +
+  geom_sf(aes(fill=freedom_score)) +
+  scale_fill_gradient(low="black", high="dodgerblue") + 
+  coord_sf(crs=st_crs(3035))
+```
+### PolityV
+
+[PolityV project](https://www.systemicpeace.org/polityproject.html) for regime data is used.
+
+
+```{r prepare_polity5}
+# TODO:
+```
+
+### WDI
+
+World Bank's World Development Indicators are used.
+
+```{r prepare_wdi}
+library(WDI)
+
+wdi <- WDI(country='all',
+           indicator=c('wdi_prop_less_2_usd_day'='SI.POV.DDAY',
+                       'wdi_gdppc_nominal'='NY.GDP.PCAP.CD',
+                       'wdi_gdppc_ppp'='NY.GDP.PCAP.PP.CD',
+                       'wdi_urban_population_pct'='SP.URB.TOTL.IN.ZS',
+                       'wdi_urban_pop_1m_cities_pct'='EN.URB.MCTY.TL.ZS',
+                       'wdi_gini_index'='SI.POV.GINI',
+                       'wdi_life_expectancy_at_birth'='SP.DYN.LE00.IN',
+                       'wdi_pop_over_65'='SP.POP.65UP.TO.ZS',
+                       'wdi_pop_under_15'='SP.POP.0014.TO.ZS'))
+wdi$iso3c <- countrycode(wdi$iso2c, "iso2c", "iso3c")
+setDT(wdi)
+
+# TODO: check processing logic
+```
+
+### Infection Fatality Ratio
+
+TBC.
+
+### Tourism Arrivals
+
+https://www.unwto.org/statistic/basic-tourism-statistics
+
+```{r}
+# TODO:
+```
+
+### Google Mobility
+
+```{r}
+mob <- fread("https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv")
+# TODO:
+```
+
+### Policy Response Data
+
+TBC.
+
+### Seroprevalence
+
+TBC.
+
+### Others
+
+- Hard-coded island indicator
+- % of population for the largest city
+
+## Adaptive Gradient Boosting Tree
+
+TBC.
+
+https://github.com/Blunde1/agtboost
+
+
+@lunde2020information
+@lunde2020agtboost
+
+
+# Bootstrapping for Uncertainty
+
+TBC.
+
+# References

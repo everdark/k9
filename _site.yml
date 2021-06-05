@@ -17,6 +17,9 @@ navbar:
         - text: "Introduction to Topic Models"
           href: notebooks/stats/topic/topic.nb.html
         - text: "---"
+        - text: "A Gentle Walkthrough of the Economist's Excess Deaths Model for COVID-19"
+          href: notebooks/stats/excess_deaths/excess_deaths.nb.html
+        - text: "---"
         - text: "On Linear Regression: Machine Learning vs Econometrics (WIP)"
           #href: notebooks/stats/regression/reg.nb.html
         - text: "---"
