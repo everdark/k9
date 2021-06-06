@@ -93,6 +93,10 @@ data in the OWID repository is automatically sourced from Johns Hopkins Universi
 We can easily obtain the numbers:
 
 ```{r prepare_covid_data, results="hide", message=FALSE, warning=FALSE}
+# NOTE:
+# data.table := is breaking the code chunk in rmarkdown
+# need to use re-assignment to workaround it :(
+
 library(data.table)
 library(ggplot2)
 library(ggthemes)  # let's use the Economist theme :)
@@ -103,22 +107,22 @@ covid_deaths <- fread(hju_deaths_data)  # this is in wide-format
 # fix column type treated as logical when all are missing
 for ( col in names(covid_deaths) )
   if ( is.logical(covid_deaths[[col]]) ) covid_deaths[[col]] <- as.numeric(covid_deaths[[col]])
+
+# aggregate monthly toll for all countries
+cols <- names(covid_deaths)[-1]
+covid_monthly_deaths <- covid_deaths[, lapply(.SD, sum, na.rm=TRUE), by=.(year(date), month(date)), .SDcols=cols]
+covid_monthly_deaths <- covid_monthly_deaths[, start_date:=as.Date(ISOdate(year, month, 1))]
+covid_monthly_deaths <- melt(
+  covid_monthly_deaths, 
+  id.vars=c("year", "month", "start_date"), 
+  variable.name="region", value.name="deaths"
+)
 ```
 
 The data is at daily frequency,
 so we can aggregate it into either weekly or monthly to match the frequency of mortality data for modeling purpose.
 
 ```{r plot_covid_deaths_some_countries}
-# aggregate monthly toll for all countries
-cols <- names(covid_deaths)[-1]
-covid_monthly_deaths <- covid_deaths[, lapply(.SD, sum, na.rm=TRUE), by=.(year(date), month(date)), .SDcols=cols]
-covid_monthly_deaths[, start_date:=as.Date(ISOdate(year, month, 1))]
-covid_monthly_deaths <- melt(
-  covid_monthly_deaths, 
-  id.vars=c("year", "month", "start_date"), 
-  variable.name="region", value.name="deaths"
-)
-
 # plot some
 countries <- c("Singapore", "Malaysia", "Indonesia", "Thailand")  # just pick a few
 ggplot(covid_monthly_deaths[region %in% countries], 
@@ -145,6 +149,7 @@ But that's take a glance at the data first.
 ```{r prepare_mortality_data, results="hide", message=FALSE, warning=FALSE}
 world_mortailty_dataset <- "https://raw.githubusercontent.com/akarlinsky/world_mortality/main/world_mortality.csv"
 world_mortality <- fread(world_mortailty_dataset)
+world_mortality[, start_date:=as.Date(ISOdate(year, time, 1))]
 ```
 
 Their data is dated back to year 2015,
@@ -158,8 +163,6 @@ Here is an example of monthly mortality for Taiwan:
 ```
 
 ```{r plot_mortality_tw}
-mortality_tw[, start_date:=as.Date(ISOdate(year, time, 1))]
-
 plot_deaths <- function(DT, title="") {
   ggplot(DT, aes(x=start_date, y=deaths)) +
     geom_line() +
@@ -219,8 +222,8 @@ This is a very classic linear regression model that can be solved analytically.
 We can even solve it by hand without a computer thanks to the small sample size.
 In R we can implement such model in a one-liner:
 
-```{r model_karlinsky}
-mortality_tw[, month:=time]  # to be explicit that this is monthly
+```{r model_karlinsky, results="hide"}
+mortality_tw <- mortality_tw[, month:=time]  # to be explicit that this is monthly
 model_karlinsky <- lm(deaths ~ year + factor(month), mortality_tw[year < 2020])
 ```
 
@@ -249,17 +252,17 @@ So essentially what they are trying to do is this:
 ```{r model_economist, results="hide", message=FALSE, warning=FALSE}
 library(lubridate)
 
-mortality_tw[, end_date:=ceiling_date(start_date, unit="month") - 1]
-mortality_tw[, days:=as.integer(end_date - start_date + 1)]  # get number of days per month
-mortality_tw[, deaths_per_day:=deaths / days]
+mortality_tw <- mortality_tw[, end_date:=ceiling_date(start_date, unit="month") - 1]
+mortality_tw <- mortality_tw[, days:=as.integer(end_date - start_date + 1)]  # get number of days per month
+mortality_tw <- mortality_tw[, deaths_per_day:=deaths / days]
 model_economist <- lm(deaths_per_day ~ year + factor(month), mortality_tw[year < 2020])
 ```
 
 We generate the prediction results for both models for year 2020 onward:
 
 ```{r model_compare}
-mortality_tw[, expected_deaths_k:=predict(model_karlinsky, newdata=mortality_tw)]
-mortality_tw[, expected_deaths_e:=predict(model_economist, newdata=mortality_tw) * days]
+mortality_tw <- mortality_tw[, expected_deaths_k:=predict(model_karlinsky, newdata=mortality_tw)]
+mortality_tw <- mortality_tw[, expected_deaths_e:=predict(model_economist, newdata=mortality_tw) * days]
 
 mortality_tw[year >= 2020, .(country_name, year, month, deaths, expected_deaths_k, expected_deaths_e)]
 ```
@@ -307,10 +310,10 @@ deaths <- as.integer(mortality_tw_raw[36:313, 6])
 deaths <- deaths[c(FALSE, rep(TRUE, 12))]  # jump over the yearly sum
 
 mortality_tw_long <- CJ(year=2000:2021, month=1:12)
-mortality_tw_long[, start_date:=as.Date(ISOdate(year, month, 1))]
-mortality_tw_long[, end_date:=ceiling_date(start_date, unit="month") - 1]
+mortality_tw_long <- mortality_tw_long[, start_date:=as.Date(ISOdate(year, month, 1))]
+mortality_tw_long <- mortality_tw_long[, end_date:=ceiling_date(start_date, unit="month") - 1]
 mortality_tw_long <- mortality_tw_long[start_date <= "2021-04-01"]
-mortality_tw_long[, deaths:=deaths]
+mortality_tw_long <- mortality_tw_long[, deaths:=deaths]
 
 plot_deaths(mortality_tw_long, "Monthly All-Cause Mortality: Taiwan (2000 ~ 2021 Apr)")
 ```
@@ -319,7 +322,7 @@ Let's build a model using the entirety of the data:
 
 ```{r model_long_tw}
 model_long <- lm(deaths ~ year + factor(month), mortality_tw_long[year < 2020])
-mortality_tw[, expected_deaths_long:=predict(model_long, newdata=mortality_tw)]
+mortality_tw <- mortality_tw[, expected_deaths_long:=predict(model_long, newdata=mortality_tw)]
 mortality_tw[year >= 2020, .(country_name, year, month, deaths, expected_deaths_k, expected_deaths_long)]
 ```
 
@@ -353,11 +356,11 @@ mortality_sg <- data.table(
   time=colnames(mortality_sg_raw[,2:(length(mortality_sg_raw)-1)]),
   deaths=as.matrix(mortality_sg_raw)[1,2:(length(mortality_sg_raw)-1)]
 )
-mortality_sg[, deaths:=as.integer(gsub(",", "", deaths))]
-mortality_sg[, c("year", "month_abb"):=tstrsplit(time, " ")]
-mortality_sg[, year:=as.integer(year)]
-mortality_sg[, month:=match(month_abb, month.abb)]
-mortality_sg[, start_date:=as.Date(ISOdate(year, month, 1))]
+mortality_sg <- mortality_sg[, deaths:=as.integer(gsub(",", "", deaths))]
+mortality_sg <- mortality_sg[, c("year", "month_abb"):=tstrsplit(time, " ")]
+mortality_sg <- mortality_sg[, year:=as.integer(year)]
+mortality_sg <- mortality_sg[, month:=match(month_abb, month.abb)]
+mortality_sg <- mortality_sg[, start_date:=as.Date(ISOdate(year, month, 1))]
 
 plot_deaths(mortality_sg, "Monthly All-Cause Mortality: Singapore (1960 ~)")
 ```
@@ -366,8 +369,8 @@ plot_deaths(mortality_sg, "Monthly All-Cause Mortality: Singapore (1960 ~)")
 model_sg_1 <- lm(deaths ~ year + factor(month), mortality_sg[year >= 2015 & year < 2020])
 model_sg_2 <- lm(deaths ~ year + factor(month), mortality_sg[year < 2020])
 
-mortality_sg[, expected_deaths_1:=predict(model_sg_1, newdata=mortality_sg)]
-mortality_sg[, expected_deaths_2:=predict(model_sg_2, newdata=mortality_sg)]
+mortality_sg <- mortality_sg[, expected_deaths_1:=predict(model_sg_1, newdata=mortality_sg)]
+mortality_sg <- mortality_sg[, expected_deaths_2:=predict(model_sg_2, newdata=mortality_sg)]
 
 melt(mortality_sg[year >= 2020], 
      id.vars="start_date", 
@@ -520,6 +523,7 @@ Let's plot the two indices in a coordinate system and mark those with highest an
 library(ggrepel)
 library(ggforce)
 
+{
 vdem_good <- copy(vdem)
 setorder(vdem_good, -v2x_libdem)
 vdem_good[1:10, tag:=TRUE]
@@ -532,9 +536,11 @@ ggplot(vdem_good, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
        y="Liberal Democracy Index") +
   facet_zoom(xlim=c(.9, .97), ylim=c(.8, .87), zoom.data=tag) +
   geom_text_repel(aes(label=label), box.padding=.5)
+}
 ```
 
 ```{r plot_vdem_worst}
+{
 vdem_bad <- copy(vdem)
 setorder(vdem_bad, v2x_libdem)
 vdem_bad[1:10, tag:=TRUE]
@@ -547,9 +553,11 @@ ggplot(vdem_bad, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
        y="Liberal Democracy Index") +
   facet_zoom(xlim=c(0, .3), ylim=c(0, .07), zoom.data=tag) +
   geom_text_repel(aes(label=label), box.padding=.5)
+}
 ```
 
 ```{r plot_vdem_more}
+{
 vdem[country_code %in% c("TWN", "SGP", "JPN", "USA", "CHN"), tag:=TRUE]
 vdem[tag == TRUE, label:=country]
 
@@ -559,6 +567,7 @@ ggplot(vdem, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
        x="Freedom of Expression and Alternative Sources of Information Index", 
        y="Liberal Democracy Index") +
   geom_text_repel(aes(label=label), box.padding=.25)
+}
 ```
 ### Democracy Classification
 
@@ -573,14 +582,17 @@ democracy <- democracy[year == max(year)]  # 2015
 
 Let's plot the democracy world map! :)
 
-```{r}
+```{r import_dep_for_world_map, results="hide", message=FALSE, warning=FALSE}
 # CAVEAT: we need a tons of dependencies outside R to make the world map plotting works
 library(sp)
 library(sf)
 library(rgeos)
 library(rnaturalearth)
 library(rnaturalearthdata)
+```
 
+
+```{r plot_democracy_indicator}
 world <- ne_countries(scale="medium", returnclass="sf")
 world <- merge(world, democracy, by.x="iso_a3", by.y="abbreviation", all.x=TRUE)
 
@@ -734,8 +746,8 @@ unwto <- read_xlsx(unwto_data_local, skip=2)
 setDT(unwto)
 
 # forward-fill missing values for country names
-unwto[, country:=`Basic data and indicators`]
-unwto[, country:=country[nafill(replace(.I, is.na(country), NA), "locf")]]
+unwto <- unwto[, country:=`Basic data and indicators`]
+unwto <- unwto[, country:=country[nafill(replace(.I, is.na(country), NA), "locf")]]
 
 # get the total arrivals
 unwto <- unwto[unwto$...6 == 'Total arrivals']
