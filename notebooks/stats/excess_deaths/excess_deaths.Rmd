@@ -55,6 +55,7 @@ close(meta_header_file)
 ```
 
 ```{r setup, include=FALSE}
+library(magrittr)
 knitr::opts_chunk$set(warning=FALSE, fig.retina=2)
 ```
 
@@ -62,7 +63,7 @@ knitr::opts_chunk$set(warning=FALSE, fig.retina=2)
 
 [The Economists](https://www.economist.com/) recently published an article about global excess deaths caused by COVID-19:
 [There Have Been 7M-13M Excess Deaths Worldwide During the Pandemic](https://www.economist.com/briefing/2021/05/15/there-have-been-7m-13m-excess-deaths-worldwide-during-the-pandemic),
-with their underlying data and model [open source on Github](https://github.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model).
+with their underlying data and model open source on Github.^[https://github.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model]
 They've also published another nicely written article explaining how they accomplish the estimation task: [How We Estimated the True Death Toll of the Pandemic](https://www.economist.com/graphic-detail/2021/05/13/how-we-estimated-the-true-death-toll-of-the-pandemic).
 
 The goal of this notebook is not to just re-phrase what has been explained already,
@@ -86,7 +87,7 @@ We are going to discuss several topics:
 ## COVID-19 Death Toll
 
 The major source of COVID-19-related statistics is from [Our World in Data](https://github.com/owid/covid-19-data/tree/master/public/data).
-They have a very good [visual interface](https://ourworldindata.org/coronavirus) for consuming the data.
+They have a very good visual interface for consuming the data.^[https://ourworldindata.org/coronavirus]
 For the confirmed cases and deaths,
 data in the OWID repository is automatically sourced from Johns Hopkins University.
 We can easily obtain the numbers:
@@ -98,6 +99,10 @@ library(ggthemes)  # let's use the Economist theme :)
 
 hju_deaths_data <- "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/jhu/new_deaths.csv"
 covid_deaths <- fread(hju_deaths_data)  # this is in wide-format
+
+# fix column type treated as logical when all are missing
+for ( col in names(covid_deaths) )
+  if ( is.logical(covid_deaths[[col]]) ) covid_deaths[[col]] <- as.numeric(covid_deaths[[col]])
 ```
 
 The data is at daily frequency,
@@ -106,8 +111,7 @@ so we can aggregate it into either weekly or monthly to match the frequency of m
 ```{r plot_covid_deaths_some_countries}
 # aggregate monthly toll for all countries
 cols <- names(covid_deaths)[-1]
-covid_deaths[, `:=`(year=year(date), month=month(date))]
-covid_monthly_deaths <- covid_deaths[, lapply(.SD, sum, na.rm=TRUE), by=.(year, month), .SDcols=cols]
+covid_monthly_deaths <- covid_deaths[, lapply(.SD, sum, na.rm=TRUE), by=.(year(date), month(date)), .SDcols=cols]
 covid_monthly_deaths[, start_date:=as.Date(ISOdate(year, month, 1))]
 covid_monthly_deaths <- melt(
   covid_monthly_deaths, 
@@ -117,9 +121,10 @@ covid_monthly_deaths <- melt(
 
 # plot some
 countries <- c("Singapore", "Malaysia", "Indonesia", "Thailand")  # just pick a few
-ggplot(covid_monthly_deaths[region %in% countries], aes(x=start_date, y=deaths, group=region, color=region)) +
+ggplot(covid_monthly_deaths[region %in% countries], 
+       aes(x=start_date, y=deaths + 1, group=region, color=region)) +
   geom_line() +
-  scale_y_continuous(trans="log") +
+  scale_y_log10() +
   labs(title="COVID-19 Monthly Deaths (in Log Scale)", x="", y="") +
   theme_economist_white(gray_bg=FALSE) +
   theme(legend.title=element_blank())
@@ -137,7 +142,7 @@ Their works also include a model for estimating excess deaths.
 We will also take a brief look of that.
 But that's take a glance at the data first.
 
-```{r prepare_mortality_data}
+```{r prepare_mortality_data, results="hide", message=FALSE, warning=FALSE}
 world_mortailty_dataset <- "https://raw.githubusercontent.com/akarlinsky/world_mortality/main/world_mortality.csv"
 world_mortality <- fread(world_mortailty_dataset)
 ```
@@ -241,7 +246,7 @@ Instead of using the total deaths number to the available frequency (weekly or m
 they translate the number into a per-day basis.
 So essentially what they are trying to do is this:
 
-```{r model_economist}
+```{r model_economist, results="hide", message=FALSE, warning=FALSE}
 library(lubridate)
 
 mortality_tw[, end_date:=ceiling_date(start_date, unit="month") - 1]
@@ -455,7 +460,7 @@ They can be summarized into the following items:
   - number of the elderly
   - life expectancy
 
-```{r prepare_owid_covid_data}
+```{r prepare_owid_covid_data, results="hide", message=FALSE, warning=FALSE}
 # codebook for variable def:
 # https://github.com/owid/covid-19-data/blob/master/public/data/owid-covid-codebook.csv
 
@@ -491,13 +496,15 @@ ggplot(owid_covid[date >= "2021-01-01" & date < max(owid_covid$date) & location 
 Besides OWID COVID-related feature set,
 the Economist's model also utilize several other data sources for feature engineering.
 
+(We forked the Economist repository and read these source data from the fork repository.)
+
 ### V-Dem
 
 [V-Dem](https://www.v-dem.net/) democracy report for year 2019 is used.
 These are core indices about political regime and media freedom country-level data.
 
-```{r prepare_vdem}
-vdem_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/vdem.csv"
+```{r prepare_vdem, results="hide", message=FALSE, warning=FALSE}
+vdem_data <- "https://raw.githubusercontent.com/everdark/covid-19-the-economist-global-excess-deaths-model/master/source-data/vdem.csv"
 vdem <- fread(vdem_data)
 ```
 
@@ -558,8 +565,8 @@ ggplot(vdem, aes(x=v2x_freexp_altinf, y=v2x_libdem)) +
 Another political feature dataset used is the democracy binary classification from @DVN/FJLMKT_2018.
 It is a simple binary classification indicating whether a country is democracy or not.
 
-```{r prepare_democracy_classifier}
-democracy_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/democracy-v3.0.csv"
+```{r prepare_democracy_classifier, results="hide", message=FALSE, warning=FALSE}
+democracy_data <- "https://raw.githubusercontent.com/everdark/covid-19-the-economist-global-excess-deaths-model/master/source-data/democracy-v3.0.csv"
 democracy <- fread(democracy_data)
 democracy <- democracy[year == max(year)]  # 2015
 ```
@@ -567,8 +574,10 @@ democracy <- democracy[year == max(year)]  # 2015
 Let's plot the democracy world map! :)
 
 ```{r}
-library(rgeos)
+# CAVEAT: we need a tons of dependencies outside R to make the world map plotting works
+library(sp)
 library(sf)
+library(rgeos)
 library(rnaturalearth)
 library(rnaturalearthdata)
 
@@ -577,12 +586,13 @@ world <- merge(world, democracy, by.x="iso_a3", by.y="abbreviation", all.x=TRUE)
 
 ggplot(world) +
   geom_sf(aes(fill=factor(democracy))) +
+  labs(title="Democracy in the World as of 2015") +
   coord_sf(crs=st_crs(3035))
 ```
 
 ### Freedom House
 
-[Freedom House report](https://freedomhouse.org/report/freedom-world) for year 2020 is used.
+[Freedom House Report](https://freedomhouse.org/report/freedom-world) for year 2020 is used.
 To be specific,
 the following 3 indices are included as predicting variable:
 
@@ -590,10 +600,10 @@ the following 3 indices are included as predicting variable:
 - Political Rights 
 - Civil Liberties
 
-```{r prepare_freedomhouse}
+```{r prepare_freedomhouse, results="hide", message=FALSE, warning=FALSE}
 library(countrycode)
 
-freedomhouse_data <- "https://raw.githubusercontent.com/TheEconomist/covid-19-the-economist-global-excess-deaths-model/master/source-data/freedomhouse.csv"
+freedomhouse_data <- "https://raw.githubusercontent.com/everdark/covid-19-the-economist-global-excess-deaths-model/master/source-data/freedomhouse.csv"
 freedomhouse <- fread(freedomhouse_data)
 freedomhouse <- freedomhouse[Edition == 2020]
 fh <- freedomhouse[, .(`Country/Territory`, Total, PR, CL)]
@@ -604,74 +614,245 @@ setnames(fh, c("country", "freedom_score", "political_rights", "civil_liverties"
 ```{r plot_freedom_score}
 world <- merge(world, fh, by="iso_a3", all.x=TRUE)
 
+# this time try plot without a custom projection
 ggplot(world) +
   geom_sf(aes(fill=freedom_score)) +
-  scale_fill_gradient(low="black", high="dodgerblue") + 
-  coord_sf(crs=st_crs(3035))
+  labs(title="Degree of Freedom in the World as of 2020") +
+  scale_fill_gradient(low="black", high="dodgerblue", name="Freedom Score")
 ```
 ### PolityV
 
-[PolityV project](https://www.systemicpeace.org/polityproject.html) for regime data is used.
+[PolityV project](https://www.systemicpeace.org/polityproject.html) 2018 data for regime characteristics is used.
+This is yet another indicator of degree of democracy,
+ranged from -10 to 10.
 
+```{r prepare_polity5, results="hide", message=FALSE, warning=FALSE}
+library(readxl)
 
-```{r prepare_polity5}
-# TODO:
+# read_xls cannot handle remote URL so we need to download it manually first
+polity5_data <- "https://raw.githubusercontent.com/everdark/covid-19-the-economist-global-excess-deaths-model/master/source-data/p5v2018.xls"
+polity5_data_local <- tempfile()
+download.file(polity5_data, polity5_data_local, mode="wb")
+polity5 <- read_xls(polity5_data_local)
+polity5$iso_a3 <- countrycode(polity5$ccode, "cown", "iso3c")
+setDT(polity5)
+polity5 <- polity5[year == 2018 & !is.na(polity2)]
 ```
 
-### WDI
+```{r plot_polity5}
+ggplot(polity5, aes(x=factor(polity2))) +
+  geom_bar() +
+  labs(title="PolityV Report: Distribution of Degree of Democracy",
+       x="Degree of Democracy", y="Number of Countries")
+```
+
+```{r plot_ploity5_world}
+world <- merge(world, polity5, by="iso_a3", all.x=TRUE)
+
+# this time try plot without a custom projection
+ggplot(world) +
+  geom_sf(aes(fill=polity2)) +
+  labs(title="Degree of Democracy in the World as of 2018") +
+  scale_fill_gradient(low="black", high="springgreen", name="PolityV Score")
+```
+
+### World Development Indicators
 
 World Bank's World Development Indicators are used.
+To be specific,
+the following indicators are used (for their latest available entry):
 
-```{r prepare_wdi}
+```{r list_wdi}
 library(WDI)
 
-wdi <- WDI(country='all',
-           indicator=c('wdi_prop_less_2_usd_day'='SI.POV.DDAY',
-                       'wdi_gdppc_nominal'='NY.GDP.PCAP.CD',
-                       'wdi_gdppc_ppp'='NY.GDP.PCAP.PP.CD',
-                       'wdi_urban_population_pct'='SP.URB.TOTL.IN.ZS',
-                       'wdi_urban_pop_1m_cities_pct'='EN.URB.MCTY.TL.ZS',
-                       'wdi_gini_index'='SI.POV.GINI',
-                       'wdi_life_expectancy_at_birth'='SP.DYN.LE00.IN',
-                       'wdi_pop_over_65'='SP.POP.65UP.TO.ZS',
-                       'wdi_pop_under_15'='SP.POP.0014.TO.ZS'))
-wdi$iso3c <- countrycode(wdi$iso2c, "iso2c", "iso3c")
-setDT(wdi)
+# we will not import the data but simply examine what are used in the Economist' model
+# reference:
+# https://github.com/everdark/covid-19-the-economist-global-excess-deaths-model/blob/main/scripts/1_excess_deaths_global_estimates_script.R
 
-# TODO: check processing logic
+wdi_indicators <- c(
+  "SI.POV.DDAY",
+  "NY.GDP.PCAP.CD",
+  "NY.GDP.PCAP.PP.CD",
+  "SP.URB.TOTL.IN.ZS",
+  "EN.URB.MCTY.TL.ZS",
+  "SI.POV.GINI",
+  "SP.DYN.LE00.IN",
+  "SP.POP.65UP.TO.ZS",
+  "SP.POP.0014.TO.ZS"
+)
+
+for ( i in wdi_indicators ) {
+  result <- WDIsearch(i, "indicator")
+  if ( is.matrix(result) ) {
+    result <- result[1,]
+  }
+  message(unname(result["name"]))
+}
 ```
+
+As one can see,
+the indicators used are mostly regarding economic condition,
+including poverty, GDP, life expectancy and society aging measure.
 
 ### Infection Fatality Ratio
 
-TBC.
+In their post,
+[Why rich countries are so vulnerable to covid-19](https://www.economist.com/graphic-detail/2020/11/16/why-rich-countries-are-so-vulnerable-to-covid-19),
+it is mentioned that
 
-### Tourism Arrivals
+>the probability of dying from the disease roughly doubles for every eight years of age.
 
-https://www.unwto.org/statistic/basic-tourism-statistics
+They've calculated the age-specific IFR using several countries' COVID-19 data.^[https://github.com/TheEconomist/covid-19-age-adjusted-ifr]
 
-```{r}
-# TODO:
+```{r prepare_ifr, results="hide", message=FALSE, warning=FALSE}
+ifr_data <- "https://raw.githubusercontent.com/everdark/covid-19-age-adjusted-ifr/main/ifr_by_iso2c.csv"
+ifr <- fread(ifr_data)
 ```
 
-### Google Mobility
+After consider population characteristics,
+they've calculated a country-level vulnerability to COVID-19,
+which is used as a predicting variable to the excess model.
 
 ```{r}
-mob <- fread("https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv")
-# TODO:
+setorder(ifr, -area_ifr)
+ifr[1:10, .(area, area_ifr)]
 ```
 
-### Policy Response Data
+From the result we can observe that Japan is the most vulnerable country due to their aging society.
+The expected IFR is 1.3% in Japan.
 
-TBC.
+### UNWTO Tourism Arrivals
+
+[UNWTO's tourism arrivals data](https://www.unwto.org/statistic/basic-tourism-statistics) (up to 2019) is used.
+
+```{r prepare_untwo, results="hide", message=FALSE, warning=FALSE}
+# read_xlsx cannot handle remote URL so we need to download it manually first
+unwto_data <- "https://raw.githubusercontent.com/everdark/covid-19-the-economist-global-excess-deaths-model/master/source-data/UNWTO.xlsx"
+unwto_data_local <- tempfile()
+download.file(unwto_data, unwto_data_local, mode="wb")
+unwto <- read_xlsx(unwto_data_local, skip=2)
+setDT(unwto)
+
+# forward-fill missing values for country names
+unwto[, country:=`Basic data and indicators`]
+unwto[, country:=country[nafill(replace(.I, is.na(country), NA), "locf")]]
+
+# get the total arrivals
+unwto <- unwto[unwto$...6 == 'Total arrivals']
+```
+
+Let's take a look at Singapore's data:
+
+```{r plot_unwto_sg}
+unwto_sg <- unwto[country == "SINGAPORE", as.character(1995:2019), with=FALSE]
+plot(x=as.integer(names(unwto_sg)), y=as.numeric(unwto_sg), type="b",
+     main="Tourism Arrivals: Singapore (Pre-COVID)", xlab="time", ylab="Thousand ppl")
+```
+
+Since the data is based on up to 2019,
+it is a pre-COVID measurement of country-level tourism arrivals.
+
+### Google Mobility Data
+
+[Google's COVID-19 Community Mobility Reports](https://www.google.com/covid19/mobility/) is used.
+It can be used as a country-level daily data measuring mobility at the following categories of places:
+
+- Retail and Recreation
+- Grocery and Pharma
+- Parks
+- Transit
+- Workplace
+
+```{r, results="hide", message=FALSE, warning=FALSE, cache=TRUE}
+# this file is quite big
+mob_data <- "https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv"
+mob <- fread(mob_data)
+
+# use only country-level data
+mob <- mob[sub_region_1 == "" & sub_region_2 == "" &  metro_area == ""]
+```
+
+Let's see mobility data in Taiwan:
+
+```{r plot_mob_tw}
+plot_mob <- function(country) {
+  places_old <- grep("change_from_baseline", names(mob), value=TRUE)
+  places <- gsub("_percent_change_from_baseline", "", places_old)
+  
+  DT <- mob[country_region == country]
+  setnames(DT, places_old, places)
+  DT <- melt(DT, id.vars=c("date"), measure.vars=places, variable.name="place")
+  
+  ggplot(DT, aes(x=date, y=value, group=place, color=place)) +
+    geom_line() +
+    labs(title=sprintf("Google Mobility Data: %s", country),
+         x="", y="% of Deviation from the Baseline") +
+    theme_economist_white(gray_bg=FALSE) +
+    theme(legend.title=element_blank())
+}
+
+plot_mob("Taiwan")
+```
+
+As we know that Taiwan only start to have cases around mid May 2021,
+the mobility data show exactly such impact.
+
+On the contrary,
+Singapore has experienced lock-down ("circuit-breaker") in early 2020 due to huge breakout among immigrant workers.
+The mobility data will reflect that as well:
+
+```{r plot_mob_sg}
+plot_mob("Singapore")
+```
+
+Out of curiosity,
+let's also plot for Japan:
+
+```{r plot_mob_jp}
+plot_mob("Japan")
+```
+
+### OxCGRT: Policy Response Data
+
+[Oxford COVID-19 Government Response Tracker](https://covidtracker.bsg.ox.ac.uk/) data (up to daily frequency) is used.
+
+```{r prepare_policy_resp, results="hide", message=FALSE, warning=FALSE, cache=TRUE}
+policy_resp_data <- "https://raw.githubusercontent.com/OxCGRT/covid-policy-tracker/master/data/OxCGRT_latest.csv"
+policy_resp <- fread(policy_resp_data)
+policy_resp <- policy_resp[Jurisdiction == "NAT_TOTAL"]  # country-level
+```
+
+To be specific,
+the following policy responses are used:
+
+```{r list_policies}
+policies <- grep("^(C[0-7]|H6)_.*", names(policy_resp), value=TRUE)[c(TRUE, FALSE)]
+for ( p in policies ) message(p)
+```
+The data is easier to view by using OWID's dashboard.
+For example: [School & Workplace Closures](https://ourworldindata.org/covid-school-workplace-closures)
 
 ### Seroprevalence
 
-TBC.
+[SeroTracker](https://serotracker.com/en/Explore) data is used.
+
+Serology is the study of antibodies in blood serum.
+
+The data is only limited to 30-ish countries where the studies were conducted.
+The handling of this data is rather complicated and to save space we will not go any deeper here.
+Readers who are interested can refer to the [source code](https://github.com/everdark/covid-19-the-economist-global-excess-deaths-model/blob/main/scripts/1_excess_deaths_global_estimates_script.R#L634).
 
 ### Others
 
-- Hard-coded island indicator
+In addition to all the above mentioning data sources,
+they also manually created the following features:
+
+- Hard-coded island indicator (binary)
 - % of population for the largest city
+
+They also created distance average and neighborhood average of excess deaths,
+cases, tests, positive rates, life expectancy, and IFR,
+as additional engineered predicting features.
 
 ## Adaptive Gradient Boosting Tree
 
