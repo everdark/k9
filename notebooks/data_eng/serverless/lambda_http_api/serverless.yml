@@ -5,7 +5,7 @@ frameworkVersion: '2'
 provider:
   name: aws
   region: ap-southeast-1
-  runtime: python3.8
+  runtime: python3.7
   lambdaHashingVersion: 20201221
 
 functions:
@@ -17,11 +17,14 @@ functions:
           method: post
     package:
       patterns:
-        - model.joblib
+        - lgb.model
 
 custom:
   pythonRequirements:
     dockerizePip: non-linux
+    dockerExtraFiles:
+      - /usr/lib64/libgomp.so.1
+    zip: true
 
 plugins:
   - serverless-python-requirements

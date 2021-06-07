@@ -61,6 +61,7 @@ navbar:
         - text: "Infrastructure-as-Code: Using Terraform to Deploy AWS Lambda"
         - text: "---"
         - text: "Serverless Deployment: AWS Lambda with HTTP API"
+          href: notebooks/data_eng/serverless/lambda_http_api.nb.html
         - text: "---"
   right:
     - text: "Projects"

@@ -33,7 +33,7 @@ This is achieved thanks to [`reticulate`](https://github.com/rstudio/reticulate)
     + [Contex-Aware Word Embeddings]
 + Data Engineering
     + Infrastructure-as-Code: A Terraform AWS Use Case
-    + Serverless Deployment: AWS Lambda with HTTP API
+    + [Serverless Deployment: AWS Lambda with HTTP API](https://everdark.github.io/k9/notebooks/data_eng/serverless/lambda_http_api.nb.html)
 + Programming
     + R
         + [Asynchronous Programming in R](https://everdark.github.io/k9/notebooks/eng/programming/r/async/async_r.nb.html)

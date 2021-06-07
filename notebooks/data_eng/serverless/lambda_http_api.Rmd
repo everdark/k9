@@ -57,7 +57,9 @@ with [AWS Lambda](https://aws.amazon.com/lambda/?trkCampaign=acq_paid_search_bra
 
 # Problem Statement
 
-TBC.
+We've trained a machine learning model in Python.
+We want to serve it over the Internet with an API endpoint for realtime prediction.
+But we don't want to host or provision a server to run the code.
 
 # Prerequisite
 
@@ -117,7 +119,7 @@ frameworkVersion: '2'
 provider:
   name: aws
   region: ap-southeast-1
-  runtime: python3.8
+  runtime: python3.7
   lambdaHashingVersion: 20201221
 
 functions:
@@ -129,7 +131,7 @@ functions:
           method: post
     package:
       patterns:
-        - model.joblib
+        - lgb.model
 
 plugins:
   - serverless-python-requirements
@@ -137,6 +139,9 @@ plugins:
 custom:
   pythonRequirements:
     dockerizePip: non-linux
+    dockerExtraFiles:
+      - /usr/lib64/libgomp.so.1
+    zip: true
 ```
 
 Several important notes:
@@ -146,6 +151,7 @@ Several important notes:
 - the `package:` section will include/exclude any file that is dependent by the functions
 - the `plugins:` section specify additional `npm` packages that will help us package the service
 - the `custom: pythonRequirements: dockerizePip: non-linux` specifies that we want to prepare dependencies using Docker only when we are on a non-linux host OS
+- the `custom: pythonRequirements: zip: true` reduces the deployment size
 
 We can also set `dockerizePip: true` to always use Docker for dependency preparation.
 Be aware that our final deployment of Lambda will still have package type to be `Zip` instead of `Image`.
@@ -153,6 +159,33 @@ Here `dockerizePip` simply means that we want to prepare the dependency using a 
 This makes sense since the Lambda is going to be running on a Linux machine that is basically different from our local environment.
 By default `serverless` will use a Docker image that is as close as the Lambda running environment,
 if not entirely identical.^[https://github.com/lambci/docker-lambda]
+
+The `dockerExtraFiles` configuration is to fix the problem of `lightgbm`'s extra dependency.^[
+Related discussion: https://stackoverflow.com/questions/61717991/xgboost-library-libxgboost-so-could-not-be-loaded]
+
+### Deal with Size Limitation
+
+Our Lambda use `lightgbm` which further depends on two very big packages: `scikit-learn` and `scipy`.
+Without using the `zip: true` trick we are not able to manage the overall package size under 250 MB.
+
+The caveat is that we will need to introduce this piece of code:
+
+```python
+try:
+  import unzip_requirements
+except ImportError:
+  pass
+```
+
+to the beginning of our handler module.
+
+There are two other ways to deal with the size problem:
+
+- Use Lambda layer
+- Use `Image` package type, which has a much larger file size limitation
+
+To keep things simple we are not exploring these other approaches in this notebook.^[
+Indeed, `scikit-learn` is not really needed for `lightgbm`. So another workaround is to use the `noDeploy:` option to exclude it manually.]
 
 ### ML Model Dependency
 
@@ -189,7 +222,97 @@ The `serverless-python-requirements` package will automatically prepare the depe
 
 ## Implement the Function
 
-Now let's edit the `handler.py` created in the boilerplate.
+For demo purpose,
+we use the IRIS data to train a very simple gradient boosting model and save it to `lgb.model`.
+
+This is the training script that outputs the model:
+
+```python
+#!/usr/bin/env python
+'''Train a toy model using the iris dataset.'''
+
+import lightgbm as lgb
+from sklearn.datasets import load_iris
+
+
+iris = load_iris()
+data_train = lgb.Dataset(iris.data, iris.target, feature_name=iris.feature_names)
+
+params = {
+  'boosting_type': 'gbdt',
+  'objective': 'multiclass',
+  'num_class': 3,
+  'metric': ['multi_logloss', 'multi_error'],
+  'max_depth': 3,
+  'num_leaves': 3,
+  'learning_rate': .1,
+}
+
+bst = lgb.train(
+  params,
+  data_train,
+  num_boost_round=10,
+  valid_sets=[data_train],
+)
+
+bst.save_model('lambda_http_api/lgb.model')
+```
+
+Now let's edit the `handler.py` created in the boilerplate:
+
+```python
+try:
+  import unzip_requirements
+except ImportError:
+  pass
+
+import json
+
+import numpy as np
+import lightgbm as lgb
+
+
+model = lgb.Booster(model_file='lgb.model')
+label_names = np.array(['setosa', 'versicolor', 'virginica'])
+
+
+def predict(event, context):
+
+  body = json.loads(event['body'])  # assuming a json string
+  x = [[body["sepal length"], body["sepal width"], body["petal length"], body["petal width"]]]
+  yhat = model.predict(x)
+  label = label_names[np.argmax(yhat, axis=1)]
+
+  response = {
+    'statusCode': 200,
+    'body': json.dumps({
+      'proba': yhat[0].tolist(),
+      'label': label[0],
+    }),
+  }
+
+  return response
+```
+
+## Test with Local Invocation
+
+Before we do deployment,
+we can invoke the function locally to see if it works:
+
+```
+# note that the body content is a json string
+serverless invoke local -f predict --data '{"body": "{\"sepal length\": 6, \"sepal width\": 3, \"petal length\": 5, \"petal width\": 2}"}'
+```
+
+which, on success, should return the following response:
+
+```
+{
+    "statusCode": 200,
+    "body": "{\"proba\": [0.11376620900197651, 0.17004835386299028, 0.7161854371350332], \"label\": \"virginica\"}"
+}
+
+```
 
 ## Deploy
 
@@ -197,19 +320,28 @@ Now we are ready to deploy the service.
 Simply run:
 
 ```
-serverless deploy
+serverless deploy  # make sure your AWS credential is available in the shell
 ```
+
+It will take a while until deployment finished.
 
 ## Smoke Test
 
+Now let's actually hit the endpoint with `curl` POST method:
 
 ```
-serverless invoke local -f predict --data '{"body": "{\"year\": 2021, \"month\": 3}"}'
+curl -H "Content-Type: application/json" \
+    --data '{"sepal length": 6, "sepal width": 3, "petal length": 5, "petal width": 2}' \
+    https://<api-id>.execute-api.${AWS_REGION}.amazonaws.com/predict
 ```
 
+which, on success, should return the following response:
+
 ```
-curl -H "Content-Type: application/json" --data '{"year": 2021, "month": 3}' https://<api-id>.execute-api.<region>.amazonaws.com/predict
+{"proba": [0.11376620900197651, 0.17004835386299028, 0.7161854371350332], "label": "virginica"}
 ```
+
+Mission accomplished!
 
 ## Destroy
 
