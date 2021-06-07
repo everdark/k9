@@ -1,2 +1,9 @@
 #!/usr/bin/env Rscript
-rmarkdown::render("lambda_http_api.Rmd", output_format="html_notebook")
+
+notebook_files <- c(
+  "lambda_http_api.Rmd"
+)
+
+for ( nb in notebook_files ) {
+  rmarkdown::render(nb, output_format="html_notebook")
+}
