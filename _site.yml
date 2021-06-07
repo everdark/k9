@@ -56,7 +56,9 @@ navbar:
           #href: notebooks/ml/natural_language_understanding/context_aware_word_embeddings/context_aware_word_embeddings.nb.html
     - text: "Data Engineering"
       menu:
-        - text: "Infrastructure-as-Code: Terraform AWS Use Case"
+        - text: "Infrastructure-as-Code: Using Terraform to Build a Data Platform on AWS"
+        - text: "---"
+        - text: "Infrastructure-as-Code: Using Terraform to Deploy AWS Lambda"
         - text: "---"
         - text: "Serverless Deployment: AWS Lambda with HTTP API"
         - text: "---"

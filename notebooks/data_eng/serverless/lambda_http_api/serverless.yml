@@ -1,0 +1,27 @@
+service: predict
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  region: ap-southeast-1
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+
+functions:
+  predict:
+    handler: handler.predict
+    events:
+      - httpApi:
+          path: /predict
+          method: post
+    package:
+      patterns:
+        - model.joblib
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+
+plugins:
+  - serverless-python-requirements
