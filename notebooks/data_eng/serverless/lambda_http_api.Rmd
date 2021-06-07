@@ -7,7 +7,7 @@ author:
 date: "`r format(Sys.time(), '%d %b %Y')` Last Updated (05 June 2021 First Uploaded)"
 output:
   html_notebook:
-    highlight: zenburn
+    highlight: textmate
     number_sections: yes
     theme: lumen
     toc: yes
@@ -16,6 +16,7 @@ output:
     includes:
       in_header: /tmp/meta_header.html
   code_download: true
+  code_folding: "none"
 ---
 
 ```{r meta, include=FALSE}
@@ -50,7 +51,9 @@ close(meta_header_file)
 
 # Context
 
-We provide a minimum step-by-step working example using the [Serverless Framework](https://github.com/serverless/serverless) to deploy a machine learning model predictor with [AWS Lambda](https://aws.amazon.com/lambda/?trkCampaign=acq_paid_search_brand&sc_channel=ps&sc_campaign=acquisition_SG&sc_publisher=Google&sc_category=Cloud%20Computing&sc_country=SG&sc_geo=APAC&sc_outcome=acq&sc_detail=%2Bamazon%20%2Bcloud%20%2Bservices&sc_content={adgroup}&sc_matchtype=b&sc_segment=476994412013&sc_medium=ACQ-P|PS-GO|Brand|Desktop|SU|Cloud%20Computing|Solution|SG|EN|Sitelink&s_kwcid=AL!4422!3!476994412013!b!!g!!%2Bamazon%20%2Bcloud%20%2Bservices&ef_id=Cj0KCQjw5PGFBhC2ARIsAIFIMNcyOLXdV8ZGN9mTRieTG8HLRNcAoIE3jkWHWr95FnXq_g6V4pw6VAAaAhcxEALw_wcB:G:s&s_kwcid=AL!4422!3!476994412013!b!!g!!%2Bamazon%20%2Bcloud%20%2Bservices) and [API Gateway](https://aws.amazon.com/api-gateway/).
+We provide a minimum step-by-step working example using the [Serverless Framework](https://github.com/serverless/serverless),
+to deploy a machine learning model predictor written by Python,
+with [AWS Lambda](https://aws.amazon.com/lambda/?trkCampaign=acq_paid_search_brand&sc_channel=ps&sc_campaign=acquisition_SG&sc_publisher=Google&sc_category=Cloud%20Computing&sc_country=SG&sc_geo=APAC&sc_outcome=acq&sc_detail=%2Bamazon%20%2Bcloud%20%2Bservices&sc_content={adgroup}&sc_matchtype=b&sc_segment=476994412013&sc_medium=ACQ-P|PS-GO|Brand|Desktop|SU|Cloud%20Computing|Solution|SG|EN|Sitelink&s_kwcid=AL!4422!3!476994412013!b!!g!!%2Bamazon%20%2Bcloud%20%2Bservices&ef_id=Cj0KCQjw5PGFBhC2ARIsAIFIMNcyOLXdV8ZGN9mTRieTG8HLRNcAoIE3jkWHWr95FnXq_g6V4pw6VAAaAhcxEALw_wcB:G:s&s_kwcid=AL!4422!3!476994412013!b!!g!!%2Bamazon%20%2Bcloud%20%2Bservices) and [API Gateway](https://aws.amazon.com/api-gateway/).
 
 # Problem Statement
 
@@ -63,7 +66,7 @@ We recommend to use [`nvm`](https://github.com/nvm-sh/nvm) to manage `node`.
 
 Once `node` is ready on our system try to install `serverless`:
 
-```bash
+```
 npm install -g serverless
 ```
 
@@ -77,7 +80,7 @@ Also, apparently, we need an AWS account. :)
 
 Run
 
-```bash
+```
 serverless create --template aws-python3 --name lambda_http_api --path lambda_http_api
 ```
 
@@ -165,14 +168,14 @@ The `serverless` framework helps us easily nail it by the `serverless-python-req
 To do so,
 we need to install and maintain the `npm` package for our project:
 
-```bash
+```
 npm init
 npm install --save serverless-python-requirements
 ```
 
 Or for the minimalist we can also simply run:
 
-```bash
+```
 serverless plugin install -n serverless-python-requirements
 ```
 
@@ -192,18 +195,18 @@ Now let's edit the `handler.py` created in the boilerplate.
 Now we are ready to deploy the service.
 Simply run:
 
-```bash
+```
 serverless deploy
 ```
 
 ## Smoke Test
 
 
-```bash
+```
 serverless invoke local -f predict --data '{"body": "{\"year\": 2021, \"month\": 3}"}'
 ```
 
-```bash
+```
 curl -H "Content-Type: application/json" --data '{"year": 2021, "month": 3}' https://<api-id>.execute-api.<region>.amazonaws.com/predict
 ```
 
@@ -212,6 +215,6 @@ curl -H "Content-Type: application/json" --data '{"year": 2021, "month": 3}' htt
 To remove the entire deployment stack,
 simply run:
 
-```bash
+```
 serverless remove
 ```
