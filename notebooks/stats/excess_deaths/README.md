@@ -6,11 +6,7 @@
 
 ### Dependencies
 
-To install the required R packages run:
-
-```sh
-Rscript install_packages.R
-```
+We use [`renv`](https://github.com/rstudio/renv) to maintain R and its package version.
 
 CAVEAT: One may need to install extra system dependencies related to `units` and `sf` packages.
 
@@ -23,8 +19,15 @@ git clone git@github.com:everdark/k9.git
 cd notebooks/stats/excess_deaths
 ```
 
+Restore packages to local:
+
+```sh
+Rscript -e "renv::restore()"
+```
+
 Then to render the html output:
 
 ```sh
 Rscript render.R
 ```
+
