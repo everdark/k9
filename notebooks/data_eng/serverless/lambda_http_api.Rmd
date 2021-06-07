@@ -141,6 +141,7 @@ custom:
 
 Several important notes:
 
+- the `handler` specifies the function entry point, in this case a function named `predict` in the module `handler`
 - the `events: httpApi:` defines our Lambda function to be exposed to an HTTP API endpoint
 - the `package:` section will include/exclude any file that is dependent by the functions
 - the `plugins:` section specify additional `npm` packages that will help us package the service
