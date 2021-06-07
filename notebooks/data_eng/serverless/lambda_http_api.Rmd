@@ -31,7 +31,7 @@ meta() %>%
   meta_social(
     title="Serverless Deployment: AWS Lambda with HTTP API",
     url="https://everdark.github.io/k9/notebooks/data_eng/serverless/lambda_http_api.nb.html",
-    image="https://everdark.github.io/k9/assets/avatar.jpg",
+    image="https://everdark.github.io/k9/assets/serverless_logo.png",
     og_type="article",
     og_author="Kyle Chung",
     twitter_card_type="summary"
