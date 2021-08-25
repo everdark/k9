@@ -1,5 +1,5 @@
 jsonlines==1.2.0
-tensorflow==2.0.0
+tensorflow==2.5.1
 tensorflow-hub==0.7.0
 sentencepiece==0.1.82
 gensim==3.8.1
