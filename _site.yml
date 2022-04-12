@@ -1,8 +1,24 @@
 name: "k9-gh-page"
 output_dir: "."
+description: |
+  It's all about data.
+# google_analytics: "G-K6B4QL7XZR"
+# cookie_consent:
+#   style: simple
+#   type: express
+#   palette: light
+#   lang: en
+#   cookies_policy: url
+repository_url: https://github.com/everdark/k9
+base_url: https://everdark.github.io/k9/
+theme:
+collections:
+  posts:
+    share: [twitter, linkedin]
+    citations: false
 navbar:
   type: default
-  title: "k9"
+  title: "k9-data-science"
   left:
     - text: "About Me"
       href: about.html
@@ -91,8 +107,11 @@ navbar:
             href: notebooks/eng/programming/r/rcpp/rcpp.nb.html
     - icon: fa-linkedin
       href: https://www.linkedin.com/in/kylechung
+    - icon: fa fa-rss
+      href: index.xml
     - icon: fa-github
       href: https://github.com/everdark/k9
-output:
-  html_document:
-    theme: flatly
+# output:
+#   html_document:
+#     theme: flatly
+output: distill::distill_article

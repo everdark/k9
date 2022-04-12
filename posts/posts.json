@@ -1,0 +1,19 @@
+[
+  {
+    "path": "posts/2022-04-12-wsl-ssh-server-setup/",
+    "title": "WSL SSH Server Setup",
+    "description": "How to setup SSH server on your WSL 2 Ubuntu for remote-logins.",
+    "author": [
+      {
+        "name": "kylechung",
+        "url": {}
+      }
+    ],
+    "date": "2022-04-12",
+    "categories": [],
+    "contents": "\nThis is to log down my new setup of a Windows 11 desktop with WSL 2 (Ubuntu 20.04). The goal is to be able to ssh to the WSL from my other computers in the local network. There are indeed multiple ways of doing so, this time I decided to make it as simple as possble.\nRun a powershell with admin right, check the installation status of both the ssh client and server:\nGet-WindowsCapability -Online | ? Name -like 'OpenSSH*'\nHighly likely the client is installed by default while the server is not.\nNow install the server:\nAdd-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0\nSet it to start automatically in the future:\nSet-Service -Name sshd -StartupType 'Automatic'\nAnd also start it right now:\nStart-Service sshd\nNow we can test if the connection work by something like:\nssh k9@192.168.1.1\nfrom another computer.\nIf it works it will give us a Windows shell. We can run wsl from there to prompt the Ubuntu bash. Or even lazier, by setting the default ssh login shell to the Ubuntu bash:\nNew-ItemProperty -Path \"HKLM:\\SOFTWARE\\OpenSSH\" -Name DefaultShell -Value \"C:\\WINDOWS\\System32\\bash.exe\" -PropertyType String -Force\nThis approach does not require setting up the ssh server on Ubuntu since it is the Windows host machine that is handling the SSH connection.\nThat’s neat.\nWhy Windows 11? Because now it by default supports WSL with GPU passthrough. And I have a RTX 2080Ti now ready for things beyond gaming. :)\n\n\n\n",
+    "preview": {},
+    "last_modified": "2022-04-12T08:33:07+00:00",
+    "input_file": {}
+  }
+]

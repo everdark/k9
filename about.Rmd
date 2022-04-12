@@ -1,16 +1,13 @@
 ---
 title: "Yet Another Data Scientist"
+site: distill::distill_website
 ---
 
-<style type="text/css">
-h1.title {
-  text-align: center;
-}
-</style>
+```{r, echo=FALSE}
+knitr::include_graphics("assets/androidify.jpg")
+```
 
 <center>
-![](assets/androidify.jpg)
-
 [LinkedIn](https://www.linkedin.com/in/kylechung/) | [Medium](https://medium.com/@knine)
 </center>
 

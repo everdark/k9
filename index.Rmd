@@ -1,16 +1,5 @@
 ---
 title: Hello, Data Science!
+site: distill::distill_website
+listing: posts
 ---
-
-This is a technical blog where I publish notebooks about data science that are:
-
-1. Readable and reproducible
-2. Self-explanatory, educational, and hopefully inspiring
-3. Fun!
-
-Topics that I'd love to cover mainly include:
-
-+ Machine Learning
-+ Statistics
-+ Software Developing
-
