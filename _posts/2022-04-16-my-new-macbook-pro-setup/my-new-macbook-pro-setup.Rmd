@@ -1,0 +1,243 @@
+---
+title: "My 2021 Macbook Pro Setup"
+description: |
+  Everything I Want for a Developer's Environment
+author:
+  - name: kylechung
+date: 2022-04-16
+output:
+  distill::distill_article:
+    self_contained: true
+---
+
+After 5 years (2016-2021) of wrong doings such as the useless touch bar,
+troublesome keybord design,
+among many others,
+Apple has finally come back to have a decent Macbook Pro model,
+along with its amazing M1 chip.
+
+So here I'm back, too. ;)
+
+This article is a simple documentation + murmurs on what I need (want?) to setup my dev environment on a new machine.
+They are actually more or less OS-agnostic,
+but this time due to the changing architecture to ARM,
+some research has to be done to make sure everything is running as expected.
+
+# Package Manager
+
+[Homebrew](https://brew.sh/) seems to be the only one I need for macOS package management.
+
+# Terminal & IDE
+
+## [oh-my-zsh](https://github.com/ohmyzsh/ohmyzsh)
+
+MacOS now ships with zsh by default.
+Personally I feel oh-my-zsh is just good enough for me out-of-the-box.
+
+## [macos-terminal-themes](https://github.com/lysyi3m/macos-terminal-themes)
+
+MacOS's default Terminal.app has quietly evolved a lot during the past decade.
+I used to prefer iTerm2 but now I think I only need Terminal.app.
+The only thing I need is to make it colorful.
+
+## [VS Code](https://code.visualstudio.com/)
+
+Once being a Vim enthusiastic,
+now I rely more on VS Code for my day-to-day coding and writing.
+It is actually because I need a cross-platform editor to reduce as much as possible the friction while I need to switch between different machines.
+I used to work in an environment where only Windows is available.
+(And, of course, you don't have the admin right.)
+Using Vim on Windows is just not pleasant.
+And that's where I met VS Code,
+and gradually start to enjoy it.
+
+I think nowadays it is just one of the most popular and also very useful IDE.
+Well I still use Vim,
+but just not as much as I used to.
+
+Some must-have extensions for me:
+
+- [PlantUML](https://marketplace.visualstudio.com/items?itemName=jebbs.plantuml)
+- [Markdown All in One](https://marketplace.visualstudio.com/items?itemName=yzhang.markdown-all-in-one)
+- [CSV to Table](https://marketplace.visualstudio.com/items?itemName=phplasma.csv-to-table)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+- [R](https://marketplace.visualstudio.com/items?itemName=Ikuyadeu.r)
+
+# [Python](https://www.python.org/)
+
+## [pyenv](https://github.com/pyenv/pyenv) & [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv)
+
+The must-have Python versioning and virtualenv framework.
+I've been using it for years and never switch to any other alternatives.
+
+One caveat: if I am on a Windows machine,
+I may need to fallback to `conda` since the `pyenv` experience on Windows is not that pleasant.
+Well I usually just use WSL to bypass all the hassles I may have if I were to work on a Windows machine.
+But that is not always feasible, say, if you are working for a bank.
+
+# [R](https://www.r-project.org/)
+
+## [radian](https://github.com/randy3k/radian)
+
+A very nice console to just replace the default one.
+
+I feel that I shall mention [RStudio](https://www.rstudio.com/) as well.
+It is the go-to IDE for R with no realistic competitors for a decade.
+But I'm relying on it less and less in the recent years even while I focus on analytical works.
+I think it has something to do with RStudio's ambition to be more than it needs to be.
+The IDE is just feeding too many features to me that I don't need.
+I'd rather have a simple REPL with a nicely colored console and auto completion to get the job done.
+
+Yep. I'm also never a fan of the `.Rproj` thing.
+
+Now if I need interactive coding in R,
+I'll just use VS Code with `radian` as its terminal.
+
+I still use RStudio,
+but very specifically for editing complicated `Rmarkdown` files only.
+To me RStudio is now just a dedicated `Rmarkdown` IDE.
+I may eventually use VS Code extentions to replace it anyway.
+
+## [renv](https://rstudio.github.io/renv/articles/renv.html)
+
+A nice package versioning tool that I found I should use it as much as I can.
+
+There is no Python `virtualenv` counterpart in the R world.
+Partly because it is not urgently needed.
+But still,
+if you use R extensively enough you are going to bump into the version management trouble.
+Tool such as `renv` handles only package version and not R itself.
+But it is a very good start.
+
+# Java
+
+I'm not a Java guy at all.
+But we will need from time to time the Java runtime for quite some applications.
+And sometimes JRE is not enough so why not just install JDK once and for all.
+
+```
+brew install openjdk
+sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk
+```
+
+# [Spark](https://spark.apache.org/)
+
+I may need to figure out the best way to install local Spark instance with M1 since the newest Spark still relies on a relatively older version of Java.
+Ideally I want the M1 machine to run on only the newest Java which does not require a Rosetta layer.
+
+I may come up with another post on doing this if I managed to have a way out.
+Hopefully not `jEnv`. :)
+
+# Virtualization & Containerization
+
+## [Docker](https://docs.docker.com/)
+
+An increasingly debatable choice of containerization.
+No doubt it is still the most popular tool in the market.
+Personally I found it may not be too difficult to switch to another container tech,
+since they are all trying to follow the existing workflow (notably, [OCI](https://opencontainers.org/))
+that has been originally established by Docker's dev community,
+so that users can seamlessly adopt them.
+
+## [Multipass](https://multipass.run/docs)
+
+A light-weight VM managmenet command line tool specific to Ubuntu.
+Since I usually only need Ubuntu when it comes to virtualization (with one exception coming latter),
+so this is handy.
+
+## [UTM](https://mac.getutm.app/)
+
+VirtualBox is out.
+It doesn't support ARM.
+
+That brings us UTM to the attention.
+UTM can do both virualization and _emulation_.
+the latter is required when your host OS has a different architecture than the guest OS.
+This can be the case especially when we have a Macbook Pro with M1 chip,
+which is ARM architecture.
+
+While emulation is going to have overhead since there is additional layers of translation.
+I'm using UTM only to install [Kali Linux](https://www.kali.org/),
+which supports ARM architecture.
+
+One thing to note is that after installation it won't boot but will stuck at the UEFI shell.
+This is found on `QEMU 6.2 ARM Virtual Machine` with `kali-linux-2022.1` image.
+
+A solution has been discussed in [this thread](https://github.com/utmapp/UTM/issues/2607).
+In short,
+we need to cd to `fs0` in the UEFI shell (by typing `fs0:` and hit enter)
+and create/edit a file called `startup.nsh` (we can use `edit <filename>` to open a built-in editor).
+Insert the following line in the file:
+
+```
+fs0:\efi\kali\grubaa64.efi
+```
+
+and reboot.
+
+Now to enable clipboard and directory sharing we need to install the following additional packages in Kali:
+
+```bash
+sudo apt update
+sudo apt install spice-vdagent spice-webdavd
+```
+
+# Infrastructure
+
+## [Terraform](https://www.terraform.io/)
+
+A useful and widely adopted infrastructure-as-code framework.
+I've been working extensively in the past 1 year with Terraform to manage data infra stack in AWS.
+
+```
+brew install terraform
+```
+
+## [LocalStack](https://github.com/localstack/localstack)
+
+A very interesting project to deploy AWS components locally (in just one container!) for testing purpose.
+Though it seems that it is running much slower on M1 than on the previous x86_64 Macbook.
+
+## [minikube](https://minikube.sigs.k8s.io/docs/)
+
+Local Kubernetes playground.
+
+```
+brew install minikube
+```
+
+## [aws-vault](https://github.com/99designs/aws-vault)
+
+A very useful AWS credential management tool,
+especially convenient when you have multiple accounts or multiple IAM roles to assume in your workflow.
+
+```
+brew install --cask aws-vault
+```
+
+# Miscellaneous
+
+## [jq](https://stedolan.github.io/jq/)
+
+A handy command line json parser.
+Very useful when we need to frequently deal with json lines.
+
+```
+brew install jq
+```
+
+## [Graphviz](https://graphviz.org/)
+
+This will be required for some plotting utilities (such as PlantUML).
+
+```
+brew install graphviz
+```
+
+## [Pandoc](https://pandoc.org/index.html)
+
+The core dependency for `Rmarkdown`.
+
+```
+brew install pandoc
+```

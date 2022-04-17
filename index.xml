@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
   <channel>
-    <title>k9-data-science</title>
     <link>https://everdark.github.io/k9/</link>
     <atom:link href="https://everdark.github.io/k9/index.xml" rel="self" type="application/rss+xml"/>
     <description>It's all about data.
 </description>
     <generator>Distill</generator>
-    <lastBuildDate>Tue, 12 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 16 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <item>
+      <title>My 2021 Macbook Pro Setup</title>
+      <dc:creator>kylechung</dc:creator>
+      <link>https://everdark.github.io/k9/posts/2022-04-16-my-new-macbook-pro-setup</link>
+      <description>Everything I Want for a Developer's Environment</description>
+      <guid>https://everdark.github.io/k9/posts/2022-04-16-my-new-macbook-pro-setup</guid>
+      <pubDate>Sat, 16 Apr 2022 00:00:00 +0000</pubDate>
+    </item>
     <item>
       <title>WSL SSH Server Setup</title>
       <dc:creator>kylechung</dc:creator>
