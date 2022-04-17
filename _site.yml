@@ -60,7 +60,7 @@ navbar:
         - text: "---"
         - text: "Demystify Modern Gradient Boosting Trees"
           href: notebooks/ml/gradient_boosting/gbt.nb.html
-    - text: "Natural Language Understanding"
+    - text: "NLU"
       menu:
         - text: "On Subword Units"
           href: notebooks/ml/natural_language_understanding/subword_units/subword_units.nb.html
