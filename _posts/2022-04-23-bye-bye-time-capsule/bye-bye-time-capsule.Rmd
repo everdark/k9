@@ -17,7 +17,7 @@ knitr::include_graphics('airport_timecapsule.jpg')
 ```
 
 I didn't thought it could last that long.
-It was bouth in around year 2013.
+It was bought in around year 2013.
 
 While the access point is working just fine even before the teardown,
 the harddrive does start having random failure 2 years back though nothing really went missing.
