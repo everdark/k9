@@ -7,7 +7,16 @@
     <description>It's all about data.
 </description>
     <generator>Distill</generator>
-    <lastBuildDate>Sat, 16 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 23 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <item>
+      <title>Bye Bye, Time Capsule</title>
+      <dc:creator>kylechung</dc:creator>
+      <link>https://everdark.github.io/k9/posts/2022-04-23-bye-bye-time-capsule</link>
+      <description>After a surprisingly durable 8 years of serice, time to let go.</description>
+      <guid>https://everdark.github.io/k9/posts/2022-04-23-bye-bye-time-capsule</guid>
+      <pubDate>Sat, 23 Apr 2022 00:00:00 +0000</pubDate>
+      <media:content url="https://everdark.github.io/k9/posts/2022-04-23-bye-bye-time-capsule/airport_timecapsule.jpg" medium="image" type="image/jpeg"/>
+    </item>
     <item>
       <title>My 2021 Macbook Pro Setup</title>
       <dc:creator>kylechung</dc:creator>
