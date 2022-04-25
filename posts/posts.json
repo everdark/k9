@@ -1,5 +1,22 @@
 [
   {
+    "path": "posts/2022-04-25-gitlab-cicd-to-enforce-test-coverage/",
+    "title": "GitLab CI/CD to Enforce Test Coverage",
+    "description": "How to automatically block your pipeline when test coverage is below a minimum requirement.",
+    "author": [
+      {
+        "name": "kylechung",
+        "url": {}
+      }
+    ],
+    "date": "2022-04-25",
+    "categories": [],
+    "contents": "\nGitLab CI/CD is a very powerful tool.\nThe idea here is that I would like to use a pipeline job to block, say, a release, from being pushed by checking if the unittest coverage is at least above 90% or something. That sounds very straightforwad, but yet it is surprisingly not that simple to set up.\nThere is a related feature for GitLab called “Coverage-Check” under the general settings of “Merge request approvals.” It allows you to set review approval rule when the coverage drops. To be honest that doesn’t sound very useful to me.\nAnyway, I’ve researched and experimented a bit on how I can block a CI pipeline by checking coverage, and here is a solution.\nSolution\nThe idea is to use GitLab API to retrieve the coverage data from a previously run job inside another CI job, and do the math and raise whenever necessary.\nPre-requsite\nAccess token\nWe need a token to make a call from the CI runner. For free-tier we will use personal-access token while for company subscription you should prefer either a project or a group level access token. In either case, we will configure it as a protected and masked CI/CD variable. I will use the name BOT_TOKEN for it.\nCoverage parsing\nGitLab does not magically know your test coverage without you explicitly tell it how to find a value. This can be done by either an explicit cofiguration on the .gitlab-ci.yml or use the GUI to set it up. Before this is done, the API response object will have the coverage with a null value.\nThe Pipeline API\nTo test the API, we can make a call to check the pipeline status of a particular branch:\nCI_PROJECT_ID=35619033  # this is my demo project\nCI_API_V4_URL=https://gitlab.com/api/v4\nCI_COMMIT_TAG=master\n\ncurl -s --header \"PRIVATE-TOKEN: ${BOT_TOKEN}\" \\\n        \"${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/pipelines?ref=${CI_COMMIT_TAG}&status=success\" | jq\nby using jq we can get the value of this particular pipeline-id, and make another call to get the coverage value of a testing job in the given pipeline:\nPIPELINE_ID=`curl -s --header \"PRIVATE-TOKEN: ${BOT_TOKEN}\" \\\n  \"${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/pipelines?ref=${CI_COMMIT_TAG}&status=success\" \\\n  | jq \".[0].id\"`\n\n# assume our test job is named \"unittest\"\nCURRENT_COVERAGE=`curl -s curl -s --header \"PRIVATE-TOKEN: ${BOT_TOKEN}\" \\\n  \"${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/pipelines/${PIPELINE_ID}/jobs\" \\\n  | jq '.[] | select( .name == \"unittest\" ) | .coverage // 0'`\n\necho $CURRENT_COVERAGE\nDEMO\nI’ve setup a demo repository to showcase the pipeline:\ntest-coverage-ci\nwhere a complete .gitlab-ci.yml can be found and the pipeline in action.\nDo check it out if you are interested!\n\n\n\n",
+    "preview": {},
+    "last_modified": "2022-04-25T08:46:46+00:00",
+    "input_file": {}
+  },
+  {
     "path": "posts/2022-04-23-bye-bye-time-capsule/",
     "title": "Bye Bye, Time Capsule",
     "description": "After a surprisingly durable 8 years of serice, time to let go.",

@@ -7,7 +7,15 @@
     <description>It's all about data.
 </description>
     <generator>Distill</generator>
-    <lastBuildDate>Sat, 23 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <item>
+      <title>GitLab CI/CD to Enforce Test Coverage</title>
+      <dc:creator>kylechung</dc:creator>
+      <link>https://everdark.github.io/k9/posts/2022-04-25-gitlab-cicd-to-enforce-test-coverage</link>
+      <description>How to automatically block your pipeline when test coverage is below a minimum requirement.</description>
+      <guid>https://everdark.github.io/k9/posts/2022-04-25-gitlab-cicd-to-enforce-test-coverage</guid>
+      <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
+    </item>
     <item>
       <title>Bye Bye, Time Capsule</title>
       <dc:creator>kylechung</dc:creator>
