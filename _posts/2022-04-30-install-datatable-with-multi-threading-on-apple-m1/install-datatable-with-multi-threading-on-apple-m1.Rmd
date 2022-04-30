@@ -1,0 +1,90 @@
+---
+title: "Install data.table with multi-threading on Apple M1"
+description: |
+  Always get ready for the most powerful data wrangling package in R lang.
+author:
+  - name: kylechung
+    url: {}
+date: 2022-04-30
+output:
+  distill::distill_article:
+    self_contained: true
+---
+
+R is my favorite programming language when it comes to data analytics.
+And one of the reason I feel it is so powerful is solely due to this single package called [`data.table`](https://github.com/Rdatatable/data.table).
+It does not have quite the equal amount of attention to its major alternative, the `dplyr` family.
+I've spent years wondering why.
+
+The elegance in API design and the unparalleled performance still won't make it one of the most popular data wrangling package in R lang.
+
+Anyway I've stick to it for so many years.
+And I'm sure there are so many more to come. :)
+
+Ok the topic today is about using `data.table` in macOS,
+which can be a trouble due to a problem of the lacking of built-in OpenMP support in Apple's machine.
+If we simply install `data.table` from CRAN,
+it will warn you that it is running on single-thread mode.
+That is not cool.
+So here is a very quick fix for that.
+
+- Install OpenMP runtime
+
+```bash
+brew install libomp
+```
+
+- Update `~/.R/Makevars`
+
+This file instructs R for additional compiler arguments.
+Run the following one-off commands to update it:
+
+```bash
+OMP_PATH=$(brew --prefix libomp)
+
+mkdir -p ~/.R
+cat <<EOT >> ~/.R/Makevars
+CPPFLAGS += -Xclang -fopenmp -I ${OMP_PATH}/include
+LDFLAGS += -lomp -L ${OMP_PATH}/lib
+EOT
+```
+
+- Install `data.table` from source
+
+```R
+install.packages("data.table", type = "source", repos = "https://Rdatatable.gitlab.io/data.table")
+```
+
+Done.
+That should do the trick.
+
+I'm using the native `aarch64` build for R.
+Here is my `sessionInfo`:
+
+```
+R version 4.1.3 (2022-03-10)
+Platform: aarch64-apple-darwin20 (64-bit)
+Running under: macOS Monterey 12.2
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1-arm64/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1-arm64/Resources/lib/libRlapack.dylib
+
+locale:
+[1] C/UTF-8/C/C/C/C
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+loaded via a namespace (and not attached):
+[1] compiler_4.1.3
+```
+
+Check it out:
+
+```R
+library(data.table)
+getDTthreads()  # check how many threads in use
+```
+
+Now we're talking!

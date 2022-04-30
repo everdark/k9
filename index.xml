@@ -7,7 +7,15 @@
     <description>It's all about data.
 </description>
     <generator>Distill</generator>
-    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 30 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <item>
+      <title>Install data.table with multi-threading on Apple M1</title>
+      <dc:creator>kylechung</dc:creator>
+      <link>https://everdark.github.io/k9/posts/2022-04-30-install-datatable-with-multi-threading-on-apple-m1</link>
+      <description>Always get ready for the most powerful data wrangling package in R lang.</description>
+      <guid>https://everdark.github.io/k9/posts/2022-04-30-install-datatable-with-multi-threading-on-apple-m1</guid>
+      <pubDate>Sat, 30 Apr 2022 00:00:00 +0000</pubDate>
+    </item>
     <item>
       <title>GitLab CI/CD to Enforce Test Coverage</title>
       <dc:creator>kylechung</dc:creator>

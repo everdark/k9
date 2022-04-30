@@ -4,15 +4,15 @@
       "path": "about.html",
       "title": "Yet Another Data Scientist",
       "author": [],
-      "contents": "\n\n\n\n\nLinkedIn | Medium\n\nMy definition of a Data Scientist:\n\nA software developer specializing in data science application.\n\nAnd, yes, I’m a data scientist. :)\nI use data to solve problems. For the past decade I’ve worked in E-commerce, cyber security, and banking indsutry.\nWHENEVER THERE IS DATA, THERE IS A WAY.\n\n\n\n",
-      "last_modified": "2022-04-25T08:46:50+00:00"
+      "contents": "\n\n\n\n\nLinkedIn | Medium\n\nMy definition of a Data Scientist:\n\nA software developer specializing in data science\napplication.\n\nAnd, yes, I’m a data scientist. :)\nI use data to solve problems. For the past decade I’ve worked in\nE-commerce, cyber security, and banking indsutry.\nWHENEVER THERE IS DATA, THERE IS A WAY.\n\n\n\n",
+      "last_modified": "2022-04-30T11:32:23+00:00"
     },
     {
       "path": "index.html",
       "title": "Hello, Data Science!",
       "author": [],
       "contents": "\n\n\n\n",
-      "last_modified": "2022-04-25T08:46:51+00:00"
+      "last_modified": "2022-04-30T11:32:24+00:00"
     }
   ],
   "collections": ["posts/posts.json"]
